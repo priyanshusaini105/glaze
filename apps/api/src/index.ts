@@ -35,8 +35,8 @@ const HttpLive = router.pipe(
 );
 
 // Run the application
-const main = Effect.scoped(Layer.launch(HttpLive) as any);
-Effect.runPromise(main as any).catch((e) => {
+const main = Effect.scoped(Layer.launch(HttpLive));
+Effect.runPromise(main).catch((e) => {
   console.error("Server error:", e);
   process.exit(1);
 });

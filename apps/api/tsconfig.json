@@ -1,6 +1,7 @@
 {
   "extends": "@repo/typescript-config/nextjs.json",
   "compilerOptions": {
+    "strict":true,
     "outDir": "./dist",
     "rootDir": "./src",
     "lib": ["ES2020"],
