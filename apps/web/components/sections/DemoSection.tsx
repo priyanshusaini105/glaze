@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from "react";
-import { MultiStepLoader } from "./ui/multi-step-loader";
-import { HoverBorderGradient } from "./ui/hover-border-gradient";
+import { MultiStepLoader } from "../ui/multi-step-loader";
+import { HoverBorderGradient } from "../ui/hover-border-gradient";
 import { Sparkles } from "lucide-react";
 
 const loadingStates = [

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ContainerScroll } from './ui/container-scroll-animation';
-import { FlipWords } from './ui/flip-words';
+import { ContainerScroll } from '../ui/container-scroll-animation';
+import { FlipWords } from '../ui/flip-words';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export function HeroSection() {

@@ -1,11 +1,11 @@
-import { NavigationIridescent } from '../components/NavigationIridescent';
-import { HeroIridescent } from '../components/HeroIridescent';
-import { WhyItFailsIridescent } from '../components/WhyItFailsIridescent';
-import { AIInsideGridSection } from '../components/AIInsideGridSection';
-import { HowItWorksIridescent } from '../components/HowItWorksIridescent';
-import { PowerUsersSection } from '../components/PowerUsersSection';
-import { OpenSourceIridescent } from '../components/OpenSourceIridescent';
-import { FooterIridescent } from '../components/FooterIridescent';
+import { NavigationIridescent } from '../components/navigation/NavigationIridescent';
+import { HeroIridescent } from '../components/sections/HeroIridescent';
+import { WhyItFailsIridescent } from '../components/sections/WhyItFailsIridescent';
+import { AIInsideGridSection } from '../components/sections/AIInsideGridSection';
+import { HowItWorksIridescent } from '../components/sections/HowItWorksIridescent';
+import { PowerUsersSection } from '../components/sections/PowerUsersSection';
+import { OpenSourceIridescent } from '../components/sections/OpenSourceIridescent';
+import { FooterIridescent } from '../components/footer/FooterIridescent';
 
 export default function Home() {
   return (

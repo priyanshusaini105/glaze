@@ -1,0 +1,91 @@
+@font-face {
+    font-family: 'Urbane Rounded Extra';
+    src: url('UrbaneRounded-ExtraLight.eot');
+    src: local('Urbane Rounded Extra Light'), local('UrbaneRounded-ExtraLight'),
+        url('UrbaneRounded-ExtraLight.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-ExtraLight.woff2') format('woff2'),
+        url('UrbaneRounded-ExtraLight.woff') format('woff'),
+        url('UrbaneRounded-ExtraLight.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded Demi';
+    src: url('UrbaneRounded-DemiBold.eot');
+    src: local('Urbane Rounded Demi Bold'), local('UrbaneRounded-DemiBold'),
+        url('UrbaneRounded-DemiBold.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-DemiBold.woff2') format('woff2'),
+        url('UrbaneRounded-DemiBold.woff') format('woff'),
+        url('UrbaneRounded-DemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded';
+    src: url('UrbaneRounded-Bold.eot');
+    src: local('Urbane Rounded Bold'), local('UrbaneRounded-Bold'),
+        url('UrbaneRounded-Bold.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-Bold.woff2') format('woff2'),
+        url('UrbaneRounded-Bold.woff') format('woff'),
+        url('UrbaneRounded-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded';
+    src: url('UrbaneRounded-Light.eot');
+    src: local('Urbane Rounded Light'), local('UrbaneRounded-Light'),
+        url('UrbaneRounded-Light.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-Light.woff2') format('woff2'),
+        url('UrbaneRounded-Light.woff') format('woff'),
+        url('UrbaneRounded-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded';
+    src: url('UrbaneRounded-Thin.eot');
+    src: local('Urbane Rounded Thin'), local('UrbaneRounded-Thin'),
+        url('UrbaneRounded-Thin.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-Thin.woff2') format('woff2'),
+        url('UrbaneRounded-Thin.woff') format('woff'),
+        url('UrbaneRounded-Thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded';
+    src: url('UrbaneRounded-Medium.eot');
+    src: local('Urbane Rounded Medium'), local('UrbaneRounded-Medium'),
+        url('UrbaneRounded-Medium.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-Medium.woff2') format('woff2'),
+        url('UrbaneRounded-Medium.woff') format('woff'),
+        url('UrbaneRounded-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Urbane Rounded';
+    src: url('UrbaneRounded-Heavy.eot');
+    src: local('Urbane Rounded Heavy'), local('UrbaneRounded-Heavy'),
+        url('UrbaneRounded-Heavy.eot?#iefix') format('embedded-opentype'),
+        url('UrbaneRounded-Heavy.woff2') format('woff2'),
+        url('UrbaneRounded-Heavy.woff') format('woff'),
+        url('UrbaneRounded-Heavy.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+

@@ -1,7 +1,7 @@
 'use client';
 
 import React from "react";
-import { SparklesCore } from "./ui/sparkles";
+import { SparklesCore } from "../ui/sparkles";
 
 export function FooterSection() {
   return (

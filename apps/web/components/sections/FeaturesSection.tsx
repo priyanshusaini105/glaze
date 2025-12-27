@@ -1,9 +1,9 @@
 'use client';
 
 import React from "react";
-import { BentoGrid, BentoGridItem } from "./ui/bento-grid";
-import { TextGenerateEffect } from "./ui/text-generate-effect";
-import { PinContainer } from "./ui/3d-pin";
+import { BentoGrid, BentoGridItem } from "../ui/bento-grid";
+import { TextGenerateEffect } from "../ui/text-generate-effect";
+import { PinContainer } from "../ui/3d-pin";
 import { motion } from "framer-motion";
 import { Activity, Database, Layers, Search, Table2 } from "lucide-react";
 

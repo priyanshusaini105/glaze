@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Check } from 'lucide-react';
-import { HoverBorderGradient } from './ui/hover-border-gradient';
+import { HoverBorderGradient } from '../ui/hover-border-gradient';
 
 export function PricingSection() {
   return (
