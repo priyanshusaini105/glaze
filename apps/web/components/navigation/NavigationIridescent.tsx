@@ -2,27 +2,29 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function NavigationIridescent() {
   return (
     <header className="sticky top-0 left-0 right-0 z-50 border-b border-border-light backdrop-blur-[6px] bg-white/80">
       <div className="max-w-[1280px] mx-auto px-8">
         <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="size-8 rounded-lg bg-surface-light border border-border-light flex items-center justify-center group-hover:border-accent-purple/50 transition-colors shadow-sm">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="url(#iridescent)" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="iridescent" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#0ea5e9" />
-                    <stop offset="50%" stopColor="#8b5cf6" />
-                    <stop offset="100%" stopColor="#f59e0b" />
-                  </linearGradient>
-                </defs>
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke="white" strokeWidth="1.5"/>
-              </svg>
-            </div>
-            <span className="text-text-main text-lg font-bold tracking-tight">Glaze</span>
+          <Link href="/" className="flex items-center gap-1 group cursor-pointer">
+            <Image 
+              src="/img/glaze-abs.png" 
+              alt="Glaze Logo" 
+              width={40} 
+              height={40}
+              className="rounded-lg group-hover:scale-105 transition-transform"
+            />
+             <Image 
+              src="/img/glaze-text.png" 
+              alt="Glaze Logo" 
+              width={96} 
+              height={96}
+              className="rounded-lg group-hover:scale-105 transition-transform"
+            />
+            {/* <span className="text-text-main text-lg font-bold tracking-tight">Glaze</span> */}
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">

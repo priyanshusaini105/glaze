@@ -18,7 +18,7 @@ export function HeroIridescent() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-blue opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-blue" />
           </span>
-          <span className="text-xs font-medium text-text-muted">v1.0 is now live</span>
+          <span className="text-xs font-medium text-text-muted">v0.1 Beta is now live</span>
         </div>
 
         {/* Headline */}

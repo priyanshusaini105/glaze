@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Urbane Rounded", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
 
   --color-primary: #4f46e5;
@@ -92,7 +92,7 @@
 }
 
 body {
-  font-family: var(--font-display);
+  font-family: var(--font-urbane), var(--font-display);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
