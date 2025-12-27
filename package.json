@@ -16,5 +16,9 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "ag-grid-community": "^35.0.0",
+    "ag-grid-react": "^35.0.0"
   }
 }

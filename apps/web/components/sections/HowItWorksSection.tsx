@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Database, Brain, CheckCircle } from 'lucide-react';
 

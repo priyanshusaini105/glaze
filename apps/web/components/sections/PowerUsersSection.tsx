@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Keyboard, Sparkles, Zap, Key } from 'lucide-react';
 
@@ -59,7 +57,7 @@ export function PowerUsersSection() {
             <Key className="w-10 h-10 text-accent-purple mb-6" />
             <h3 className="text-2xl font-black text-text-main mb-3">Bring your own API Keys</h3>
             <p className="text-text-muted text-base leading-relaxed max-w-lg">
-              Use OpenAI, Anthropic, local models, or your own fine-tuned LLMs. Your keys, your models, your data. We're just the interface.
+              Use OpenAI, Anthropic, local models, or your own fine-tuned LLMs. Your keys, your models, your data. We&apos;re just the interface.
             </p>
             <div className="mt-6 flex gap-3 items-center">
               <div className="px-3 py-1.5 bg-white border border-border-light rounded-lg text-xs font-mono text-text-main flex items-center gap-2">

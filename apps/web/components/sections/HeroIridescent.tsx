@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { ArrowRight, Github, Code2 } from 'lucide-react';
+import { ArrowRight, Code2 } from 'lucide-react';
 
 export function HeroIridescent() {
   return (

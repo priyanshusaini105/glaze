@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { ArrowRight, Github, Play } from 'lucide-react';
+import { Github, Play } from 'lucide-react';
 import Link from 'next/link';
 
 export function HeroSection() {

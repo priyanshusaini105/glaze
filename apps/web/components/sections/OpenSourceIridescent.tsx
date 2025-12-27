@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Github, Terminal } from 'lucide-react';
 
@@ -30,7 +28,7 @@ export function OpenSourceIridescent() {
                     <span className="text-green-400">→</span>
                     <span className="text-slate-300">git clone https://github.com/glaze/glaze.git</span>
                   </div>
-                  <div className="text-slate-500 pl-4">Cloning into 'glaze'...</div>
+                  <div className="text-slate-500 pl-4">Cloning into &apos;glaze&apos;...</div>
                   <div className="text-slate-500 pl-4">remote: Enumerating objects: 12543, done.</div>
                   <div className="text-slate-500 pl-4 mb-4">Receiving objects: 100% (12543/12543), done.</div>
 

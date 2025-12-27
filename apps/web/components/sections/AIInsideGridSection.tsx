@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Terminal, Eye, Zap } from 'lucide-react';
 
@@ -18,7 +16,7 @@ export function AIInsideGridSection() {
               AI inside the grid, <br />not behind a curtain
             </h2>
             <p className="text-lg text-text-muted mb-8 leading-relaxed">
-              Watch your agents work in real-time. Each row is an orchestrated workflow—streaming, transparent, and fully customizable. No more "please wait" modals.
+              Watch your agents work in real-time. Each row is an orchestrated workflow—streaming, transparent, and fully customizable. No more &ldquo;please wait&rdquo; modals.
             </p>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">

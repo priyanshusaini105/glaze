@@ -3,9 +3,8 @@
 import React from "react";
 import { BentoGrid, BentoGridItem } from "../ui/bento-grid";
 import { TextGenerateEffect } from "../ui/text-generate-effect";
-import { PinContainer } from "../ui/3d-pin";
 import { motion } from "framer-motion";
-import { Activity, Database, Layers, Search, Table2 } from "lucide-react";
+import { Database, Layers, Search, Table2 } from "lucide-react";
 
 export function FeaturesSection() {
   return (
@@ -15,7 +14,7 @@ export function FeaturesSection() {
           Ask for any data point in natural language
         </h2>
         <p className="text-xl text-gray-500 dark:text-gray-400 leading-relaxed">
-          Go beyond standard firmographics. Glaze's AI research agent uses the web and 40+ providers to find ultra-specific data like ISO certs, job openings, and LinkedIn URLs.
+          Go beyond standard firmographics. Glaze&apos;s AI research agent uses the web and 40+ providers to find ultra-specific data like ISO certs, job openings, and LinkedIn URLs.
         </p>
       </div>
       

@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { Check, X, Minus } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 export function ComparisonSection() {
   return (

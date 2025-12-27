@@ -47,7 +47,7 @@ export function DemoSection() {
         </div>
 
         <p className="mt-4 text-sm text-gray-400">
-          Proves the "Latency" claim instantly.
+          Proves the &ldquo;Latency&rdquo; claim instantly.
         </p>
       </div>
 

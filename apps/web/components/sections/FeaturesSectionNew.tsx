@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { Workflow, Keyboard, Activity } from 'lucide-react';
+import { Workflow } from 'lucide-react';
 
 export function FeaturesSection() {
   return (
@@ -16,7 +14,7 @@ export function FeaturesSection() {
               </div>
               <h3 className="text-2xl font-bold text-text-main mb-2">Streaming AI Output</h3>
               <p className="text-text-muted max-w-md">
-                Don't wait for the whole batch. Glaze streams tokens as they are generated, so you can verify quality immediately.
+                Don&apos;t wait for the whole batch. Glaze streams tokens as they are generated, so you can verify quality immediately.
               </p>
             </div>
             <div className="mt-8 bg-slate-50 rounded-lg border border-border-light p-4 font-mono text-sm text-slate-600 h-64 overflow-hidden relative shadow-inner">

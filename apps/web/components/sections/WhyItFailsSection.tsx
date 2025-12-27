@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Table, HourglassIcon, EyeOff } from 'lucide-react';
 
@@ -14,7 +12,7 @@ export function WhyItFailsSection() {
               Why traditional tools fail
             </h2>
             <p className="text-text-muted text-lg leading-relaxed">
-              Data dies in static tables. You're left waiting for spinners and opaque processes that don't tell you when they'll finish.
+              Data dies in static tables. You&apos;re left waiting for spinners and opaque processes that don&apos;t tell you when they&apos;ll finish.
             </p>
           </div>
 
@@ -26,7 +24,7 @@ export function WhyItFailsSection() {
               </div>
               <h3 className="text-text-main text-lg font-bold mb-2">Static Graveyards</h3>
               <p className="text-text-muted text-sm">
-                Spreadsheets that don't update themselves are just digital storage units. They require manual upkeep.
+                Spreadsheets that don&apos;t update themselves are just digital storage units. They require manual upkeep.
               </p>
             </div>
 
@@ -46,7 +44,7 @@ export function WhyItFailsSection() {
               </div>
               <h3 className="text-text-main text-lg font-bold mb-2">Black-box AI</h3>
               <p className="text-text-muted text-sm">
-                Most AI tools hide the reasoning. You get an answer, but you can't see the work, making debugging impossible.
+                Most AI tools hide the reasoning. You get an answer, but you can&apos;t see the work, making debugging impossible.
               </p>
             </div>
           </div>

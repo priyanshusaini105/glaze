@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Database, Wand2, RefreshCw, Send } from 'lucide-react';
 
