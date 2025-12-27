@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Urbane Rounded", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "ui-sans-serif, system-ui, sans-serif";
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
 
   --color-primary: #4f46e5;

@@ -22,13 +22,13 @@ export function HeroIridescent() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight text-text-main mb-6 max-w-5xl leading-[1.05]">
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tight text-text-main mb-6 max-w-5xl leading-[1.05]">
           The agentic spreadsheet <br className="hidden md:block" /> that feels <span className="text-iridescent">alive</span>.
         </h1>
 
         {/* Subheadline */}
-        <p className="text-lg md:text-xl text-text-muted max-w-2xl mb-10 leading-relaxed">
-          An open-source Freckle.io alternative that enriches your data with transparent, streaming AI workflows. Stop waiting for spinners.
+        <p className="text-lg md:text-xl text-text-muted max-w-3xl mb-10 leading-relaxed">
+          AI agents work directly inside your grid, that enriches your data with transparent, streaming AI workflows. Stop waiting for spinners.
         </p>
 
         {/* CTA Buttons */}

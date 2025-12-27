@@ -26,7 +26,7 @@ export function HeroSection() {
             v1.0 Public Beta
           </div>
           
-          <h1 className="text-5xl md:text-7xl font-bold text-black dark:text-white leading-[1.1] tracking-tight font-sans">
+          <h1 className="text-5xl md:text-7xl font-bold text-black dark:text-white leading-[1.1] tracking-tight">
             The data your CRM has been <br className="hidden md:block" />
             <FlipWords words={words} className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-violet-500" />
           </h1>
