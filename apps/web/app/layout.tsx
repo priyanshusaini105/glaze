@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-display",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Glaze | Holographic Utility",
-  description:
-    "Apply liquid intelligence to static data with the Glaze headless spreadsheet.",
+  title: "Glaze - The Agentic Spreadsheet",
+  description: "An open-source Freckle.io alternative that enriches your data with transparent, streaming AI workflows.",
 };
 
 export default function RootLayout({
@@ -24,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
         {children}
       </body>
     </html>
