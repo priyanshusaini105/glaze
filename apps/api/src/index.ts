@@ -1,7 +1,8 @@
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 
-const app = new Elysia()
+// Named export avoids Bun auto-starting a dev server on port 3000.
+export const app = new Elysia()
   .use(cors())
   .get('/health', () => ({
     status: 'ok',
@@ -21,5 +22,3 @@ const app = new Elysia()
 console.log(
   `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`
 );
-
-export default app;

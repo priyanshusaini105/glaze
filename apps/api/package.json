@@ -1,22 +1,16 @@
 {
-  "name": "@repo/api",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
+  "name": "api",
+  "version": "1.0.50",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir ./dist --target bun",
-    "lint": "echo 'Lint not configured yet'",
-    "check-types": "echo 'Type checking not configured yet'"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
-    "elysia": "^1.2.0",
-    "@elysiajs/cors": "^1.2.0"
+    "@elysiajs/cors": "^1.4.0",
+    "elysia": "latest"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
     "bun-types": "latest"
-  }
+  },
+  "module": "src/index.js"
 }
