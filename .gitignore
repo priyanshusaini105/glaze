@@ -39,3 +39,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 .playwright-mcp
+
+AGENTS.md
+instructions.md
+CONTEXT.md
