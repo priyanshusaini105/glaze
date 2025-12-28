@@ -51,11 +51,17 @@ export const buildApp = () => {
 };
 
 export const startServer = (port = Number(process.env.PORT) || 3001) => {
-  const app = buildApp().listen(port);
+  const app = buildApp();
+
+  // Use Bun's native server
+  const server = Bun.serve({
+    port,
+    fetch: app.fetch.bind(app),
+  });
 
   console.log(
-    `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`
+    `🦊 Elysia is running at http://${server.hostname}:${server.port}`
   );
 
-  return app;
+  return server;
 };

@@ -8,7 +8,8 @@ COPY packages/eslint-config ./packages/eslint-config
 COPY packages/typescript-config ./packages/typescript-config
 COPY packages/types ./packages/types
 
-RUN bun install
+# Use pnpm via bunx to honor pnpm-lock.yaml
+RUN bunx --bun pnpm install --frozen-lockfile
 
 FROM base AS runtime
 COPY --from=install /app /app

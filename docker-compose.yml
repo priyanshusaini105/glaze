@@ -45,7 +45,6 @@ services:
     networks:
       - glaze-network
     restart: unless-stopped
-    command: bun --watch src/index.ts
 
   # Frontend Web
   web:
@@ -60,13 +59,9 @@ services:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
       - api
-    volumes:
-      - ./apps/web:/app/apps/web
-      - /app/apps/web/.next
     networks:
       - glaze-network
     restart: unless-stopped
-    command: pnpm dev
 
 volumes:
   postgres_data:

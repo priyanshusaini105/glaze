@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:20-alpine AS builder
+FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
@@ -11,29 +11,20 @@ COPY packages/typescript-config ./packages/typescript-config
 COPY packages/types ./packages/types
 COPY packages/ui ./packages/ui
 
-# Install pnpm
-RUN npm install -g pnpm@9.0.0
-
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies using pnpm (via bunx) to respect pnpm-lock
+RUN bunx --bun pnpm install --frozen-lockfile
 
 # Copy source code
 COPY apps/web ./apps/web
 
-# Install web-specific dependencies if needed
-WORKDIR /app/apps/web
-RUN pnpm install
-
 # Build the Next.js application
-RUN pnpm build
+WORKDIR /app/apps/web
+RUN bunx --bun pnpm build
 
 # Stage 2: Production stage
-FROM node:20-alpine
+FROM oven/bun:1
 
 WORKDIR /app
-
-# Install pnpm in production image
-RUN npm install -g pnpm@9.0.0
 
 # Copy package files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -43,8 +34,8 @@ COPY packages/typescript-config ./packages/typescript-config
 COPY packages/types ./packages/types
 COPY packages/ui ./packages/ui
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+# Install all dependencies (including dev for dev mode) using pnpm
+RUN bunx --bun pnpm install --frozen-lockfile
 
 # Copy built application and public files from builder
 COPY --from=builder /app/apps/web/.next ./apps/web/.next
@@ -60,5 +51,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application
-CMD ["pnpm", "start"]
+# Start the application (production)
+CMD ["bunx", "--bun", "pnpm", "start"]
