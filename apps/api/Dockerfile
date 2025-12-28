@@ -1,58 +1,52 @@
-# Stage 1: Build stage
-FROM node:18-alpine AS builder
-
+# Use Bun official image
+FROM oven/bun:1 AS base
 WORKDIR /app
-
-# Install dependencies for build
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/eslint-config ./packages/eslint-config
-COPY packages/typescript-config ./packages/typescript-config
-COPY packages/types ./packages/types
-
-# Install pnpm
-RUN npm install -g pnpm@9.0.0
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+FROM base AS install
+RUN mkdir -p /temp/dev
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json /temp/dev/
+COPY apps/api/package.json /temp/dev/apps/api/
+COPY packages/eslint-config /temp/dev/packages/eslint-config
+COPY packages/typescript-config /temp/dev/packages/typescript-config
+COPY packages/types /temp/dev/packages/types
+
+# Install dependencies with Bun
+WORKDIR /temp/dev
+RUN bun install --frozen-lockfile
 
 # Copy source code
-COPY apps/api/src ./apps/api/src
-COPY apps/api/tsconfig.json ./apps/api/
+FROM base AS build
+COPY --from=install /temp/dev/node_modules ./node_modules
+COPY --from=install /temp/dev/apps/api/node_modules ./apps/api/node_modules
+COPY apps/api ./apps/api
+COPY package.json pnpm-workspace.yaml ./
 
-# Build the project
+# Build the application
 WORKDIR /app/apps/api
-RUN pnpm build
+RUN bun build src/index.ts --outdir ./dist --target bun
 
-# Stage 2: Production stage
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Install pnpm in production image
-RUN npm install -g pnpm@9.0.0
-
-# Copy package files
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/eslint-config ./packages/eslint-config
-COPY packages/typescript-config ./packages/typescript-config
-COPY packages/types ./packages/types
-
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy built application from builder
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-
+# Production image
+FROM oven/bun:1-alpine AS release
 WORKDIR /app/apps/api
 
-# Expose port (default 3001 for API)
+# Copy built application and dependencies
+COPY --from=build /app/apps/api/dist ./dist
+COPY --from=build /app/apps/api/package.json ./
+COPY --from=install /temp/dev/apps/api/node_modules ./node_modules
+
+# Expose port
+EXPOSE 3001
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# Run the application
+CMD ["bun", "dist/index.js"]
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Run the application
+CMD ["bun", "dist/index.js"]

@@ -4,28 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "eslint .",
-    "check-types": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist --target bun",
+    "lint": "echo 'Lint not configured yet'",
+    "check-types": "echo 'Type checking not configured yet'"
   },
   "dependencies": {
-    "effect": "^3.11.0",
-    "@effect/platform": "^0.72.0",
-    "@effect/platform-node": "^0.68.0",
-    "@effect/schema": "^0.75.0"
+    "elysia": "^1.2.0",
+    "@elysiajs/cors": "^1.2.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.10.2",
-    "eslint": "^9.16.0",
-    "tsx": "^4.19.2",
-    "typescript": "5.9.2"
-  },
-  "engines": {
-    "node": ">=18"
+    "bun-types": "latest"
   }
 }

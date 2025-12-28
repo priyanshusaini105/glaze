@@ -45,7 +45,7 @@ services:
     networks:
       - glaze-network
     restart: unless-stopped
-    command: pnpm dev
+    command: bun --watch src/index.ts
 
   # Frontend Web
   web:

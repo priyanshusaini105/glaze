@@ -20,5 +20,9 @@
   "dependencies": {
     "ag-grid-community": "^35.0.0",
     "ag-grid-react": "^35.0.0"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
