@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-unused-vars */
 "use client";
 
 import { cn } from "@/lib/utils";

@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -42,6 +40,8 @@ services:
         condition: service_healthy
     volumes:
       - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+      - ./packages:/app/packages
     networks:
       - glaze-network
     restart: unless-stopped

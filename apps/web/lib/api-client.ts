@@ -1,0 +1,207 @@
+/**
+ * Glaze API Client
+ * Handles all API communication with the backend
+ */
+
+import type {
+  Table,
+  CreateTableRequest,
+  UpdateTableRequest,
+  Column,
+  CreateColumnRequest,
+  CreateColumnsRequest,
+  UpdateColumnRequest,
+  Row,
+  CreateRowRequest,
+  UpdateRowRequest,
+  GetRowsParams,
+  PaginatedRowsResponse,
+  ICP,
+  ResolveICPRequest,
+} from './api-types';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    };
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // If parsing error response fails, use default message
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Handle empty responses (like DELETE)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      }
+      
+      return {} as T;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  }
+
+  // ============= Health & Index =============
+  async getHealth(): Promise<{ status: string }> {
+    return this.request('/health');
+  }
+
+  async getIndex(): Promise<unknown> {
+    return this.request('/');
+  }
+
+  // ============= Tables =============
+  async getTables(): Promise<Table[]> {
+    return this.request('/tables/');
+  }
+
+  async getTable(id: string): Promise<Table> {
+    return this.request(`/tables/${id}`);
+  }
+
+  async createTable(data: CreateTableRequest): Promise<Table> {
+    return this.request('/tables/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTable(id: string, data: UpdateTableRequest): Promise<Table> {
+    return this.request(`/tables/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    return this.request(`/tables/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============= Columns =============
+  async createColumn(
+    tableId: string,
+    data: CreateColumnRequest
+  ): Promise<Column> {
+    return this.request(`/tables/${tableId}/columns`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createColumns(
+    tableId: string,
+    data: CreateColumnsRequest[]
+  ): Promise<Column[]> {
+    return this.request(`/tables/${tableId}/columns`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateColumn(
+    tableId: string,
+    columnId: string,
+    data: UpdateColumnRequest
+  ): Promise<Column> {
+    return this.request(`/tables/${tableId}/columns/${columnId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteColumn(tableId: string, columnId: string): Promise<void> {
+    return this.request(`/tables/${tableId}/columns/${columnId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============= Rows =============
+  async getRows(
+    tableId: string,
+    params?: GetRowsParams
+  ): Promise<PaginatedRowsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const query = queryParams.toString();
+    const endpoint = query ? `/tables/${tableId}/rows?${query}` : `/tables/${tableId}/rows`;
+    
+    return this.request(endpoint);
+  }
+
+  async createRow(tableId: string, data: CreateRowRequest): Promise<Row> {
+    return this.request(`/tables/${tableId}/rows`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRow(
+    tableId: string,
+    rowId: string,
+    data: UpdateRowRequest
+  ): Promise<Row> {
+    return this.request(`/tables/${tableId}/rows/${rowId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteRow(tableId: string, rowId: string): Promise<void> {
+    return this.request(`/tables/${tableId}/rows/${rowId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============= ICPs =============
+  async getIcps(): Promise<ICP[]> {
+    return this.request('/icps');
+  }
+
+  async resolveIcp(data: ResolveICPRequest): Promise<unknown> {
+    return this.request('/icps/resolve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+}
+
+// Export singleton instance
+export const apiClient = new ApiClient();
+
+// Export class for custom instances
+export { ApiClient };

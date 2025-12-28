@@ -1,7 +1,38 @@
+'use client';
+
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useCreateTable } from '@/hooks/use-query-api';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function NewTablePage() {
+  const router = useRouter();
+  const { mutate: createTable, isPending, error } = useCreateTable();
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      return;
+    }
+
+    createTable(
+      {
+        name: formData.name,
+        description: formData.description || undefined,
+      },
+      {
+        onSuccess: (table) => {
+          router.push(`/dashboard/tables/${table.id}`);
+        },
+      }
+    );
+  };
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -21,15 +52,24 @@ export default function NewTablePage() {
       {/* Form */}
       <div className="max-w-2xl">
         <div className="bg-white rounded-lg border border-gray-200 p-8">
-          <form className="space-y-6">
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-600 text-sm">{error.message}</p>
+            </div>
+          )}
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Table Name
+                Table Name *
               </label>
               <input
                 type="text"
                 placeholder="e.g., Sales Pipeline, Customer Database"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
               />
             </div>
 
@@ -41,39 +81,19 @@ export default function NewTablePage() {
                 placeholder="Describe the purpose of this table..."
                 rows={4}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Visibility
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                  <option>Private</option>
-                  <option>Team</option>
-                  <option>Public</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Template
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                  <option>Blank</option>
-                  <option>CRM</option>
-                  <option>Inventory</option>
-                  <option>Tasks</option>
-                </select>
-              </div>
             </div>
 
             <div className="pt-6 flex gap-4 border-t border-gray-200">
               <button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                disabled={isPending || !formData.name.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Create Table
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isPending ? 'Creating...' : 'Create Table'}
               </button>
               <Link
                 href="/dashboard/tables"

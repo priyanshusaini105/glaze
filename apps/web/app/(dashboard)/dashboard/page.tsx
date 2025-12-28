@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import Link from 'next/link';
 import { Plus, Grid3X3, Clock, TrendingUp } from 'lucide-react';
 

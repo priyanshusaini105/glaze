@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Table {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  columns     Column[]
+  rows        Row[]
+
+  @@map("tables")
+}
+
+model Column {
+  id        String   @id @default(uuid())
+  tableId   String
+  key       String   // stable identifier, e.g. "company_name"
+  label     String   // display name, e.g. "Company Name"
+  dataType  String   @default("text") // text, number, boolean, url, json
+  order     Int      @default(0)
+  config    Json?    // UI hints, validation rules, select options
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, key])
+  @@map("columns")
+}
+
+model Row {
+  id        String   @id @default(uuid())
+  tableId   String
+  data      Json     // Keyed by columnId or name
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("rows")
+}

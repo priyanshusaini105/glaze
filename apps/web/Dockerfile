@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -20,12 +20,15 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY apps/web ./apps/web
 
-# Build the Next.js application
+# Install web-specific dependencies if needed
 WORKDIR /app/apps/web
+RUN pnpm install
+
+# Build the Next.js application
 RUN pnpm build
 
 # Stage 2: Production stage
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 

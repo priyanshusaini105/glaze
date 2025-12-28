@@ -1,14 +1,11 @@
+'use client';
+
 import Link from 'next/link';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Loader2 } from 'lucide-react';
+import { useTables } from '@/hooks/use-query-api';
 
 export default function TablesPage() {
-  const tables = [
-    { id: 1, name: 'Sales Pipeline', rows: 245, columns: 18 },
-    { id: 2, name: 'Customer Database', rows: 1230, columns: 24 },
-    { id: 3, name: 'Lead Scoring', rows: 89, columns: 12 },
-    { id: 4, name: 'Product Inventory', rows: 456, columns: 15 },
-    { id: 5, name: 'Support Tickets', rows: 234, columns: 20 },
-  ];
+  const { data: tables, isLoading, error } = useTables();
 
   return (
     <div className="space-y-8">
@@ -35,29 +32,60 @@ export default function TablesPage() {
         </Link>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-red-600 font-medium">Failed to load tables</p>
+          <p className="text-red-500 text-sm mt-1">{error.message}</p>
+        </div>
+      )}
+
       {/* Tables Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tables.map((table) => (
-          <Link
-            key={table.id}
-            href={`/dashboard/tables/${table.id}`}
-            className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg hover:border-blue-300 transition-all group cursor-pointer"
-          >
-            <h3 className="font-semibold text-lg text-gray-900 group-hover:text-blue-600 transition-colors">
-              {table.name}
-            </h3>
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-              <span>{table.rows} rows</span>
-              <span>{table.columns} columns</span>
+      {!isLoading && !error && tables && (
+        <>
+          {tables.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-gray-600 mb-4">No tables yet. Create your first table to get started!</p>
+              <Link
+                href="/dashboard/tables/new"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                <Plus size={20} />
+                Create Table
+              </Link>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <span className="text-xs font-medium text-blue-600 group-hover:text-blue-700">
-                Open Table →
-              </span>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tables.map((table) => (
+                <Link
+                  key={table.id}
+                  href={`/dashboard/tables/${table.id}`}
+                  className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg hover:border-blue-300 transition-all group cursor-pointer"
+                >
+                  <h3 className="font-semibold text-lg text-gray-900 group-hover:text-blue-600 transition-colors">
+                    {table.name}
+                  </h3>
+                  {table.description && (
+                    <p className="text-sm text-gray-500 mt-2">{table.description}</p>
+                  )}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <span className="text-xs font-medium text-blue-600 group-hover:text-blue-700">
+                      Open Table →
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </Link>
-        ))}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
