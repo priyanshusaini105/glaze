@@ -2,7 +2,6 @@
 
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import Image from 'next/image';
 
 interface Table {
   id: string;
@@ -29,37 +29,40 @@ interface TableSidebarProps {
 
 export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
   return (
-    <Sidebar className="border-r border-gray-200 bg-white">
+    <Sidebar className="border-r border-slate-200 bg-white">
       <SidebarHeader className="p-5">
         <div className="flex items-center gap-3">
-          <Image 
-            src="/img/glaze-abs.png" 
-            alt="Glaze Logo" 
-            width={32}
+          {/* <div className="w-8 h-8 rounded-lg bg-cyan-gradient shadow-sm shadow-cyan-500/30 flex items-center justify-center">
+            <span className="text-white text-xl font-bold">G</span>
+          </div>
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Glaze</h1> */}
+          <Image
+            src="/img/glaze-text.png"
+            alt="Glaze"
+            width={100}
             height={32}
-            className="w-8 h-8"
+            className="object-contain"
           />
-          <h1 className="text-lg font-bold text-gray-900 tracking-tight">Glaze</h1>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-3">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+          <SidebarGroupLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">
             Workspace
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-0.5">
               {tables.map((table) => (
                 <SidebarMenuItem key={table.id}>
                   <SidebarMenuButton
                     asChild
                     isActive={table.id === currentTableId || table.active}
-                    className="data-[active=true]:bg-cyan-500/5 data-[active=true]:text-cyan-500 data-[active=true]:font-medium hover:bg-gray-50"
+                    className="data-[active=true]:bg-cyan-soft data-[active=true]:text-cyan-primary data-[active=true]:font-medium hover:bg-slate-50 rounded-lg px-3 py-1.5"
                   >
                     <Link href={`/tables/${table.id}`} className="flex items-center gap-2.5">
                       <span className="text-base">📄</span>
-                      <span>{table.name}</span>
+                      <span className="text-sm">{table.name}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -68,17 +71,17 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+        <SidebarGroup className="mt-6">
+          <SidebarGroupLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">
             Team
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild className="hover:bg-gray-50">
+                <SidebarMenuButton asChild className="hover:bg-slate-50 rounded-lg px-3 py-1.5">
                   <Link href="/dashboard/team/sales" className="flex items-center gap-2.5">
                     <span className="text-base">👥</span>
-                    <span>Sales Team Q2</span>
+                    <span className="text-sm">Sales Team Q2</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -87,23 +90,23 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-slate-200 bg-white p-3 space-y-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:bg-gray-50">
+            <SidebarMenuButton asChild className="hover:bg-slate-50 rounded-lg px-3 py-1.5">
               <Link href="/tables/new" className="flex items-center gap-2.5">
-                <Plus size={18} />
-                <span>New Table</span>
+                <Plus size={20} className="text-slate-600" />
+                <span className="text-sm font-medium text-slate-600">New Table</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="flex items-center gap-3 px-3 py-2 mt-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-300" />
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-gray-900 truncate">Alicia Chen</div>
-            <div className="text-xs text-gray-400">Pro Plan</div>
+            <div className="text-sm font-medium text-slate-900 truncate">Alicia Chen</div>
+            <div className="text-xs text-slate-400">Pro Plan</div>
           </div>
         </div>
       </SidebarFooter>

@@ -122,7 +122,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     setLoading(true);
     try {
       const response = await apiClient.getRows(tableId, { page: 1, limit: 1000 });
-      const transformedData = response.data.map((row: Row) => ({
+      const transformedData = response.rows.map((row: Row) => ({
         id: row.id,
         ...row.data,
       }));

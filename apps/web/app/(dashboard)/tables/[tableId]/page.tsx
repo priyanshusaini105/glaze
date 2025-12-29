@@ -16,12 +16,14 @@ import {
   MoreHorizontal,
   Trash2,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { TableSidebar } from '../../../../components/tables/table-sidebar';
 import { apiClient } from '../../../../lib/api-client';
 import { Table, Column, Row, DataType } from '../../../../lib/api-types';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
+import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
 
 
 /* --- Helper Components --- */
@@ -67,9 +69,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [rowData, setRowData] = useState<Row[]>([]);
 
   // Column management
-  const [isCreatingColumn, setIsCreatingColumn] = useState(false);
+  const [showAddColumnPanel, setShowAddColumnPanel] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState('');
-  const [newColumnType, setNewColumnType] = useState<DataType>('text');
+  const [newColumnType, setNewColumnType] = useState<'ai-agent' | 'text' | 'url'>('ai-agent');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [browsingEnabled, setBrowsingEnabled] = useState(true);
   const [columnSaving, setColumnSaving] = useState(false);
   const [columnDeletingId, setColumnDeletingId] = useState<string | null>(null);
   const [columnError, setColumnError] = useState<string | null>(null);
@@ -88,7 +92,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   
   // Modal states (currently used for enrichment actions)
   const [showEnrichModal, setShowEnrichModal] = useState(false);
-  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     params.then((p) => setTableId(p.tableId));
@@ -134,10 +138,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   }, [tableId, loadData]);
 
   useEffect(() => {
-    if (isCreatingColumn) {
+    if (showAddColumnPanel) {
       newColumnInputRef.current?.focus();
     }
-  }, [isCreatingColumn]);
+  }, [showAddColumnPanel]);
 
   const generateColumnKey = useCallback((label: string) => {
     const base = label
@@ -168,10 +172,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
     try {
       const key = generateColumnKey(newColumnLabel);
+      const dataType = newColumnType === 'ai-agent' ? 'text' : newColumnType;
       const newColumn = await apiClient.createColumn(tableId, {
         key,
         label: newColumnLabel.trim(),
-        dataType: newColumnType,
+        dataType: dataType as DataType,
       });
 
       setColumns((prev) => [...prev, newColumn]);
@@ -182,8 +187,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         }))
       );
       setNewColumnLabel('');
-      setNewColumnType('text');
-      setIsCreatingColumn(false);
+      setNewColumnType('ai-agent');
+      setAiPrompt('');
+      setBrowsingEnabled(true);
+      setShowAddColumnPanel(false);
     } catch (error) {
       console.error('Failed to create column:', error);
       setColumnError(error instanceof Error ? error.message : 'Unable to add column');
@@ -247,6 +254,37 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       console.error('Failed to copy', err);
     }
   }, [selectionRange, rowData, columns]);
+
+  const handleExportCSV = useCallback(async () => {
+    if (!currentTable || !columns.length) return;
+    
+    setIsExporting(true);
+    try {
+      // Extract headers from columns
+      const headers = columns.map(col => col.label);
+      
+      // Map rows to CSV format
+      const csvRows = rowData.map(row => {
+        const csvRow: Record<string, unknown> = {};
+        columns.forEach(col => {
+          csvRow[col.label] = (row.data as Record<string, unknown>)?.[col.key] || '';
+        });
+        return csvRow;
+      });
+      
+      // Generate CSV content
+      const csvContent = generateCSV(headers, csvRows);
+      
+      // Download the file
+      const filename = `${currentTable.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+      downloadCSV(filename, csvContent);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+      alert('Failed to export CSV. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentTable, columns, rowData]);
 
   // Global event handlers
   useEffect(() => {
@@ -414,9 +452,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     
     if (!isSelected) return { isSelected: false, style: {} };
 
-    const borderColor = 'rgb(193, 0, 97)';
-    const backgroundColor = isCopyFlash ? 'rgba(60, 188, 0, 0.3)' : 'rgba(255, 0, 128, 0.1)';
-    const borderStyle = 'dashed';
+    const borderColor = '#2badee';
+    const backgroundColor = isCopyFlash ? 'rgba(34, 197, 94, 0.2)' : 'rgba(43, 173, 238, 0.08)';
+    const borderStyle = 'solid';
 
     const isTop = rowIndex === minR;
     const isBottom = rowIndex === maxR;
@@ -427,10 +465,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       isSelected: true,
       style: {
         backgroundColor: backgroundColor,
-        borderTop: isTop ? `1px ${borderStyle} ${borderColor}` : undefined,
-        borderBottom: isBottom ? `1px ${borderStyle} ${borderColor}` : undefined,
-        borderLeft: isLeft ? `1px ${borderStyle} ${borderColor}` : undefined,
-        borderRight: isRight ? `1px ${borderStyle} ${borderColor}` : undefined,
+        borderTop: isTop ? `2px ${borderStyle} ${borderColor}` : undefined,
+        borderBottom: isBottom ? `2px ${borderStyle} ${borderColor}` : undefined,
+        borderLeft: isLeft ? `2px ${borderStyle} ${borderColor}` : undefined,
+        borderRight: isRight ? `2px ${borderStyle} ${borderColor}` : undefined,
         zIndex: 10,
       }
     };
@@ -445,13 +483,6 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       </a>
     );
     return <span className="truncate">{value}</span>;
-  };
-
-  const handleNewColumnClick = () => {
-    setColumnError(null);
-    setIsCreatingColumn(true);
-    setShowEnrichModal(false);
-    setTimeout(() => newColumnInputRef.current?.focus(), 0);
   };
 
   if (loading) {
@@ -470,118 +501,105 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       <TableSidebar tables={tables} currentTableId={tableId} />
       <div className="flex flex-col h-screen w-full bg-white text-sm font-sans text-slate-900">
         
-        {/* Top Bar */}
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-slate-900">
-              <div className="w-8 h-8 bg-slate-900 rounded-md flex items-center justify-center text-white shadow-sm ring-1 ring-slate-900/5">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-lg leading-none tracking-tight">{currentTable?.name || 'Table'}</h1>
-                <p className="text-xs text-slate-500 mt-1">Managed by your team</p>
-              </div>
-            </div>
-            <div className="h-6 w-px bg-slate-200 mx-2"></div>
-            <span className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full text-xs font-medium border border-slate-200">
-              {rowData?.length || 0} records
-            </span>
-          </div>
+        {/* Modern Header */}
+        <div className="backdrop-blur-sm bg-white/80 border-b border-slate-200 px-5 py-3 flex items-center justify-between shrink-0 sticky top-0 z-20">
+          {/* Left Section - Breadcrumbs & Title */}
           <div className="flex items-center gap-3">
-            {selectedRowIds.size > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-slate-500 font-medium">Tables</span>
+              <ChevronDown className="w-4 h-4 text-slate-400 -rotate-90" />
+              <span className="text-slate-900 font-semibold tracking-tight">{currentTable?.name || 'Table'}</span>
+            </div>
+          </div>
+
+          {/* Center - Search Bar */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 max-w-md w-full">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Input 
+                placeholder="Search rows or values..." 
+                className="w-full pl-10 pr-16 bg-slate-50/80 border-transparent focus:bg-white focus:border-slate-200 rounded-lg"
+              />
+              <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-xs font-medium text-slate-600">
+                <span className="text-sm">⌘</span>K
+              </kbd>
+            </div>
+          </div>
+
+          {/* Right Section - Stats & Actions */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200/50 px-2.5 py-1 rounded-full">
+                <div className="relative">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                  <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full opacity-75 animate-ping"></div>
+                </div>
+                <span className="text-xs font-medium text-green-800">Live</span>
+              </div>
+              <span className="text-xs text-slate-500">|</span>
+              <span className="text-xs font-medium text-slate-600">{columns.length} Columns</span>
+              <span className="text-xs font-medium text-slate-600">{rowData?.length || 0} Rows</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
-                className="gap-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                onClick={handleDeleteSelectedRows}
+                className="h-9 px-3 gap-2"
+                onClick={handleExportCSV}
+                disabled={isExporting || !rowData.length}
               >
-                <X className="w-3.5 h-3.5" />
-                Delete {selectedRowIds.size} row{selectedRowIds.size > 1 ? 's' : ''}
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span className="text-xs font-medium">Export CSV</span>
               </Button>
-            )}
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                <MoreHorizontal className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                <Users className="w-5 h-5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                <ChevronDown className="w-5 h-5" />
+              </Button>
+            </div>
+
             <Button
-              variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 bg-cyan-gradient hover:opacity-90 text-white shadow-sm shadow-cyan-500/20"
               onClick={() => {
-                setIsCreatingColumn((open) => !open);
+                setShowAddColumnPanel(true);
                 setColumnError(null);
               }}
             >
-              <Plus className="w-3.5 h-3.5" />
-              {isCreatingColumn ? 'Close column form' : 'Add column'}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Users className="w-3.5 h-3.5" />
-              Share
-            </Button>
-            <Button size="sm" className="gap-2">
-              <ChevronDown className="w-3.5 h-3.5" />
-              Export CSV
+              <Plus className="w-4.5 h-4.5" />
+              Add Column
             </Button>
           </div>
         </div>
 
-        {isCreatingColumn && (
-          <div className="border-b border-slate-200 bg-slate-50 px-6 py-3 flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-60">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Column name</label>
-              <Input
-                ref={newColumnInputRef}
-                value={newColumnLabel}
-                onChange={(e) => setNewColumnLabel(e.target.value)}
-                placeholder="e.g. Company, Website"
-              />
-            </div>
-            <div className="w-52 min-w-52">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Type</label>
-              <select
-                value={newColumnType}
-                onChange={(e) => setNewColumnType(e.target.value as DataType)}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none"
-              >
-                {['text', 'number', 'boolean', 'date', 'url', 'email'].map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className="gap-2"
-                disabled={columnSaving}
-                onClick={handleCreateColumn}
-              >
-                {columnSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save column
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setIsCreatingColumn(false);
-                  setColumnError(null);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-            {columnError && <p className="w-full text-xs text-red-500">{columnError}</p>}
-          </div>
-        )}
+
 
         {/* Table Container */}
-        <div className="flex-1 overflow-auto relative select-none" ref={gridContainerRef}>
+        <div className="flex-1 overflow-auto relative select-none bg-white" ref={gridContainerRef}>
           <div className="min-w-300">
             
             {/* Header */}
-            <div className="flex items-center h-10 border-b border-slate-200 bg-white sticky top-0 z-30">
+            <div className="flex items-center h-11 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-30 shadow-sm">
               {/* Checkbox Column */}
               <div 
-                className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-white z-30 border-r border-transparent hover:border-slate-200 transition-colors cursor-pointer"
+                className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-slate-50/80 backdrop-blur-sm z-30 border-r border-transparent hover:border-slate-200 transition-colors cursor-pointer"
                 onClick={toggleAllRows}
               >
                 <Checkbox checked={allChecked} />
+              </div>
+
+              {/* Row Number Column */}
+              <div className="w-14 flex items-center justify-center shrink-0 bg-slate-50/80 backdrop-blur-sm border-r border-transparent">
+                <span className="text-xs font-semibold text-slate-400 uppercase">#</span>
               </div>
 
               {/* Columns */}
@@ -590,13 +608,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                   <div 
                     key={col.id} 
                     className={cn(
-                      'flex items-center gap-2 px-4 border-r border-slate-100 hover:border-slate-300 shrink-0 h-full transition-colors bg-white',
+                      'flex items-center gap-2 px-4 border-r border-slate-200 shrink-0 h-full transition-colors bg-white',
                       'w-64',
-                      idx === 0 && 'sticky left-12 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]'
+                      idx === 0 && 'sticky left-26 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]'
                     )}
                   >
                     <MoreHorizontal className="w-4 h-4 text-slate-400" />
-                    <span className="text-[13px] font-medium text-slate-600 flex-1 truncate">{col.label}</span>
+                    <span className="text-xs font-semibold text-slate-600 flex-1 truncate uppercase tracking-wide">{col.label}</span>
                     <button
                       aria-label="Delete column"
                       className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -619,10 +637,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               {/* New Column Header */}
               <div 
                 className="px-4 flex items-center cursor-pointer hover:bg-slate-50 transition-colors h-full text-slate-500 hover:text-slate-900 gap-2 shrink-0 min-w-37.5"
-                onClick={handleNewColumnClick}
+                onClick={() => {
+                  setShowAddColumnPanel(true);
+                  setColumnError(null);
+                }}
               >
                 <Plus className="w-4 h-4" />
-                <span className="text-[13px] font-medium">New column</span>
+                <span className="text-xs font-medium">New column</span>
               </div>
             </div>
 
@@ -630,27 +651,38 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             <div className="divide-y divide-slate-100 relative">
               {rowData && rowData.map((row, rIndex) => {
                 const isRowSelected = selectedRowIds.has(row.id);
-                const rowBg = rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white';
+                const rowBg = isRowSelected ? 'bg-cyan-50/60' : (rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white');
 
                 return (
                   <div 
                     key={row.id} 
                     className={cn(
-                      'flex items-center h-12 transition-colors group relative',
+                      'flex items-center h-14 transition-colors group relative',
                       rowBg,
-                      isRowSelected && 'bg-blue-50/60'
+                      isRowSelected && 'border-l-2 border-cyan-500'
                     )}
                   >
                     {/* Left Gutter Checkbox */}
                     <div 
                       className={cn(
                         'w-12 flex items-center justify-center shrink-0 sticky left-0 z-20 cursor-grab active:cursor-grabbing border-r border-slate-100',
-                        isRowSelected ? 'bg-blue-50/90' : 'bg-white'
+                        isRowSelected ? 'bg-cyan-50/90' : 'bg-white'
                       )}
                       onMouseDown={(e) => handleRowSelectionStart(e, rIndex, row.id)}
                       onMouseEnter={() => handleRowSelectionMove(rIndex)}
                     >
                       <Checkbox checked={isRowSelected} />
+                    </div>
+
+                    {/* Row Number */}
+                    <div className={cn(
+                      'w-14 flex items-center justify-center shrink-0 border-r border-slate-100',
+                      isRowSelected ? 'bg-cyan-50/90' : 'bg-white'
+                    )}>
+                      <span className={cn(
+                        'font-mono text-xs',
+                        isRowSelected ? 'text-cyan-600 font-bold' : 'text-slate-400'
+                      )}>{rIndex + 1}</span>
                     </div>
 
                     {/* Data Cells */}
@@ -663,10 +695,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                         <div 
                           key={col.id}
                           className={cn(
-                            'h-full flex items-center px-4 shrink-0 border-r border-transparent relative outline-none',
+                            'h-full flex items-center px-4 shrink-0 border-r border-slate-100 relative outline-none',
                             'w-64',
-                            cIndex === 0 && 'sticky left-12 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
-                            cIndex === 0 && (isRowSelected ? 'bg-blue-50/90' : 'bg-white'),
+                            cIndex === 0 && 'sticky left-26 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
+                            cIndex === 0 && (isRowSelected ? 'bg-cyan-50/90' : 'bg-white'),
                           )}
                           style={style}
                           onMouseDown={(e) => {
@@ -680,7 +712,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                           {isEditing ? (
                             <Input 
                               autoFocus
-                              className="h-8 shadow-none border-purple-500 ring-2 ring-purple-100"
+                              className="h-8 shadow-none border-cyan-500 ring-2 ring-cyan-100"
                               value={String(value || '')}
                               onChange={(e) => updateRow(row.id, col.key, e.target.value)}
                               onBlur={() => setEditingCell(null)}
@@ -690,7 +722,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                               }}
                             />
                           ) : (
-                            <div className="w-full truncate text-slate-700">
+                            <div className="w-full truncate text-slate-700 text-sm">
                               {renderCellContent(value as string, col.dataType)}
                             </div>
                           )}
@@ -707,7 +739,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
             {/* Add Row Button */}
             <div 
-              className="sticky left-0 w-full pl-12 border-t border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors cursor-pointer group"
+              className="sticky left-0 w-full pl-26 border-t border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors cursor-pointer group"
               onClick={handleAddRow}
             >
               <div className="flex items-center gap-2 py-3 px-4 text-slate-500 group-hover:text-slate-900 transition-colors">
@@ -718,6 +750,37 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             <div className="h-20"></div>
           </div>
 
+          {/* Floating Action Bar for Selected Rows */}
+          {selectedRowIds.size > 0 && (
+            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+              <div className="backdrop-blur-md bg-white/95 border border-slate-200 rounded-full shadow-xl shadow-slate-900/10 px-2 py-1.5 flex items-center gap-1">
+                <div className="px-4 py-1 border-r border-slate-200">
+                  <span className="text-sm font-semibold text-slate-900">{selectedRowIds.size} rows selected</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2 rounded-full px-5 hover:bg-slate-100"
+                  onClick={() => {
+                    // Run agents action
+                    console.log('Run agents on selected rows');
+                  }}
+                >
+                  <Sparkles className="w-4.5 h-4.5" />
+                  Run Agents
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100"
+                  onClick={handleDeleteSelectedRows}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Enrich Modal */}
           {showEnrichModal && (
             <>
@@ -726,8 +789,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 onClick={() => setShowEnrichModal(false)}
               />
               <div 
-                className="absolute z-50 w-85 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
-                style={{ top: modalPosition.y, left: modalPosition.x }}
+                className="absolute z-50 w-85 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-100 top-20 right-20"
               >
                 <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <div className="flex items-center gap-2">
@@ -772,6 +834,199 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             </>
           )}
         </div>
+
+        {/* New Column Side Panel */}
+        {showAddColumnPanel && (
+          <div className="fixed inset-y-0 right-0 w-90 bg-white border-l border-slate-200 shadow-2xl shadow-slate-900/10 z-50 flex flex-col">
+            {/* Panel Header */}
+            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+              <h3 className="font-semibold text-slate-900">New Column</h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 w-6 p-0 rounded-md hover:bg-slate-100"
+                onClick={() => {
+                  setShowAddColumnPanel(false);
+                  setNewColumnLabel('');
+                  setNewColumnType('ai-agent');
+                  setAiPrompt('');
+                  setBrowsingEnabled(true);
+                  setColumnError(null);
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Panel Content */}
+            <div className="flex-1 overflow-auto px-6 py-6 space-y-7">
+              {/* Column Name */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
+                  Column Name
+                </label>
+                <Input
+                  ref={newColumnInputRef}
+                  value={newColumnLabel}
+                  onChange={(e) => setNewColumnLabel(e.target.value)}
+                  placeholder="AI Summary"
+                  className="bg-slate-50 border-slate-200"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.metaKey) handleCreateColumn();
+                  }}
+                />
+              </div>
+
+              {/* Type Selection */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
+                  Type
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setNewColumnType('ai-agent')}
+                    className={cn(
+                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
+                      newColumnType === 'ai-agent'
+                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <Sparkles className={cn(
+                      'w-7 h-7',
+                      newColumnType === 'ai-agent' ? 'text-cyan-primary' : 'text-slate-400'
+                    )} />
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      newColumnType === 'ai-agent' ? 'text-cyan-primary' : 'text-slate-600'
+                    )}>
+                      AI Agent
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setNewColumnType('text')}
+                    className={cn(
+                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
+                      newColumnType === 'text'
+                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <svg className={cn('w-7 h-7', newColumnType === 'text' ? 'text-cyan-primary' : 'text-slate-400')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      newColumnType === 'text' ? 'text-cyan-primary' : 'text-slate-600'
+                    )}>
+                      Text
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setNewColumnType('url')}
+                    className={cn(
+                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
+                      newColumnType === 'url'
+                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <LinkIcon className={cn(
+                      'w-7 h-7',
+                      newColumnType === 'url' ? 'text-cyan-primary' : 'text-slate-400'
+                    )} />
+                    <span className={cn(
+                      'text-xs font-semibold',
+                      newColumnType === 'url' ? 'text-cyan-primary' : 'text-slate-600'
+                    )}>
+                      URL
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* AI Prompt Instructions (only for AI Agent) */}
+              {newColumnType === 'ai-agent' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
+                      Prompt Instructions
+                    </label>
+                    <span className="bg-cyan-primary/10 border border-cyan-primary/20 text-cyan-primary text-xs font-medium px-2.5 py-0.5 rounded-full">
+                      GPT-4o
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <textarea
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Describe what the agent should do..."
+                      className="w-full h-40 px-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none font-mono"
+                    />
+                    <button className="absolute right-3 bottom-3 opacity-50 hover:opacity-100 transition-opacity p-1.5 hover:bg-white rounded-md">
+                      <Sparkles className="w-4.5 h-4.5 text-slate-400" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Use <code className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-700 font-mono">@ColumnName</code> to reference data.
+                  </p>
+                </div>
+              )}
+
+              {/* Browsing Enabled (only for AI Agent) */}
+              {newColumnType === 'ai-agent' && (
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-900">Browsing Enabled</span>
+                    <button
+                      onClick={() => setBrowsingEnabled(!browsingEnabled)}
+                      className={cn(
+                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors border-2 border-transparent',
+                        browsingEnabled ? 'bg-cyan-primary' : 'bg-slate-300'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                          browsingEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                        )}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {columnError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-lg">
+                  {columnError}
+                </div>
+              )}
+            </div>
+
+            {/* Panel Footer */}
+            <div className="backdrop-blur-sm bg-slate-50/50 border-t border-slate-200 px-6 py-6 shrink-0">
+              <Button
+                onClick={handleCreateColumn}
+                disabled={columnSaving}
+                className="w-full h-11 bg-cyan-gradient hover:opacity-90 text-white shadow-lg shadow-cyan-500/20 gap-2"
+              >
+                {columnSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    Create & Run
+                    <ChevronDown className="w-4 h-4 -rotate-90" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

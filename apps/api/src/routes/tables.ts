@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { prisma } from '../db';
+import { parseCSV, generateCSV, inferDataType } from '../utils/csv';
 
 export const tablesRoutes = new Elysia({ prefix: '/tables' })
   // List all tables
@@ -263,5 +264,147 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       return { success: true };
     } catch (e) {
       return error(404, 'Row not found');
+    }
+  })
+
+  // --- CSV Import/Export ---
+
+  // Import CSV to create table with columns and rows
+  .post('/import-csv', async ({ body, error }) => {
+    try {
+      const { name, description, csvContent } = body;
+      
+      // Parse CSV
+      const { headers, rows } = parseCSV(csvContent);
+      
+      if (headers.length === 0) {
+        return error(400, 'CSV must have headers');
+      }
+
+      // Create table
+      const table = await prisma.table.create({
+        data: {
+          name,
+          description: description || undefined
+        }
+      });
+
+      // Infer data types from first few rows
+      const columnsData = headers.map((header, index) => {
+        const columnValues = rows.map(row => row[header]);
+        const dataType = inferDataType(columnValues);
+        
+        // Create a stable key from the header
+        const key = header.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        
+        return {
+          tableId: table.id,
+          key,
+          label: header,
+          dataType,
+          order: index
+        };
+      });
+
+      // Create columns
+      const createdColumns = await Promise.all(
+        columnsData.map(col => prisma.column.create({ data: col }))
+      );
+
+      // Create rows with data keyed by column keys
+      const rowsData = rows.map(row => {
+        const data: Record<string, any> = {};
+        headers.forEach((header, index) => {
+          const key = columnsData[index].key;
+          data[key] = row[header];
+        });
+        
+        return {
+          tableId: table.id,
+          data
+        };
+      });
+
+      await Promise.all(
+        rowsData.map(row => prisma.row.create({ data: row }))
+      );
+
+      // Return the created table with columns
+      const fullTable = await prisma.table.findUnique({
+        where: { id: table.id },
+        include: {
+          columns: {
+            orderBy: { order: 'asc' }
+          },
+          _count: {
+            select: { rows: true }
+          }
+        }
+      });
+
+      return fullTable;
+    } catch (e: any) {
+      console.error('CSV import error:', e);
+      return error(400, e.message || 'Failed to import CSV');
+    }
+  }, {
+    body: t.Object({
+      name: t.String(),
+      description: t.Optional(t.String()),
+      csvContent: t.String()
+    })
+  })
+
+  // Export table to CSV
+  .get('/:id/export-csv', async ({ params: { id }, error }) => {
+    try {
+      // Get table with columns
+      const table = await prisma.table.findUnique({
+        where: { id },
+        include: {
+          columns: {
+            orderBy: { order: 'asc' }
+          }
+        }
+      });
+
+      if (!table) {
+        return error(404, 'Table not found');
+      }
+
+      // Get all rows
+      const rows = await prisma.row.findMany({
+        where: { tableId: id },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Extract headers from columns
+      const headers = table.columns.map(col => col.label);
+      const columnKeys = table.columns.map(col => col.key);
+
+      // Map rows to CSV format
+      const csvRows = rows.map(row => {
+        const rowData = row.data as Record<string, any>;
+        const csvRow: Record<string, any> = {};
+        
+        table.columns.forEach(col => {
+          csvRow[col.label] = rowData[col.key] || '';
+        });
+        
+        return csvRow;
+      });
+
+      // Generate CSV
+      const csvContent = generateCSV(headers, csvRows);
+
+      return new Response(csvContent, {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${table.name.replace(/[^a-z0-9]/gi, '_')}.csv"`
+        }
+      });
+    } catch (e) {
+      console.error('CSV export error:', e);
+      return error(500, 'Failed to export CSV');
     }
   });

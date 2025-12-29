@@ -105,7 +105,10 @@ export function InteractiveTable({
       // Enter to edit start cell
       if (e.key === 'Enter' && selectionRange && !editingCell) {
         e.preventDefault();
-        setEditingCell({ rowIndex: selectionRange.start.r, colId: columns[selectionRange.start.c].id });
+        const col = columns[selectionRange.start.c];
+        if (col) {
+          setEditingCell({ rowIndex: selectionRange.start.r, colId: col.id });
+        }
       }
     };
 
@@ -134,8 +137,10 @@ export function InteractiveTable({
       if (!row) continue;
       const rowValues = [];
       for (let c = minC; c <= maxC; c++) {
-        const colId = columns[c].id;
-        rowValues.push(row[colId] || '');
+        const col = columns[c];
+        if (col) {
+          rowValues.push(row[col.id] || '');
+        }
       }
       clipboardText += rowValues.join('\t') + (r < maxR ? '\n' : '');
     }
@@ -209,7 +214,8 @@ export function InteractiveTable({
     const high = Math.max(start, end);
     const newSelectedIds = new Set<string>();
     for (let i = low; i <= high; i++) {
-      if (data[i]) newSelectedIds.add(data[i].id);
+      const row = data[i];
+      if (row) newSelectedIds.add(row.id);
     }
     setSelectedRowIds(newSelectedIds);
   };
@@ -447,7 +453,7 @@ export function InteractiveTable({
                           />
                         ) : (
                           <div className="w-full text-slate-700 text-sm">
-                            {renderCellContent(row[col.id], col.type)}
+                            {renderCellContent(row[col.id] ?? '', col.type)}
                           </div>
                         )}
                       </div>
