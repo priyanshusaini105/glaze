@@ -43,9 +43,8 @@ export const buildApp = () => {
         docs: '/docs'
       }
     }))
-    .use(tablesRoutes);
-
-  registerIcpRoutes(app);
+    .use(tablesRoutes)
+    .use(registerIcpRoutes);
 
   return app;
 };

@@ -57,7 +57,7 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
                     isActive={table.id === currentTableId || table.active}
                     className="data-[active=true]:bg-cyan-500/5 data-[active=true]:text-cyan-500 data-[active=true]:font-medium hover:bg-gray-50"
                   >
-                    <Link href={`/dashboard/tables/${table.id}`} className="flex items-center gap-2.5">
+                    <Link href={`/tables/${table.id}`} className="flex items-center gap-2.5">
                       <span className="text-base">📄</span>
                       <span>{table.name}</span>
                     </Link>
@@ -91,7 +91,7 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="hover:bg-gray-50">
-              <Link href="/dashboard/tables/new" className="flex items-center gap-2.5">
+              <Link href="/tables/new" className="flex items-center gap-2.5">
                 <Plus size={18} />
                 <span>New Table</span>
               </Link>

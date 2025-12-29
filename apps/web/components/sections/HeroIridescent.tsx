@@ -3,7 +3,7 @@ import { ArrowRight, Code2 } from 'lucide-react';
 
 export function HeroIridescent() {
   return (
-    <section className="relative pt-20 pb-16 md:pt-32 md:pb-24 overflow-hidden">
+    <section className="relative pt-20 pb-16 md:pt-32 md:pb-24 ">
       {/* Animated blob backgrounds - More visible as per Figma */}
       <div className="absolute top-0 -left-20 w-96 h-96 bg-accent-blue/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob" />
       <div className="absolute top-0 -right-20 w-96 h-96 bg-accent-purple/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob" style={{ animationDelay: '2s' }} />

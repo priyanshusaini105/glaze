@@ -51,14 +51,20 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      target: dev
     container_name: glaze-web
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      WATCHPACK_POLLING: "true"
+      NEXT_WEBPACK_USEPOLLING: "true"
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
       - api
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
     networks:
       - glaze-network
     restart: unless-stopped

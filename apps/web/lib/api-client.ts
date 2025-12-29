@@ -160,7 +160,16 @@ class ApiClient {
     const query = queryParams.toString();
     const endpoint = query ? `/tables/${tableId}/rows?${query}` : `/tables/${tableId}/rows`;
     
-    return this.request(endpoint);
+    const response = await this.request<{ data: Row[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(endpoint);
+    
+    // Transform backend response format to match frontend expectations
+    return {
+      rows: response.data,
+      total: response.meta.total,
+      page: response.meta.page,
+      limit: response.meta.limit,
+      totalPages: response.meta.totalPages,
+    };
   }
 
   async createRow(tableId: string, data: CreateRowRequest): Promise<Row> {

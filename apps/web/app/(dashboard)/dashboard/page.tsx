@@ -24,7 +24,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-1">Welcome back! Here's your data overview.</p>
         </div>
         <Link
-          href="/dashboard/tables/new"
+          href="/tables/new"
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
         >
           <Plus size={20} />
@@ -58,7 +58,7 @@ export default function DashboardPage() {
           {recentTables.map((table) => (
             <Link
               key={table.id}
-              href={`/dashboard/tables/${table.id}`}
+              href={`/tables/${table.id}`}
               className="p-6 hover:bg-gray-50 transition-colors block group"
             >
               <div className="flex items-center justify-between">

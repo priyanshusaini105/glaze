@@ -233,9 +233,9 @@ pnpm --filter web dev
 ```
 
 ### 4. Open Examples
-- Pure SSR: http://localhost:3000/dashboard/tables/ssr-example
-- Hybrid: http://localhost:3000/dashboard/tables/hybrid-example
-- Client: http://localhost:3000/dashboard/tables
+- Pure SSR: http://localhost:3000/tables/ssr-example
+- Hybrid: http://localhost:3000/tables/hybrid-example
+- Client: http://localhost:3000/tables
 
 ### 5. Check DevTools
 - Look for React Query icon (bottom-right)

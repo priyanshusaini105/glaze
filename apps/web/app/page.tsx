@@ -5,6 +5,7 @@ import { AIInsideGridSection } from '../components/sections/AIInsideGridSection'
 import { HowItWorksIridescent } from '../components/sections/HowItWorksIridescent';
 import { PowerUsersSection } from '../components/sections/PowerUsersSection';
 import { OpenSourceIridescent } from '../components/sections/OpenSourceIridescent';
+import { CTAIridescent } from '../components/sections/CTAIridescent';
 import { FooterIridescent } from '../components/footer/FooterIridescent';
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
       <HowItWorksIridescent />
       <PowerUsersSection />
       <OpenSourceIridescent />
+      <CTAIridescent />
       <FooterIridescent />
     </main>
   );

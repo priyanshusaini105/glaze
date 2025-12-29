@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { Play, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useRef, useState, useEffect } from 'react';
+import { Play, Plus, Trash2, Check } from 'lucide-react';
 
 type ColumnType = 'text' | 'number' | 'url' | 'email' | 'date';
 
@@ -25,38 +23,26 @@ type InteractiveTableProps = {
   title?: string;
 };
 
-type SelectionState = {
-  dragVector: DOMVector | null;
-  isDragging: boolean;
-  lastClickedCellId: string | null;
-  initialSelection: Set<string>;
-};
+type CellSelection = {
+  start: { r: number; c: number };
+  end: { r: number; c: number };
+} | null;
 
-class DOMVector {
-  constructor(
-    public x: number,
-    public y: number,
-    public magnitudeX: number,
-    public magnitudeY: number
-  ) {}
+const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
 
-  toRect(): DOMRect {
-    return new DOMRect(
-      this.magnitudeX < 0 ? this.x + this.magnitudeX : this.x,
-      this.magnitudeY < 0 ? this.y + this.magnitudeY : this.y,
-      Math.abs(this.magnitudeX),
-      Math.abs(this.magnitudeY)
-    );
-  }
-}
-
-function clampRect(rect: DOMRect, maxWidth: number, maxHeight: number) {
-  const x = Math.max(0, Math.min(rect.x, maxWidth));
-  const y = Math.max(0, Math.min(rect.y, maxHeight));
-  const width = Math.min(rect.width, maxWidth - x);
-  const height = Math.min(rect.height, maxHeight - y);
-  return new DOMRect(x, y, Math.max(0, width), Math.max(0, height));
-}
+const Checkbox = ({ checked, onClick }: { checked: boolean; onClick?: () => void }) => (
+  <div
+    onClick={onClick}
+    className={cn(
+      'w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors',
+      checked
+        ? 'bg-purple-600 border-purple-600 shadow-sm'
+        : 'bg-white border-slate-300 hover:border-slate-400'
+    )}
+  >
+    {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+  </div>
+);
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random() * 9999)}`;
@@ -82,52 +68,103 @@ export function InteractiveTable({
 }: InteractiveTableProps) {
   const [columns, setColumns] = useState<TableColumn[]>(initialColumns);
   const [data, setData] = useState<TableRow[]>(initialRows);
-  const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; colId: string } | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-  const [selectionState, setSelectionState] = useState<SelectionState>({
-    dragVector: null,
-    isDragging: false,
-    lastClickedCellId: null,
-    initialSelection: new Set(),
-  });
+  
+  // Cell selection state
+  const [selectionRange, setSelectionRange] = useState<CellSelection>(null);
+  const [isSelectingCells, setIsSelectingCells] = useState(false);
+  const [isCopyFlash, setIsCopyFlash] = useState(false);
+  
+  // Row selection state
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [isDraggingRows, setIsDraggingRows] = useState(false);
+  const rowSelectionStartRef = useRef<number | null>(null);
+  const [allChecked, setAllChecked] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const cellId = (rowId: string, colId: string) => `${rowId}:${colId}`;
+  // Global mouse up handler
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setIsDraggingRows(false);
+      setIsSelectingCells(false);
+      rowSelectionStartRef.current = null;
+    };
 
-  const startEditing = useCallback((rowId: string, colId: string, value: string) => {
-    setEditingCell({ rowId, colId });
-    setEditValue(value ?? '');
-  }, []);
-
-  const saveEdit = useCallback(
-    (rowId: string, colId: string) => {
-      setData((prev) => prev.map((row) => (row.id === rowId ? { ...row, [colId]: editValue } : row)));
-      setEditingCell(null);
-      setEditValue('');
-    },
-    [editValue]
-  );
-
-  const handleCellKeyDown = useCallback(
-    (e: React.KeyboardEvent, rowId: string, colId: string) => {
-      if (e.key === 'Enter') {
-        saveEdit(rowId, colId);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Copy functionality
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        handleCopy();
       }
+      // Cancel Selection on Escape
       if (e.key === 'Escape') {
+        setSelectionRange(null);
         setEditingCell(null);
-        setEditValue('');
       }
-    },
-    [saveEdit]
-  );
+      // Enter to edit start cell
+      if (e.key === 'Enter' && selectionRange && !editingCell) {
+        e.preventDefault();
+        setEditingCell({ rowIndex: selectionRange.start.r, colId: columns[selectionRange.start.c].id });
+      }
+    };
 
-  const renameColumn = useCallback((colId: string, newName: string) => {
-    setColumns((prev) => prev.map((col) => (col.id === colId ? { ...col, name: newName } : col)));
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectionRange, editingCell, columns]);
+
+  // Copy to clipboard
+  const handleCopy = async () => {
+    if (!selectionRange) return;
+
+    const { start, end } = selectionRange;
+    const minR = Math.min(start.r, end.r);
+    const maxR = Math.max(start.r, end.r);
+    const minC = Math.min(start.c, end.c);
+    const maxC = Math.max(start.c, end.c);
+
+    let clipboardText = '';
+
+    for (let r = minR; r <= maxR; r++) {
+      const row = data[r];
+      if (!row) continue;
+      const rowValues = [];
+      for (let c = minC; c <= maxC; c++) {
+        const colId = columns[c].id;
+        rowValues.push(row[colId] || '');
+      }
+      clipboardText += rowValues.join('\t') + (r < maxR ? '\n' : '');
+    }
+
+    try {
+      await navigator.clipboard.writeText(clipboardText);
+      setIsCopyFlash(true);
+      setTimeout(() => setIsCopyFlash(false), 300);
+    } catch (err) {
+      console.error('Failed to copy', err);
+    }
+  };
+
+  // Update row
+  const updateRow = useCallback((id: string, field: string, newValue: string) => {
+    setData((prevData) =>
+      prevData.map((row) => (row.id === id ? { ...row, [field]: newValue } : row))
+    );
   }, []);
 
+  // Add column
+  const addColumn = useCallback(() => {
+    const newColId = createId('col');
+    const newColumn: TableColumn = { id: newColId, name: 'New column', type: 'text' };
+    setColumns((prev) => [...prev, newColumn]);
+    setData((prev) => prev.map((row) => ({ ...row, [newColId]: '' })));
+  }, []);
+
+  // Delete column
   const deleteColumn = useCallback((colId: string) => {
     setColumns((prev) => prev.filter((c) => c.id !== colId));
     setData((prev) =>
@@ -139,13 +176,12 @@ export function InteractiveTable({
     );
   }, []);
 
-  const addColumn = useCallback(() => {
-    const newColId = createId('col');
-    const newColumn: TableColumn = { id: newColId, name: 'New column', type: 'text' };
-    setColumns((prev) => [...prev, newColumn]);
-    setData((prev) => prev.map((row) => ({ ...row, [newColId]: '' })));
+  // Rename column
+  const renameColumn = useCallback((colId: string, newName: string) => {
+    setColumns((prev) => prev.map((col) => (col.id === colId ? { ...col, name: newName } : col)));
   }, []);
 
+  // Add row
   const addRow = useCallback(() => {
     const newRowId = createId('row');
     const base: TableRow = { id: newRowId };
@@ -155,355 +191,296 @@ export function InteractiveTable({
     setData((prev) => [...prev, base]);
   }, [columns]);
 
-  const tableColumns = useMemo<ColumnDef<TableRow>[]>(
-    () =>
-      columns.map((col) => ({
-        id: col.id,
-        header: () => (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={col.name}
-              onChange={(e) => renameColumn(col.id, e.target.value)}
-              className="w-full bg-transparent text-[11px] font-semibold uppercase tracking-wide text-gray-700 outline-none"
-            />
-            <button
-              aria-label="Delete column"
-              onClick={() => deleteColumn(col.id)}
-              className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ),
-        cell: ({ row }) => {
-          const isEditing = editingCell?.rowId === row.original.id && editingCell?.colId === col.id;
-          const value = row.original[col.id] ?? '';
+  // Row selection handlers
+  const handleRowSelectionStart = (e: React.MouseEvent, index: number, id: string) => {
+    e.preventDefault();
+    setIsDraggingRows(true);
+    rowSelectionStartRef.current = index;
+    const newSet = new Set([id]);
+    setSelectedRowIds(newSet);
+    setAllChecked(newSet.size === data.length);
+  };
 
-          if (isEditing) {
-            return (
-              <input
-                autoFocus
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={() => saveEdit(row.original.id, col.id)}
-                onKeyDown={(e) => handleCellKeyDown(e, row.original.id, col.id)}
-                className="w-full rounded border border-blue-500 px-2 py-1 text-sm outline-none"
-              />
-            );
-          }
+  const handleRowSelectionMove = (index: number) => {
+    if (!isDraggingRows || rowSelectionStartRef.current === null) return;
+    const start = rowSelectionStartRef.current;
+    const end = index;
+    const low = Math.min(start, end);
+    const high = Math.max(start, end);
+    const newSelectedIds = new Set<string>();
+    for (let i = low; i <= high; i++) {
+      if (data[i]) newSelectedIds.add(data[i].id);
+    }
+    setSelectedRowIds(newSelectedIds);
+  };
 
-          const rendered = value && col.type === 'url' && value.startsWith('http') ? (
-            <a href={value} className="text-blue-600 hover:underline" target="_blank" rel="noreferrer">
-              {value}
-            </a>
-          ) : (
-            value
-          );
+  const toggleAllRows = () => {
+    if (allChecked) {
+      setSelectedRowIds(new Set());
+      setAllChecked(false);
+    } else {
+      const allIds = new Set(data.map((r) => r.id));
+      setSelectedRowIds(allIds);
+      setAllChecked(true);
+    }
+  };
 
-          return (
-            <div
-              onDoubleClick={() => startEditing(row.original.id, col.id, value)}
-              className="rounded px-1 py-0.5 text-sm text-gray-900 hover:bg-gray-50 cursor-text"
-            >
-              {rendered}
-            </div>
-          );
-        },
-      })),
-    [columns, deleteColumn, editingCell, editValue, handleCellKeyDown, renameColumn, saveEdit, startEditing]
-  );
+  // Cell selection handlers
+  const handleCellMouseDown = (rowIndex: number, colIndex: number, e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'A') return;
+    
+    setIsSelectingCells(true);
+    setSelectionRange({
+      start: { r: rowIndex, c: colIndex },
+      end: { r: rowIndex, c: colIndex },
+    });
+    setEditingCell(null);
+  };
 
-  const table = useReactTable({
-    data,
-    columns: tableColumns,
-    getRowId: (row) => row.id,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const rowVirtualizer = useVirtualizer({
-    getScrollElement: () => scrollRef.current,
-    count: table.getRowModel().rows.length,
-    estimateSize: () => 52,
-    overscan: 8,
-  });
-
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const totalSize = rowVirtualizer.getTotalSize();
-  const paddingTop = virtualRows.length > 0 ? virtualRows[0]?.start ?? 0 : 0;
-  const paddingBottom = virtualRows.length > 0 ? totalSize - (virtualRows[virtualRows.length - 1]?.end ?? totalSize) : 0;
-
-  const handleCellClick = useCallback(
-    (cell: string, event: React.MouseEvent) => {
-      const isCtrl = event.ctrlKey || event.metaKey;
-      const next = new Set(selectedCells);
-
-      if (isCtrl) {
-        next.has(cell) ? next.delete(cell) : next.add(cell);
-      } else {
-        next.clear();
-        next.add(cell);
-      }
-
-      setSelectedCells(next);
-      setSelectionState((prev) => ({ ...prev, lastClickedCellId: cell }));
-    },
-    [selectedCells]
-  );
-
-  const checkIntersection = useCallback(
-    (selectionRect: DOMRect): Set<string> => {
-      const intersecting = new Set<string>();
-      const container = containerRef.current;
-      if (!container) return intersecting;
-
-      const containerRect = container.getBoundingClientRect();
-      const cells = container.querySelectorAll<HTMLElement>('[data-cell-id]');
-
-      cells.forEach((cell) => {
-        const rect = cell.getBoundingClientRect();
-        const relativeRect = new DOMRect(
-          rect.x - containerRect.x,
-          rect.y - containerRect.y,
-          rect.width,
-          rect.height
-        );
-
-        const intersects = !(
-          relativeRect.right < selectionRect.left ||
-          relativeRect.left > selectionRect.right ||
-          relativeRect.bottom < selectionRect.top ||
-          relativeRect.top > selectionRect.bottom
-        );
-
-        if (intersects) {
-          const id = cell.dataset.cellId;
-          if (id) intersecting.add(id);
-        }
+  const handleCellMouseEnter = (rowIndex: number, colIndex: number) => {
+    if (isSelectingCells && selectionRange) {
+      setSelectionRange({
+        ...selectionRange,
+        end: { r: rowIndex, c: colIndex },
       });
+    }
+  };
 
-      return intersecting;
-    },
-    []
-  );
+  // Get cell selection state
+  const getCellSelectionState = (rowIndex: number, colIndex: number) => {
+    if (!selectionRange) return { isSelected: false, style: {} };
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
+    const { start, end } = selectionRange;
+    const minR = Math.min(start.r, end.r);
+    const maxR = Math.max(start.r, end.r);
+    const minC = Math.min(start.c, end.c);
+    const maxC = Math.max(start.c, end.c);
 
-      const target = e.target as HTMLElement;
-      if (target.closest('input, textarea, button, a, [role="button"], [role="checkbox"]')) return;
+    const isSelected = rowIndex >= minR && rowIndex <= maxR && colIndex >= minC && colIndex <= maxC;
 
-      const container = containerRef.current?.getBoundingClientRect();
-      if (!container) return;
+    if (!isSelected) return { isSelected: false, style: {} };
 
-      const isCtrl = e.ctrlKey || e.metaKey;
-      const currentSelection = new Set(selectedCells);
+    const borderColor = 'rgb(193, 0, 97)';
+    const backgroundColor = isCopyFlash ? 'rgba(60, 188, 0, 0.3)' : 'rgba(255, 0, 128, 0.1)';
+    const borderStyle = 'dashed';
 
-      setSelectionState((prev) => ({
-        ...prev,
-        dragVector: new DOMVector(e.clientX - container.x, e.clientY - container.y, 0, 0),
-        initialSelection: isCtrl ? currentSelection : new Set(),
-      }));
+    const isTop = rowIndex === minR;
+    const isBottom = rowIndex === maxR;
+    const isLeft = colIndex === minC;
+    const isRight = colIndex === maxC;
 
-      e.currentTarget.setPointerCapture(e.pointerId);
-    },
-    [selectedCells]
-  );
+    return {
+      isSelected: true,
+      style: {
+        backgroundColor: backgroundColor,
+        borderTop: isTop ? `1px ${borderStyle} ${borderColor}` : undefined,
+        borderBottom: isBottom ? `1px ${borderStyle} ${borderColor}` : undefined,
+        borderLeft: isLeft ? `1px ${borderStyle} ${borderColor}` : undefined,
+        borderRight: isRight ? `1px ${borderStyle} ${borderColor}` : undefined,
+        zIndex: 10,
+      },
+    };
+  };
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!selectionState.dragVector) return;
-
-      const container = containerRef.current?.getBoundingClientRect();
-      if (!container) return;
-
-      const newVector = new DOMVector(
-        selectionState.dragVector.x,
-        selectionState.dragVector.y,
-        e.clientX - container.x - selectionState.dragVector.x,
-        e.clientY - container.y - selectionState.dragVector.y
+  // Render cell content
+  const renderCellContent = (value: string, type: ColumnType) => {
+    if (type === 'url' && value && value.startsWith('http')) {
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline truncate block"
+        >
+          {value.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+        </a>
       );
+    }
+    return <span className="truncate">{value || <span className="text-gray-400 italic">Empty</span>}</span>;
+  };
 
-      const distance = Math.sqrt(newVector.magnitudeX ** 2 + newVector.magnitudeY ** 2);
-
-      if (distance > 6) {
-        const rawRect = newVector.toRect();
-        const clampedRect = clampRect(rawRect, container.width, container.height);
-        setSelectionState((prev) => ({ ...prev, isDragging: true, dragVector: newVector }));
-
-        const isCtrl = e.ctrlKey || e.metaKey;
-        const intersecting = checkIntersection(clampedRect);
-        const next = new Set(isCtrl ? selectionState.initialSelection : []);
-        intersecting.forEach((id) => next.add(id));
-        setSelectedCells(next);
-      } else {
-        setSelectionState((prev) => ({ ...prev, dragVector: newVector }));
-      }
-    },
-    [checkIntersection, selectionState.dragVector, selectionState.initialSelection]
-  );
-
-  const handlePointerUp = useCallback(() => {
-    setSelectionState((prev) => ({
-      dragVector: null,
-      isDragging: false,
-      lastClickedCellId: prev.lastClickedCellId,
-      initialSelection: new Set(),
-    }));
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        const all = new Set<string>();
-        data.forEach((row) => {
-          columns.forEach((col) => {
-            all.add(cellId(row.id, col.id));
-          });
-        });
-        setSelectedCells(all);
-      }
-
-      if (e.key === 'Escape') {
-        setSelectedCells(new Set());
-      }
-    },
-    [columns, data]
-  );
-
-  const dragRect = selectionState.dragVector?.toRect();
-  const overlayRect =
-    selectionState.isDragging && dragRect && containerRef.current
-      ? clampRect(dragRect, containerRef.current.clientWidth, containerRef.current.clientHeight)
-      : null;
+  const selectedCellCount = selectionRange
+    ? (Math.abs(selectionRange.end.r - selectionRange.start.r) + 1) *
+      (Math.abs(selectionRange.end.c - selectionRange.start.c) + 1)
+    : 0;
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 flex-wrap">
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex flex-col h-full rounded-xl border border-gray-200/60 bg-white shadow-lg overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200/60 glass-panel px-6 py-4 flex-wrap">
+        <h2 className="text-lg font-semibold text-gray-900 tracking-tight">{title}</h2>
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={addColumn}
-            className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-600"
+            className="group flex items-center gap-2 rounded-lg bg-linear-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 active:scale-95"
           >
-            <Plus size={14} />
+            <Plus size={16} className="group-hover:rotate-90 transition-transform duration-200" />
             Add column
           </button>
           <button
             onClick={addRow}
-            className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-600"
+            className="group flex items-center gap-2 rounded-lg bg-linear-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 active:scale-95"
           >
-            <Plus size={14} />
+            <Plus size={16} className="group-hover:rotate-90 transition-transform duration-200" />
             Add row
           </button>
         </div>
       </div>
 
-      <div
-        ref={(node) => {
-          scrollRef.current = node;
-          containerRef.current = node;
-        }}
-        className="relative flex-1 overflow-auto"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-      >
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-10 bg-gray-50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-gray-200">
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="group border-r border-gray-200 px-3 py-2 text-left align-middle"
+      {/* Table Container */}
+      <div className="flex-1 overflow-auto relative select-none" ref={containerRef}>
+        <div className="min-w-full">
+          {/* Header Row */}
+          <div className="flex items-center h-12 border-b-2 border-gray-200/80 bg-white sticky top-0 z-30">
+            {/* Checkbox Column */}
+            <div
+              className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-white z-30 border-r border-gray-200/40 hover:bg-gray-50 transition-colors h-full"
+              onClick={toggleAllRows}
+            >
+              <Checkbox checked={allChecked} />
+            </div>
+
+            {/* Column Headers */}
+            {columns.map((col, idx) => (
+              <div
+                key={col.id}
+                className={cn(
+                  'flex flex-col gap-1.5 px-4 py-2 border-r border-gray-200/40 shrink-0 h-full justify-center transition-colors bg-linear-to-b from-gray-50/90 to-white/70 group',
+                  idx === 0 && 'sticky left-12 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
+                  'min-w-50'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={col.name}
+                    onChange={(e) => renameColumn(col.id, e.target.value)}
+                    className="w-full bg-transparent text-xs font-semibold uppercase tracking-wider text-gray-700 outline-none hover:text-gray-900 transition-colors"
+                    placeholder="Column name"
+                  />
+                  <button
+                    aria-label="Delete column"
+                    onClick={() => deleteColumn(col.id)}
+                    className="text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm shrink-0"
                   >
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400">{(header.column.columnDef as ColumnDef<TableRow>).id}</div>
-                  </th>
-                ))}
-              </tr>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{col.id}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-200">
+                    {col.type}
+                  </span>
+                </div>
+              </div>
             ))}
-          </thead>
+          </div>
 
-          <tbody className="relative">
-            {paddingTop > 0 && (
-              <tr>
-                <td style={{ height: paddingTop }} colSpan={columns.length} />
-              </tr>
-            )}
-
-            {virtualRows.map((virtualRow) => {
-              const row = table.getRowModel().rows[virtualRow.index];
-              if (!row) return null;
+          {/* Data Rows */}
+          <div className="divide-y divide-slate-100 relative">
+            {data.map((row, rIndex) => {
+              const isRowSelected = selectedRowIds.has(row.id);
+              const rowBg = rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white';
 
               return (
-                <tr
+                <div
                   key={row.id}
-                  data-row-id={row.id}
-                  className="h-13 border-b border-gray-100 transition-colors hover:bg-blue-50/40"
+                  className={cn(
+                    'flex items-center h-14 transition-colors group relative',
+                    rowBg,
+                    isRowSelected && 'bg-blue-50/60'
+                  )}
                 >
-                  {row.getVisibleCells().map((cell) => {
-                    const cId = cellId(row.original.id, cell.column.id);
-                    const isSelected = selectedCells.has(cId);
+                  {/* Row Checkbox */}
+                  <div
+                    className={cn(
+                      'w-12 flex items-center justify-center shrink-0 sticky left-0 z-20 cursor-grab active:cursor-grabbing border-r border-slate-100 h-full',
+                      isRowSelected ? 'bg-blue-50/90' : 'bg-white'
+                    )}
+                    onMouseDown={(e) => handleRowSelectionStart(e, rIndex, row.id)}
+                    onMouseEnter={() => handleRowSelectionMove(rIndex)}
+                  >
+                    <Checkbox checked={isRowSelected} />
+                  </div>
+
+                  {/* Data Cells */}
+                  {columns.map((col, cIndex) => {
+                    const { isSelected, style } = getCellSelectionState(rIndex, cIndex);
+                    const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
 
                     return (
-                      <td
-                        key={cell.id}
-                        data-cell-id={cId}
-                        className={`border-r border-gray-100 px-3 align-middle ${
-                          isSelected ? 'bg-blue-100/70 ring-1 ring-inset ring-blue-300' : ''
-                        }`}
-                        onClick={(e) => handleCellClick(cId, e)}
+                      <div
+                        key={col.id}
+                        className={cn(
+                          'h-full flex items-center px-4 shrink-0 border-r border-transparent relative outline-none min-w-50',
+                          cIndex === 0 && 'sticky left-12 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
+                          cIndex === 0 && (isRowSelected ? 'bg-blue-50/90' : 'bg-white')
+                        )}
+                        style={isSelected ? style : undefined}
+                        onMouseDown={(e) => handleCellMouseDown(rIndex, cIndex, e)}
+                        onMouseEnter={() => handleCellMouseEnter(rIndex, cIndex)}
+                        onDoubleClick={() => {
+                          setEditingCell({ rowIndex: rIndex, colId: col.id });
+                          setEditValue(row[col.id] || '');
+                        }}
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+                        {isEditing ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            className="w-full h-8 shadow-none border-2 border-purple-500 ring-2 ring-purple-100 rounded px-2 outline-none"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => {
+                              updateRow(row.id, col.id, editValue);
+                              setEditingCell(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateRow(row.id, col.id, editValue);
+                                setEditingCell(null);
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingCell(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full text-slate-700 text-sm">
+                            {renderCellContent(row[col.id], col.type)}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
-                </tr>
+                </div>
               );
             })}
-
-            {paddingBottom > 0 && (
-              <tr>
-                <td style={{ height: paddingBottom }} colSpan={columns.length} />
-              </tr>
-            )}
-          </tbody>
-        </table>
-
-        {overlayRect && (
-          <div
-            className="pointer-events-none absolute rounded border border-blue-400 bg-blue-500/10"
-            style={{
-              left: overlayRect.x,
-              top: overlayRect.y,
-              width: overlayRect.width,
-              height: overlayRect.height,
-            }}
-          />
-        )}
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 text-xs text-gray-700">
-        <span>
-          {data.length} row{data.length === 1 ? '' : 's'} • {columns.length} column{columns.length === 1 ? '' : 's'}
+      {/* Footer */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200/60 glass-panel px-6 py-4 text-xs text-gray-600">
+        <span className="font-medium">
+          <span className="text-gray-900 font-semibold">{data.length}</span> row{data.length === 1 ? '' : 's'} •{' '}
+          <span className="text-gray-900 font-semibold">{columns.length}</span> column{columns.length === 1 ? '' : 's'}
+          {selectedRowIds.size > 0 && (
+            <>
+              {' '}• <span className="text-purple-600 font-semibold">{selectedRowIds.size}</span> row{selectedRowIds.size === 1 ? '' : 's'} selected
+            </>
+          )}
         </span>
         <button
-          disabled={selectedCells.size === 0}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
-            selectedCells.size === 0
-              ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              : 'bg-purple-600 text-white hover:bg-purple-700'
+          disabled={selectedCellCount === 0}
+          className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-md transition-all duration-200 ${
+            selectedCellCount === 0
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+              : 'bg-linear-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 hover:shadow-lg active:scale-95'
           }`}
         >
-          <Play size={16} />
-          Run selected cells ({selectedCells.size})
+          <Play size={16} className={selectedCellCount > 0 ? 'animate-pulse' : ''} />
+          Run selected cells ({selectedCellCount})
         </button>
       </div>
     </div>

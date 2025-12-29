@@ -28,7 +28,7 @@ export default function NewTablePage() {
       },
       {
         onSuccess: (table) => {
-          router.push(`/dashboard/tables/${table.id}`);
+          router.push(`/tables/${table.id}`);
         },
       }
     );
@@ -38,7 +38,7 @@ export default function NewTablePage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
-          href="/dashboard/tables"
+          href="/tables"
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-600" />
@@ -96,7 +96,7 @@ export default function NewTablePage() {
                 {isPending ? 'Creating...' : 'Create Table'}
               </button>
               <Link
-                href="/dashboard/tables"
+                href="/tables"
                 className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
