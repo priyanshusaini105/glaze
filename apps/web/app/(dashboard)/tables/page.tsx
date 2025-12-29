@@ -97,7 +97,7 @@ export default function TablesPage() {
         {/* Tables List */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           {/* Table Header */}
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
+          <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
             <div className="col-span-6 flex items-center gap-2">
               <input type="checkbox" className="rounded border-gray-300" />
               <span>Name</span>
@@ -147,40 +147,80 @@ export default function TablesPage() {
               {filteredTables.map((table) => (
                 <div
                   key={table.id}
-                  className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors group"
+                  className="p-4 md:p-6 hover:bg-gray-50 transition-colors group"
                 >
-                  <div className="col-span-6 flex items-center gap-3">
-                    <input type="checkbox" className="rounded border-gray-300" />
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shrink-0">
-                      <TableIcon size={16} className="text-green-700" />
+                  {/* Mobile Layout */}
+                  <div className="md:hidden space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" className="rounded border-gray-300" />
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shrink-0">
+                        <TableIcon size={16} className="text-green-700" />
+                      </div>
+                      <Link
+                        href={`/tables/${table.id}`}
+                        className="font-medium text-gray-900 hover:text-blue-600 transition-colors flex-1"
+                      >
+                        {table.name}
+                      </Link>
+                      <button
+                        onClick={() => setDeleteConfirm(table.id)}
+                        className="p-2 hover:bg-gray-200 rounded-lg transition-all"
+                      >
+                        <MoreVertical size={16} className="text-gray-500" />
+                      </button>
                     </div>
-                    <Link
-                      href={`/tables/${table.id}`}
-                      className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
-                    >
-                      {table.name}
-                    </Link>
-                  </div>
-                  <div className="col-span-3 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
-                      P
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
+                          P
+                        </div>
+                        <span>Priyanshu</span>
+                      </div>
+                      <span>
+                        {new Date(table.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-600">Priyanshu .</span>
                   </div>
-                  <div className="col-span-3 flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      {new Date(table.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                    <button
-                      onClick={() => setDeleteConfirm(table.id)}
-                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-gray-200 rounded-lg transition-all"
-                    >
-                      <MoreVertical size={16} className="text-gray-500" />
-                    </button>
+
+                  {/* Desktop Layout */}
+                  <div className="hidden md:grid md:grid-cols-12 gap-4">
+                    <div className="col-span-6 flex items-center gap-3">
+                      <input type="checkbox" className="rounded border-gray-300" />
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shrink-0">
+                        <TableIcon size={16} className="text-green-700" />
+                      </div>
+                      <Link
+                        href={`/tables/${table.id}`}
+                        className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                      >
+                        {table.name}
+                      </Link>
+                    </div>
+                    <div className="col-span-3 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
+                        P
+                      </div>
+                      <span className="text-sm text-gray-600">Priyanshu</span>
+                    </div>
+                    <div className="col-span-3 flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {new Date(table.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <button
+                        onClick={() => setDeleteConfirm(table.id)}
+                        className="opacity-0 group-hover:opacity-100 p-2 hover:bg-gray-200 rounded-lg transition-all"
+                      >
+                        <MoreVertical size={16} className="text-gray-500" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

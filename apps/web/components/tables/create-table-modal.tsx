@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, FileSpreadsheet, Database, Webhook, Building2, Search as SearchIcon, Sparkles } from 'lucide-react';
+import { X, Database, Copy, Sparkles, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCreateTable } from '@/hooks/use-query-api';
 import { CSVImport } from './csv-import';
-import { apiClient } from '@/lib/api-client';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -13,13 +12,9 @@ interface CreateTableModalProps {
 }
 
 type CreateOption = 
-  | 'salesforce' 
-  | 'hubspot' 
-  | 'webhooks' 
-  | 'scratch' 
-  | 'csv' 
-  | 'lookalikes' 
-  | 'local-business'
+  | 'start-from-scratch' 
+  | 'import-from-csv' 
+  | 'start-from-example'
   | null;
 
 export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
@@ -27,7 +22,6 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
   const { mutate: createTable, isPending } = useCreateTable();
   const [selectedOption, setSelectedOption] = useState<CreateOption>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
-  const [csvImporting, setCSVImporting] = useState(false);
   const [csvError, setCSVError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -51,8 +45,47 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
     );
   };
 
+  const handleCreateFromModel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) return;
+
+    createTable(
+      {
+        name: formData.name,
+        description: formData.description || undefined,
+      },
+      {
+        onSuccess: (table) => {
+          // TODO: redirect to CSV import flow
+          router.push(`/tables/${table.id}`);
+          onClose();
+        },
+      }
+    );
+  };
+
+  const handleCreateFromExample = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) return;
+
+    createTable(
+      {
+        name: formData.name,
+        description: formData.description || undefined,
+      },
+      {
+        onSuccess: (table) => {
+          // TODO: redirect to example selection
+          router.push(`/tables/${table.id}`);
+          onClose();
+        },
+      }
+    );
+  };
+
   const handleCSVImport = async (data: { headers: string[]; rows: Record<string, unknown>[] }) => {
-    setCSVImporting(true);
     setCSVError(null);
 
     try {
@@ -70,10 +103,14 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
       ];
       const csvContent = csvLines.join('\n');
 
-      const response = await apiClient.post('/tables/import-csv', {
-        name: formData.name || 'Imported Table',
-        description: formData.description || `Imported from CSV with ${data.rows.length} rows`,
-        csvContent
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name || 'Imported Table',
+          description: formData.description || `Imported from CSV with ${data.rows.length} rows`,
+          csvContent
+        }),
       });
 
       if (response.ok) {
@@ -84,64 +121,33 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to import CSV');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('CSV import error:', err);
-      setCSVError(err.message || 'Failed to import CSV');
-    } finally {
-      setCSVImporting(false);
+      setCSVError(err instanceof Error ? err.message : 'Failed to import CSV');
     }
   };
 
-  const createOptions = [
+  const mainCreateOptions = [
     {
-      id: 'salesforce' as const,
-      icon: '☁️',
-      title: 'Import from Salesforce',
-      description: 'Import objects from Salesforce - one-time or with automatic syncing',
-      badges: ['BETA', 'NEW'],
-      color: 'from-blue-500 to-cyan-500',
-    },
-    {
-      id: 'hubspot' as const,
-      icon: '🔶',
-      title: 'Import from HubSpot',
-      description: 'Import objects from HubSpot - one-time or with automatic syncing',
-      color: 'from-orange-500 to-red-500',
-    },
-    {
-      id: 'webhooks' as const,
-      icon: <Webhook className="w-5 h-5" />,
-      title: 'Inbound webhooks',
-      description: 'Receive data from external sources',
-      color: 'from-purple-500 to-pink-500',
-    },
-    {
-      id: 'scratch' as const,
-      icon: <Database className="w-5 h-5" />,
+      id: 'start-from-scratch' as const,
+      icon: <Database className="w-6 h-6" />,
       title: 'Start from scratch',
       description: 'Create a blank table you can customize and build however you like',
       color: 'from-slate-500 to-slate-700',
     },
     {
-      id: 'csv' as const,
-      icon: <FileSpreadsheet className="w-5 h-5" />,
-      title: 'Upload a CSV file',
-      description: 'Bring in your data from a spreadsheet',
+      id: 'import-from-csv' as const,
+      icon: <Copy className="w-6 h-6" />,
+      title: 'Import from CSV',
+      description: 'Upload a CSV file to quickly populate your table with data',
       color: 'from-green-500 to-emerald-500',
     },
     {
-      id: 'lookalikes' as const,
-      icon: <Sparkles className="w-5 h-5" />,
-      title: 'Find company lookalikes',
-      description: 'Build a lead list by finding companies similar to ones you already work with',
-      color: 'from-violet-500 to-purple-500',
-    },
-    {
-      id: 'local-business' as const,
-      icon: <SearchIcon className="w-5 h-5" />,
-      title: 'Search local businesses',
-      description: 'Use Google Maps to find and add businesses based on location and category',
-      color: 'from-yellow-500 to-orange-500',
+      id: 'start-from-example' as const,
+      icon: <Sparkles className="w-6 h-6" />,
+      title: 'Start from example',
+      description: 'Use real-world examples and sample data to learn and build',
+      color: 'from-purple-500 to-pink-500',
     },
   ];
 
@@ -150,11 +156,29 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {selectedOption === 'scratch' ? 'Create from scratch' : 
-             selectedOption === 'csv' ? 'Upload CSV file' : 
-             'Create new table'}
-          </h2>
+          <div className="flex items-center gap-3">
+            {selectedOption && (
+              <button
+                onClick={() => {
+                  setSelectedOption(null);
+                  setFormData({ name: '', description: '' });
+                  setCSVError(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} className="text-gray-600" />
+              </button>
+            )}
+            <h2 className="text-xl font-semibold text-gray-900">
+              {!selectedOption
+                ? 'Create new table'
+                : selectedOption === 'start-from-scratch'
+                ? 'Start from scratch'
+                : selectedOption === 'import-from-csv'
+                ? 'Import from CSV'
+                : 'Start from example'}
+            </h2>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -167,43 +191,28 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
         <div className="p-6 overflow-y-auto max-h-[calc(85vh-80px)]">
           {!selectedOption ? (
             <div className="space-y-3">
-              {createOptions.map((option) => (
+              {mainCreateOptions.map((option) => (
                 <button
                   key={option.id}
-                  onClick={() => setSelectedOption(option.id)}
+                  onClick={() => {
+                    setSelectedOption(option.id);
+                    setFormData({ name: '', description: '' });
+                  }}
                   className="w-full flex items-start gap-4 p-4 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left group"
                 >
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${option.color} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform`}>
-                    {typeof option.icon === 'string' ? (
-                      <span className="text-xl">{option.icon}</span>
-                    ) : (
-                      option.icon
-                    )}
+                  <div className={`w-12 h-12 rounded-lg bg-linear-to-br ${option.color} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform`}>
+                    {option.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-gray-700">
-                        {option.title}
-                      </h3>
-                      {option.badges && (
-                        <div className="flex gap-1">
-                          {option.badges.map((badge) => (
-                            <span
-                              key={badge}
-                              className="px-2 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded uppercase"
-                            >
-                              {badge}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-gray-700 mb-1">
+                      {option.title}
+                    </h3>
                     <p className="text-sm text-gray-600">{option.description}</p>
                   </div>
                 </button>
               ))}
             </div>
-          ) : selectedOption === 'scratch' ? (
+          ) : selectedOption === 'start-from-scratch' ? (
             <form onSubmit={handleCreateFromScratch} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -233,7 +242,10 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setSelectedOption(null)}
+                  onClick={() => {
+                    setSelectedOption(null);
+                    setFormData({ name: '', description: '' });
+                  }}
                   className="flex-1 px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium"
                 >
                   Back
@@ -241,60 +253,115 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                 <button
                   type="submit"
                   disabled={isPending || !formData.name.trim()}
-                  className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 rounded-lg bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isPending ? 'Creating...' : 'Create Table'}
                 </button>
               </div>
             </form>
-          ) : selectedOption === 'csv' ? (
-            <div className="space-y-6">
+          ) : selectedOption === 'import-from-csv' ? (
+            <form onSubmit={handleCreateFromModel} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Table Name (optional)
+                  Table Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Imported Table"
+                  placeholder="My Table"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                  required
                 />
               </div>
-              <CSVImport onImport={handleCSVImport} isImporting={csvImporting} />
-              {csvError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{csvError}</p>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe what this table is for..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-3">Select CSV file to import:</p>
+                <CSVImport onImport={handleCSVImport} />
+                {csvError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg mt-3">
+                    <p className="text-sm text-red-600">{csvError}</p>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setSelectedOption(null)}
-                  disabled={csvImporting}
-                  className="flex-1 px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+                  onClick={() => {
+                    setSelectedOption(null);
+                    setFormData({ name: '', description: '' });
+                    setCSVError(null);
+                  }}
+                  className="flex-1 px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium"
                 >
                   Back
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                <Building2 className="w-8 h-8 text-gray-400" />
+            </form>
+          ) : selectedOption === 'start-from-example' ? (
+            <form onSubmit={handleCreateFromExample} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Table Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="My Table"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                  required
+                />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon</h3>
-              <p className="text-gray-600 mb-6">
-                This feature is currently under development and will be available soon.
-              </p>
-              <button
-                onClick={() => setSelectedOption(null)}
-                className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors font-medium"
-              >
-                Go Back
-              </button>
-            </div>
-          )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe what this table is for..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
+                />
+              </div>
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-sm text-purple-700">
+                  Example selection interface will be available after table creation.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedOption(null);
+                    setFormData({ name: '', description: '' });
+                  }}
+                  className="flex-1 px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending || !formData.name.trim()}
+                  className="flex-1 px-4 py-3 rounded-lg bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPending ? 'Creating...' : 'Create Table'}
+                </button>
+              </div>
+            </form>
+          ) : null}
         </div>
       </div>
     </div>
