@@ -3,6 +3,9 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { registerIcpRoutes } from './routes/icps';
 import { tablesRoutes } from './routes/tables';
+import { registerEnrichmentRoutes } from './routes/enrich';
+import { effectEnrichmentRoutes } from './routes/effect-enrich';
+import { startEnrichmentWorker } from './services/enrichment-queue';
 
 export const buildApp = () => {
   const app = new Elysia()
@@ -12,8 +15,8 @@ export const buildApp = () => {
         documentation: {
           info: {
             title: 'Glaze API',
-            version: '0.2.0',
-            description: 'Spreadsheet-style tables, columns, and rows backed by Prisma'
+            version: '0.3.0',
+            description: 'High-performance data enrichment platform with Effect TS'
           },
           servers: [
             {
@@ -34,28 +37,43 @@ export const buildApp = () => {
     }))
     .get('/', () => ({
       message: 'Welcome to Glaze API',
-      version: '0.2.0',
+      version: '0.3.0',
       endpoints: {
         health: '/health',
         icps: '/icps',
         resolveIcp: '/icps/resolve',
         tables: '/tables',
+        effect: '/effect',
         docs: '/docs'
       }
     }))
     .use(tablesRoutes)
-    .use(registerIcpRoutes);
+    .use(registerIcpRoutes)
+    .use(registerEnrichmentRoutes)
+    .use(effectEnrichmentRoutes);
 
   return app;
 };
 
+// Export type for Elysia Eden (type-safe client)
+export type App = ReturnType<typeof buildApp>;
+
 export const startServer = (port = Number(process.env.PORT) || 3001) => {
   const app = buildApp();
 
-  // Use Bun's native server
+  if (process.env.ENRICH_WORKER_ENABLED !== 'false') {
+    try {
+      startEnrichmentWorker();
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('[server] failed to start enrichment worker', error?.message || err);
+    }
+  }
+
+  // Use Bun's native server with Elysia
   const server = Bun.serve({
     port,
-    fetch: app.fetch.bind(app),
+    fetch: app.fetch,
   });
 
   console.log(

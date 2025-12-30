@@ -28,6 +28,7 @@
     "@tsparticles/engine": "^3.9.1",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.9.1",
+    "@elysiajs/eden": "^1.4.6",
     "ag-grid-community": "^35.0.0",
     "ag-grid-react": "^35.0.0",
     "class-variance-authority": "^0.7.1",
