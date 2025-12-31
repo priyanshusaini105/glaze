@@ -5,6 +5,7 @@ import { registerIcpRoutes } from './routes/icps';
 import { tablesRoutes } from './routes/tables';
 import { registerEnrichmentRoutes } from './routes/enrich';
 import { effectEnrichmentRoutes } from './routes/effect-enrich';
+import { registerSimpleEnrichmentRoutes } from './routes/enrich-simple';
 import { startEnrichmentWorker } from './services/enrichment-queue';
 
 export const buildApp = () => {
@@ -50,7 +51,8 @@ export const buildApp = () => {
     .use(tablesRoutes)
     .use(registerIcpRoutes)
     .use(registerEnrichmentRoutes)
-    .use(effectEnrichmentRoutes);
+    .use(effectEnrichmentRoutes)
+    .use(registerSimpleEnrichmentRoutes);
 
   return app;
 };

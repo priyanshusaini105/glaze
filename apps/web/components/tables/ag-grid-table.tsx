@@ -14,7 +14,7 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { apiClient } from '../../lib/api-client';
 import { Column, Row } from '../../lib/api-types';
-import { Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Sparkles } from 'lucide-react';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -27,9 +27,9 @@ interface AgGridTableProps {
 
 export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<any[]>([]);
+  const [rowData, setRowData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
-  const [gridApi, setGridApi] = useState<GridApi | null>(null);
+  const [enrichingRows, setEnrichingRows] = useState<Set<string>>(new Set());
 
   // Convert Column[] to AG Grid ColDef[]
   const columnDefs = useMemo<ColDef[]>(() => {
@@ -37,10 +37,12 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
       {
         headerName: '',
         field: '__actions',
-        width: 60,
+        width: 120,
         pinned: 'left',
         cellRenderer: (params: any) => {
-          const onClick = async () => {
+          const isEnriching = enrichingRows.has(params.data.id);
+          
+          const onDelete = async () => {
             if (confirm('Delete this row?')) {
               try {
                 await apiClient.deleteRow(tableId, params.data.id);
@@ -51,15 +53,96 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
               }
             }
           };
+
+          const onEnrich = async () => {
+            const rowId = params.data.id;
+            const field = 'company_website'; // Default field to enrich
+            
+            setEnrichingRows(prev => new Set(prev).add(rowId));
+            
+            // Update cell to show "processing..."
+            params.node.setDataValue(field, 'processing...');
+            
+            try {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+              const eventSource = new EventSource(
+                `${apiUrl}/api/enrich-simple/row/${tableId}/${rowId}/${field}`
+              );
+
+              eventSource.addEventListener('status', (e) => {
+                const data = JSON.parse(e.data);
+                params.node.setDataValue(field, data.value);
+              });
+
+              eventSource.addEventListener('complete', async (e) => {
+                const data = JSON.parse(e.data);
+                params.node.setDataValue(field, data.value);
+                
+                // Update in backend
+                await apiClient.updateRow(tableId, rowId, {
+                  data: { [field]: data.value },
+                });
+                
+                eventSource.close();
+                setEnrichingRows(prev => {
+                  const next = new Set(prev);
+                  next.delete(rowId);
+                  return next;
+                });
+              });
+
+              eventSource.addEventListener('error', (e) => {
+                console.error('SSE error:', e);
+                params.node.setDataValue(field, '');
+                eventSource.close();
+                setEnrichingRows(prev => {
+                  const next = new Set(prev);
+                  next.delete(rowId);
+                  return next;
+                });
+              });
+
+              eventSource.onerror = () => {
+                eventSource.close();
+                setEnrichingRows(prev => {
+                  const next = new Set(prev);
+                  next.delete(rowId);
+                  return next;
+                });
+              };
+            } catch (error) {
+              console.error('Failed to enrich:', error);
+              params.node.setDataValue(field, '');
+              setEnrichingRows(prev => {
+                const next = new Set(prev);
+                next.delete(rowId);
+                return next;
+              });
+            }
+          };
           
           return (
-            <button
-              onClick={onClick}
-              className="text-red-500 hover:text-red-700 p-1"
-              title="Delete row"
-            >
-              <Trash2 size={14} />
-            </button>
+            <div className="flex gap-1">
+              <button
+                onClick={onEnrich}
+                disabled={isEnriching}
+                className={`p-1 ${
+                  isEnriching
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-blue-600 hover:text-blue-800'
+                }`}
+                title="Enrich this row"
+              >
+                <Sparkles size={14} />
+              </button>
+              <button
+                onClick={onDelete}
+                className="text-red-500 hover:text-red-700 p-1"
+                title="Delete row"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           );
         },
         editable: false,
@@ -115,7 +198,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     });
 
     return cols;
-  }, [columns, tableId]);
+  }, [columns, tableId, enrichingRows, loadRows, apiClient]);
 
   // Load rows from API
   const loadRows = useCallback(async () => {
@@ -140,7 +223,8 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
   }, [loadRows]);
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
-    setGridApi(params.api);
+    // Grid is ready - can be used for future features
+    void params;
   }, []);
 
   // Handle cell value changes (UPDATE)

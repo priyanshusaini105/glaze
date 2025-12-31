@@ -10,7 +10,7 @@ import { FooterIridescent } from '../components/footer/FooterIridescent';
 
 export default function Home() {
   return (
-    <main className="min-h-screen relative overflow-hidden selection:bg-accent-blue/20 selection:text-accent-blue bg-white text-text-main antialiased">
+    <main className="min-h-screen relative overflow-visible selection:bg-accent-blue/20 selection:text-accent-blue bg-white text-text-main antialiased">
       <NavigationIridescent />
       <HeroIridescent />
       <WhyItFailsIridescent />
