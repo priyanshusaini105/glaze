@@ -9,18 +9,18 @@ export function NavigationIridescent() {
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-1 group cursor-pointer">
             <Image 
-              src="/img/glaze-abs.png" 
+              src="/img/glaze-abs3.png" 
               alt="Glaze Logo" 
-              width={40} 
-              height={40}
-              className="rounded-lg group-hover:scale-105 transition-transform"
+              width={80} 
+              height={80}
+              className="rounded-lg group-hover:scale-105 transition-transform w-12"
             />
              <Image 
               src="/img/glaze-text.png" 
               alt="Glaze Logo" 
-              width={96} 
+              width={196} 
               height={96}
-              className="rounded-lg group-hover:scale-105 transition-transform"
+              className="rounded-lg group-hover:scale-105 transition-transform h-8 w-auto"
             />
             {/* <span className="text-text-main text-lg font-bold tracking-tight">Glaze</span> */}
           </Link>

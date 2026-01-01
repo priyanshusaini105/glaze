@@ -177,7 +177,7 @@ export default function TablesPage() {
                         <span>Priyanshu</span>
                       </div>
                       <span>
-                        {new Date(table.createdAt).toLocaleDateString('en-US', {
+                        {table.createdAt && new Date(table.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

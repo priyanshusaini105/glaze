@@ -1,11 +1,8 @@
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
-import { registerIcpRoutes } from './routes/icps';
 import { tablesRoutes } from './routes/tables';
 import { registerEnrichmentRoutes } from './routes/enrich';
-import { effectEnrichmentRoutes } from './routes/effect-enrich';
-import { registerSimpleEnrichmentRoutes } from './routes/enrich-simple';
 import { startEnrichmentWorker } from './services/enrichment-queue';
 
 export const buildApp = () => {
@@ -41,18 +38,13 @@ export const buildApp = () => {
       version: '0.3.0',
       endpoints: {
         health: '/health',
-        icps: '/icps',
-        resolveIcp: '/icps/resolve',
         tables: '/tables',
-        effect: '/effect',
+        enrich: '/enrich',
         docs: '/docs'
       }
     }))
     .use(tablesRoutes)
-    .use(registerIcpRoutes)
-    .use(registerEnrichmentRoutes)
-    .use(effectEnrichmentRoutes)
-    .use(registerSimpleEnrichmentRoutes);
+    .use(registerEnrichmentRoutes);
 
   return app;
 };

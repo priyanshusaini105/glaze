@@ -62,14 +62,36 @@ export type EnrichmentData = Partial<Record<EnrichmentField, EnrichedValue>>;
 // ============ Input Schema ============
 export const enrichmentInputTypeSchema = z.enum(['linkedin_profile', 'company_website', 'company_linkedin']);
 
+// New: Support for different data structures
+export const enrichmentDataTypeSchema = z.enum(['cell', 'array', 'column', 'row']);
+
 export const enrichmentRequestSchema = z.object({
-  url: z.string().url(),
+  // For backward compatibility, 'url' is still supported
+  url: z.string().url().optional(),
+  
+  // New: Support different data types
+  dataType: enrichmentDataTypeSchema.optional().default('cell'),
+  
+  // For cell: single value
+  cellValue: z.string().optional(),
+  
+  // For array: list of values
+  arrayValues: z.array(z.string()).optional(),
+  
+  // For column/row: ID reference
+  columnId: z.string().optional(),
+  rowId: z.string().optional(),
+  
   inputType: enrichmentInputTypeSchema.optional(), // auto-detect if not provided
   requiredFields: z.array(z.enum(ENRICHMENT_FIELDS)).min(1, 'At least one field is required'),
   budgetCents: z.number().int().nonnegative().max(100_00).optional().default(0), // max $100
-  mock: z.boolean().optional().default(false),
-  skipCache: z.boolean().optional().default(false)
-});
+  mock: z.boolean().optional().default(true), // Default to simulation
+  skipCache: z.boolean().optional().default(false),
+  simulateDelay: z.boolean().optional().default(true) // Add realistic delays
+}).refine(
+  (data) => data.url || data.cellValue || data.arrayValues || data.columnId || data.rowId,
+  { message: 'At least one of: url, cellValue, arrayValues, columnId, or rowId must be provided' }
+);
 
 export type EnrichmentRequest = z.infer<typeof enrichmentRequestSchema>;
 

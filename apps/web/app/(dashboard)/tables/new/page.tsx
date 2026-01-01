@@ -61,10 +61,14 @@ export default function NewTablePage() {
       const csvContent = csvLines.join('\n');
 
       // Call the import API
-      const response = await apiClient.post('/tables/import-csv', {
-        name: formData.name || 'Imported Table',
-        description: formData.description || `Imported from CSV with ${data.rows.length} rows`,
-        csvContent
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name || 'Imported Table',
+          description: formData.description || `Imported from CSV with ${data.rows.length} rows`,
+          csvContent
+        })
       });
 
       if (response.ok) {

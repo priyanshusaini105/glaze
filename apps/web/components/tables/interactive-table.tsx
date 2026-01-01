@@ -2,7 +2,8 @@
 'use client';
 
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { Play, Plus, Trash2, Check } from 'lucide-react';
+import { Play, Plus, Trash2, Check, Sparkles, X } from 'lucide-react';
+import type { EnrichmentResponse } from '@/lib/api-types';
 
 type ColumnType = 'text' | 'number' | 'url' | 'email' | 'date';
 
@@ -310,6 +311,41 @@ export function InteractiveTable({
       (Math.abs(selectionRange.end.c - selectionRange.start.c) + 1)
     : 0;
 
+  // Get selected cells for enrichment
+  const getSelectedCells = () => {
+    if (!selectionRange) return [];
+    
+    const { start, end } = selectionRange;
+    const minR = Math.min(start.r, end.r);
+    const maxR = Math.max(start.r, end.r);
+    const minC = Math.min(start.c, end.c);
+    const maxC = Math.max(start.c, end.c);
+
+    const cells = [];
+    for (let r = minR; r <= maxR; r++) {
+      const row = data[r];
+      if (!row) continue;
+      for (let c = minC; c <= maxC; c++) {
+        const col = columns[c];
+        if (col) {
+          cells.push({
+            row: r,
+            col: col.id,
+            value: row[col.id] || ''
+          });
+        }
+      }
+    }
+    return cells;
+  };
+
+  // Handle enrichment complete
+  const handleEnrichmentComplete = (result: EnrichmentResponse) => {
+    console.log('Enrichment complete:', result);
+    // Here you would update the table data with enriched results
+    // For now, just log it
+  };
+
   return (
     <div className="flex flex-col h-full rounded-xl border border-gray-200/60 bg-white shadow-lg overflow-hidden">
       {/* Header */}
@@ -333,8 +369,10 @@ export function InteractiveTable({
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="flex-1 overflow-auto relative select-none" ref={containerRef}>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Table Container */}
+        <div className="flex-1 overflow-auto relative select-none transition-all duration-300" ref={containerRef}>
         <div className="min-w-full">
           {/* Header Row */}
           <div className="flex items-center h-12 border-b-2 border-gray-200/80 bg-white sticky top-0 z-30">
@@ -463,6 +501,7 @@ export function InteractiveTable({
               );
             })}
           </div>
+        </div>
         </div>
       </div>
 

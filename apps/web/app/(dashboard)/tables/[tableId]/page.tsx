@@ -93,6 +93,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   // Modal states (currently used for enrichment actions)
   const [showEnrichModal, setShowEnrichModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Enrichment state
+  const [isEnriching, setIsEnriching] = useState(false);
 
   useEffect(() => {
     params.then((p) => setTableId(p.tableId));
@@ -285,6 +288,118 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setIsExporting(false);
     }
   }, [currentTable, columns, rowData]);
+
+  // Handle run enrichment - auto-start enrichment on selected cells
+  const handleRunEnrichment = useCallback(async () => {
+    if (!selectionRange || !tableId) return;
+
+    setIsEnriching(true);
+    
+    try {
+      const { start, end } = selectionRange;
+      const minR = Math.min(start.r, end.r);
+      const maxR = Math.max(start.r, end.r);
+      const minC = Math.min(start.c, end.c);
+      const maxC = Math.max(start.c, end.c);
+
+      // Collect cell enrichment requests
+      const enrichmentRequests = [];
+      
+      for (let r = minR; r <= maxR; r++) {
+        const row = rowData[r];
+        if (!row) continue;
+
+        // Check if row is empty (only has id, createdAt, updatedAt)
+        const rowKeys = Object.keys(row.data || {});
+        const hasData = rowKeys.some(key => {
+          const value = row.data?.[key];
+          return value && String(value).trim() !== '';
+        });
+
+        // Skip completely empty rows
+        if (!hasData) continue;
+
+        for (let c = minC; c <= maxC; c++) {
+          const col = columns[c];
+          if (!col) continue;
+
+          enrichmentRequests.push({
+            rowId: row.id,
+            columnKey: col.key,
+            cellValue: row.data?.[col.key] || '',
+            rowData: row.data, // Include full row data for context
+          });
+        }
+      }
+
+      if (enrichmentRequests.length === 0) {
+        alert('No data to enrich. Make sure rows have some data.');
+        return;
+      }
+
+      // Call enrichment API on the backend server
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/enrich`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cells: enrichmentRequests }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Enrichment failed');
+      }
+
+      const result = await response.json();
+      console.log('Enrichment result:', result);
+
+      if (result.success && result.enrichedCells && result.enrichedCells.length > 0) {
+        // Group enriched cells by row to batch updates
+        const cellsByRow = new Map<string, typeof result.enrichedCells>();
+        
+        for (const enrichedCell of result.enrichedCells) {
+          if (!cellsByRow.has(enrichedCell.rowId)) {
+            cellsByRow.set(enrichedCell.rowId, []);
+          }
+          cellsByRow.get(enrichedCell.rowId)!.push(enrichedCell);
+        }
+        
+        // Update each row with all its enriched cells
+        for (const [rowId, cells] of cellsByRow.entries()) {
+          try {
+            const rowToUpdate = rowData.find(r => r.id === rowId);
+            if (rowToUpdate) {
+              // Build update object with all enriched cells for this row
+              const updateData = { ...rowToUpdate.data };
+              for (const enrichedCell of cells) {
+                updateData[enrichedCell.columnKey] = enrichedCell.enrichedValue;
+              }
+              
+              await apiClient.updateRow(tableId, rowId, {
+                data: updateData,
+              });
+            }
+          } catch (updateError) {
+            console.error('Failed to update row:', updateError);
+          }
+        }
+        
+        // Reload table data to show enriched values
+        await loadData();
+        
+        // Clear selection
+        setSelectionRange(null);
+        
+        alert(`Successfully enriched ${result.enrichedCells.length} cells!${result.skippedCells > 0 ? ` (${result.skippedCells} empty rows skipped)` : ''}`);
+      } else {
+        alert('No cells were enriched. Make sure rows have some data.');
+      }
+    } catch (error) {
+      console.error('Enrichment error:', error);
+      alert('Enrichment failed. Please try again.');
+    } finally {
+      setIsEnriching(false);
+    }
+  }, [selectionRange, rowData, columns, tableId, loadData]);
 
   // Global event handlers
   useEffect(() => {
@@ -750,36 +865,52 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             <div className="h-20"></div>
           </div>
 
-          {/* Floating Action Bar for Selected Rows */}
-          {selectedRowIds.size > 0 && (
-            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-              <div className="backdrop-blur-md bg-white/95 border border-slate-200 rounded-full shadow-xl shadow-slate-900/10 px-2 py-1.5 flex items-center gap-1">
-                <div className="px-4 py-1 border-r border-slate-200">
-                  <span className="text-sm font-semibold text-slate-900">{selectedRowIds.size} rows selected</span>
+          {/* Floating Action Bar for Selected Cells */}
+          {selectionRange && (() => {
+            const { start, end } = selectionRange;
+            const minR = Math.min(start.r, end.r);
+            const maxR = Math.max(start.r, end.r);
+            const minC = Math.min(start.c, end.c);
+            const maxC = Math.max(start.c, end.c);
+            const selectedCellCount = (maxR - minR + 1) * (maxC - minC + 1);
+            
+            return selectedCellCount > 0 ? (
+              <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+                <div className="backdrop-blur-md bg-white/95 border border-slate-200 rounded-full shadow-xl shadow-slate-900/10 px-2 py-1.5 flex items-center gap-1">
+                  <div className="px-4 py-1 border-r border-slate-200">
+                    <span className="text-sm font-semibold text-slate-900">{selectedCellCount} {selectedCellCount === 1 ? 'cell' : 'cells'} selected</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="gap-2 rounded-full px-5 hover:bg-purple-50 hover:text-purple-700"
+                    onClick={handleRunEnrichment}
+                    disabled={isEnriching}
+                  >
+                    {isEnriching ? (
+                      <>
+                        <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                        Enriching...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4.5 h-4.5" />
+                        Run Agent
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-9 w-9 p-0 rounded-full hover:bg-slate-100"
+                    onClick={() => setSelectionRange(null)}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="gap-2 rounded-full px-5 hover:bg-slate-100"
-                  onClick={() => {
-                    // Run agents action
-                    console.log('Run agents on selected rows');
-                  }}
-                >
-                  <Sparkles className="w-4.5 h-4.5" />
-                  Run Agents
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100"
-                  onClick={handleDeleteSelectedRows}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
               </div>
-            </div>
-          )}
+            ) : null;
+          })()}
 
           {/* Enrich Modal */}
           {showEnrichModal && (
