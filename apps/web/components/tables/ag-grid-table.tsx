@@ -56,63 +56,45 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
 
           const onEnrich = async () => {
             const rowId = params.data.id;
-            const field = 'company_website'; // Default field to enrich
             
             setEnrichingRows(prev => new Set(prev).add(rowId));
             
-            // Update cell to show "processing..."
-            params.node.setDataValue(field, 'processing...');
-            
             try {
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-              const eventSource = new EventSource(
-                `${apiUrl}/api/enrich-simple/row/${tableId}/${rowId}/${field}`
-              );
-
-              eventSource.addEventListener('status', (e) => {
-                const data = JSON.parse(e.data);
-                params.node.setDataValue(field, data.value);
-              });
-
-              eventSource.addEventListener('complete', async (e) => {
-                const data = JSON.parse(e.data);
-                params.node.setDataValue(field, data.value);
-                
-                // Update in backend
-                await apiClient.updateRow(tableId, rowId, {
-                  data: { [field]: data.value },
-                });
-                
-                eventSource.close();
-                setEnrichingRows(prev => {
-                  const next = new Set(prev);
-                  next.delete(rowId);
-                  return next;
-                });
-              });
-
-              eventSource.addEventListener('error', (e) => {
-                console.error('SSE error:', e);
-                params.node.setDataValue(field, '');
-                eventSource.close();
-                setEnrichingRows(prev => {
-                  const next = new Set(prev);
-                  next.delete(rowId);
-                  return next;
-                });
-              });
-
-              eventSource.onerror = () => {
-                eventSource.close();
-                setEnrichingRows(prev => {
-                  const next = new Set(prev);
-                  next.delete(rowId);
-                  return next;
-                });
+              // Enrich entire row using new unified endpoint
+              const enrichRequest = {
+                tableId,
+                targets: [{
+                  type: 'rows' as const,
+                  rowIds: [rowId]
+                }]
               };
+              
+              const enrichResponse = await apiClient.enrichData(enrichRequest);
+
+              // Update all cells in the row with enriched values
+              const updateData: Record<string, any> = {};
+              enrichResponse.results.forEach((result: any) => {
+                if (result.status === 'success') {
+                  params.node.setDataValue(result.columnId, result.enrichedValue);
+                  updateData[result.columnId] = result.enrichedValue;
+                }
+              });
+
+              // Update in backend
+              if (Object.keys(updateData).length > 0) {
+                await apiClient.updateRow(tableId, rowId, {
+                  data: updateData,
+                });
+              }
+
+              setEnrichingRows(prev => {
+                const next = new Set(prev);
+                next.delete(rowId);
+                return next;
+              });
             } catch (error) {
-              console.error('Failed to enrich:', error);
-              params.node.setDataValue(field, '');
+              console.error('Failed to enrich row:', error);
+              alert('Failed to enrich row');
               setEnrichingRows(prev => {
                 const next = new Set(prev);
                 next.delete(rowId);

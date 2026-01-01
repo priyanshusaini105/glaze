@@ -1,195 +1,219 @@
 import { Elysia } from 'elysia';
-import { enqueueEnrichment, getJobStatus, enrichmentQueue } from '../services/enrichment-queue';
-import { enrichmentRequestSchema, ENRICHMENT_FIELDS } from '../types/enrichment';
-import { normalizeInput } from '../services/enrichment-pipeline';
-import { getCacheStats } from '../services/enrichment-cache';
-import { isSearchServiceConfigured } from '../services/search-service';
-import { isContactOutConfigured, getContactOutCost } from '../services/contactout-client';
-import { 
-  simulateEnrichCell, 
-  simulateEnrichArray, 
-  simulateEnrichColumn, 
-  simulateEnrichRow,
-  calculateSimulatedCost 
-} from '../services/enrichment-simulator';
+import type { EnrichRequest, EnrichResponse, EnrichTarget } from '../types/enrichment';
 
+/**
+ * Enrichment Router
+ * 
+ * Single unified endpoint for enriching table data
+ * Supports enriching cells, rows, and columns
+ */
 export const enrichmentRoutes = new Elysia({ prefix: '/enrich' })
   /**
-   * GET /enrich/fields - List all available enrichment fields
+   * POST /enrich - Enrich table cells, rows, or columns
+   * 
+   * Request:
+   * {
+   *   "tableId": "leads_table_abc123",
+   *   "targets": [
+   *     {
+   *       "type": "cells",
+   *       "selections": [
+   *         { "rowId": "user_123", "columnId": "email" },
+   *         { "rowId": "user_456", "columnId": "company" }
+   *       ]
+   *     }
+   *   ]
+   * }
+   * 
+   * Response:
+   * {
+   *   "tableId": "leads_table_abc123",
+   *   "results": [
+   *     {
+   *       "rowId": "user_123",
+   *       "columnId": "email",
+   *       "originalValue": "john@example.com",
+   *       "enrichedValue": "john.doe@example.com",
+   *       "status": "success"
+   *     }
+   *   ],
+   *   "metadata": {
+   *     "processed": 2,
+   *     "failed": 0,
+   *     "cost": 50
+   *   }
+   * }
    */
-  .get('/fields', () => {
-    const companyFields = ENRICHMENT_FIELDS.filter((f) => f.startsWith('company_'));
-    const personFields = ENRICHMENT_FIELDS.filter((f) => f.startsWith('person_'));
-
-    return {
-      all: ENRICHMENT_FIELDS,
-      company: companyFields,
-      person: personFields
-    };
-  })
-  /**
-   * GET /enrich/services - Check what services are configured
-   */
-  .get('/services', () => {
-    return {
-      search: {
-        configured: isSearchServiceConfigured(),
-        provider: 'Serper',
-        costPerQuery: 1
-      },
-      contactOut: {
-        configured: isContactOutConfigured(),
-        costPerLookup: getContactOutCost()
-      },
-      cache: {
-        available: true,
-        ttlDays: 7
+  .post('/', async ({ body, set }): Promise<EnrichResponse> => {
+    try {
+      const request = body as EnrichRequest;
+      
+      if (!request.tableId || !request.targets || !Array.isArray(request.targets)) {
+        set.status = 400;
+        throw new Error('Invalid request: tableId and targets array are required');
       }
-    };
-  })
-  /**
-   * GET /enrich/queue - Get queue statistics
-   */
-  .get('/queue', async () => {
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      enrichmentQueue.getWaitingCount(),
-      enrichmentQueue.getActiveCount(),
-      enrichmentQueue.getCompletedCount(),
-      enrichmentQueue.getFailedCount(),
-      enrichmentQueue.getDelayedCount()
-    ]);
 
-    return {
-      waiting,
-      active,
-      completed,
-      failed,
-      delayed,
-      total: waiting + active + delayed
-    };
-  })
-  /**
-   * GET /enrich/cache - Get cache statistics
-   */
-  .get('/cache', async () => {
-    return await getCacheStats();
-  })
-  /**
-   * POST /enrich - Enqueue a new enrichment job or enrich table cells
-   */
-  .post('/', async ({ body, set }) => {
-    // Check if this is a table cell enrichment request
-    if (body && typeof body === 'object' && 'cells' in body && Array.isArray(body.cells)) {
-      try {
-        const { tableId, cells } = body as { tableId: string; cells: Array<{
-          rowId: string;
-          columnKey: string;
-          cellValue: string;
-          rowData: Record<string, unknown>;
-        }> };
+      const results: EnrichResponse['results'] = [];
+      let processed = 0;
+      let failed = 0;
 
-        const enrichedCells = [];
-        
-        for (const cell of cells) {
-          // Skip if row has no meaningful data
-          if (!cell.rowData || Object.keys(cell.rowData).length === 0) {
-            continue;
-          }
-
-          // For now, simulate enrichment
-          // In production, use row context to enrich the specific cell
-          const startTime = Date.now();
-          
-          // Simulate delay
-          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-          
-          // Mock enriched value based on column
-          let enrichedValue = cell.cellValue;
-          if (!enrichedValue || enrichedValue.trim() === '') {
-            // Use row context to generate enriched value
-            if (cell.columnKey.includes('email')) {
-              enrichedValue = `contact@example.com`;
-            } else if (cell.columnKey.includes('phone')) {
-              enrichedValue = `+1-555-${Math.floor(1000 + Math.random() * 9000)}`;
-            } else if (cell.columnKey.includes('linkedin')) {
-              enrichedValue = `linkedin.com/in/example`;
-            } else {
-              enrichedValue = `Enriched ${cell.columnKey}`;
+      // Process each target type
+      for (const target of request.targets) {
+        if (target.type === 'cells') {
+          // Enrich specific cells
+          for (const selection of target.selections) {
+            try {
+              const enrichResult = await enrichCell(selection.rowId, selection.columnId);
+              results.push(enrichResult);
+              processed++;
+            } catch (error) {
+              results.push({
+                rowId: selection.rowId,
+                columnId: selection.columnId,
+                originalValue: null,
+                enrichedValue: null,
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Unknown error'
+              });
+              failed++;
             }
           }
-          
-          enrichedCells.push({
-            rowId: cell.rowId,
-            columnKey: cell.columnKey,
-            enrichedValue,
-            confidence: Math.floor(70 + Math.random() * 30),
-            source: 'simulation',
-            durationMs: Date.now() - startTime,
-          });
+        } else if (target.type === 'rows') {
+          // Enrich entire rows
+          for (const rowId of target.rowIds) {
+            try {
+              const enrichResult = await enrichRow(rowId);
+              results.push(...enrichResult);
+              processed += enrichResult.length;
+            } catch (error) {
+              failed++;
+            }
+          }
+        } else if (target.type === 'columns') {
+          // Enrich entire columns
+          for (const columnId of target.columnIds) {
+            try {
+              const enrichResult = await enrichColumn(columnId);
+              results.push(...enrichResult);
+              processed += enrichResult.length;
+            } catch (error) {
+              failed++;
+            }
+          }
         }
-
-        return {
-          success: true,
-          tableId,
-          enrichedCells,
-          totalCells: enrichedCells.length,
-          skippedCells: cells.length - enrichedCells.length,
-        };
-      } catch (err) {
-        set.status = 500;
-        return {
-          error: 'Cell enrichment failed',
-          details: err instanceof Error ? err.message : 'unknown error'
-        };
       }
-    }
 
-    // Original enrichment request
-    const parsed = enrichmentRequestSchema.safeParse(body);
-
-    if (!parsed.success) {
-      set.status = 400;
       return {
-        error: 'Invalid request',
-        issues: parsed.error.issues
+        tableId: request.tableId,
+        results,
+        metadata: {
+          processed,
+          failed,
+          cost: processed * 10 // Rough estimate: 10 cents per enriched cell
+        }
       };
-    }
-
-    try {
-      const jobId = await enqueueEnrichment({
-        ...parsed.data,
-        requestedAt: new Date().toISOString()
-      });
-
-      const { normalizedUrl, inputType } = normalizeInput(parsed.data.url || '');
-
-      return { 
-        jobId,
-        normalizedUrl,
-        detectedInputType: parsed.data.inputType || inputType,
-        requiredFields: parsed.data.requiredFields,
-        budgetCents: parsed.data.budgetCents || 0
-      };
-    } catch (err) {
+    } catch (error) {
       set.status = 500;
-      return {
-        error: 'Failed to enqueue enrichment job',
-        details: err instanceof Error ? err.message : 'unknown error'
-      };
+      throw error;
     }
-  })
-  /**
-   * GET /enrich/:jobId - Get job status (must be last due to param matching)
-   */
-  .get('/:jobId', async ({ params, set }) => {
-    const status = await getJobStatus(params.jobId);
-
-    if (!status) {
-      set.status = 404;
-      return { error: 'Job not found' };
-    }
-
-    return status;
   });
+
+/**
+ * Enrich a single cell with simulated enrichment
+ * In production, integrate with actual enrichment services
+ */
+async function enrichCell(rowId: string, columnId: string) {
+  // Simulate enrichment delay
+  await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+
+  // Generate mock enriched value based on column type
+  const enrichedValue = generateEnrichedValue(columnId);
+
+  return {
+    rowId,
+    columnId,
+    originalValue: null,
+    enrichedValue,
+    status: 'success' as const
+  };
+}
+
+/**
+ * Enrich an entire row
+ * Returns enrichment results for all columns in the row
+ */
+async function enrichRow(rowId: string) {
+  const commonColumns = [
+    'email', 'phone', 'company', 'title', 'linkedin',
+    'website', 'industry', 'employee_count', 'revenue'
+  ];
+
+  const results = [];
+  for (const columnId of commonColumns) {
+    const enrichResult = await enrichCell(rowId, columnId);
+    results.push(enrichResult);
+  }
+
+  return results;
+}
+
+/**
+ * Enrich an entire column
+ * Returns enrichment results for multiple rows in the column
+ * Note: In real implementation, you'd get actual row count from database
+ */
+async function enrichColumn(columnId: string) {
+  // Mock: enrich first 10 rows
+  const rowIds = Array.from({ length: 10 }, (_, i) => `row_${i + 1}`);
+  const results = [];
+
+  for (const rowId of rowIds) {
+    const enrichResult = await enrichCell(rowId, columnId);
+    results.push(enrichResult);
+  }
+
+  return results;
+}
+
+/**
+ * Generate enriched values based on column type
+ */
+function generateEnrichedValue(columnId: string): string {
+  const lowerColumnId = columnId.toLowerCase();
+
+  if (lowerColumnId.includes('email')) {
+    return `contact+${Date.now()}@example.com`;
+  }
+  if (lowerColumnId.includes('phone')) {
+    return `+1-555-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+  }
+  if (lowerColumnId.includes('company')) {
+    const companies = ['TechCorp', 'DataSync', 'CloudBase', 'FastFlow', 'PureScale'];
+    return companies[Math.floor(Math.random() * companies.length)];
+  }
+  if (lowerColumnId.includes('title')) {
+    const titles = ['CEO', 'CTO', 'VP Sales', 'Product Manager', 'Engineer'];
+    return titles[Math.floor(Math.random() * titles.length)];
+  }
+  if (lowerColumnId.includes('linkedin')) {
+    return `linkedin.com/in/user-${Math.random().toString(36).substr(2, 9)}`;
+  }
+  if (lowerColumnId.includes('website')) {
+    return `https://example-${Math.random().toString(36).substr(2, 6)}.com`;
+  }
+  if (lowerColumnId.includes('industry')) {
+    const industries = ['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing'];
+    return industries[Math.floor(Math.random() * industries.length)];
+  }
+  if (lowerColumnId.includes('employee_count') || lowerColumnId.includes('employees')) {
+    return String(Math.floor(Math.random() * 50000) + 10);
+  }
+  if (lowerColumnId.includes('revenue')) {
+    return `$${Math.floor(Math.random() * 100000000)}M`;
+  }
+
+  // Default: generic enriched value
+  return `Enriched ${columnId}`;
+}
 
 export const registerEnrichmentRoutes = (app: Elysia) => app.use(enrichmentRoutes);

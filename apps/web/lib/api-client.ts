@@ -18,6 +18,8 @@ import type {
   PaginatedRowsResponse,
   ICP,
   ResolveICPRequest,
+  EnrichRequest,
+  EnrichResponse,
 } from './api-types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -203,6 +205,14 @@ class ApiClient {
 
   async resolveIcp(data: ResolveICPRequest): Promise<unknown> {
     return this.request('/icps/resolve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============= Enrichment =============
+  async enrichData(data: EnrichRequest): Promise<EnrichResponse> {
+    return this.request('/enrich', {
       method: 'POST',
       body: JSON.stringify(data),
     });

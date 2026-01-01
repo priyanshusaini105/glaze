@@ -303,7 +303,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       const maxC = Math.max(start.c, end.c);
 
       // Collect cell enrichment requests
-      const enrichmentRequests = [];
+      const cellSelections = [];
       
       for (let r = minR; r <= maxR; r++) {
         const row = rowData[r];
@@ -323,75 +323,86 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           const col = columns[c];
           if (!col) continue;
 
-          enrichmentRequests.push({
+          cellSelections.push({
             rowId: row.id,
-            columnKey: col.key,
-            cellValue: row.data?.[col.key] || '',
-            rowData: row.data, // Include full row data for context
+            columnId: col.key, // Use columnId instead of columnKey
           });
         }
       }
 
-      if (enrichmentRequests.length === 0) {
+      if (cellSelections.length === 0) {
         alert('No data to enrich. Make sure rows have some data.');
         return;
       }
 
-      // Call enrichment API on the backend server
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/enrich`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cells: enrichmentRequests }),
-      });
+      // Call enrichment API with new unified format
+      try {
+        const enrichRequest = {
+          tableId,
+          targets: [{
+            type: 'cells' as const,
+            selections: cellSelections,
+          }],
+        };
 
-      if (!response.ok) {
-        throw new Error('Enrichment failed');
-      }
+        const result = await apiClient.enrichData(enrichRequest);
+        console.log('Enrichment result:', result);
 
-      const result = await response.json();
-      console.log('Enrichment result:', result);
-
-      if (result.success && result.enrichedCells && result.enrichedCells.length > 0) {
-        // Group enriched cells by row to batch updates
-        const cellsByRow = new Map<string, typeof result.enrichedCells>();
-        
-        for (const enrichedCell of result.enrichedCells) {
-          if (!cellsByRow.has(enrichedCell.rowId)) {
-            cellsByRow.set(enrichedCell.rowId, []);
+        if (result.results && result.results.length > 0) {
+          // Filter successful results
+          const successfulResults = result.results.filter(r => r.status === 'success');
+          
+          if (successfulResults.length === 0) {
+            alert('No cells were enriched. Please try again.');
+            return;
           }
-          cellsByRow.get(enrichedCell.rowId)!.push(enrichedCell);
-        }
-        
-        // Update each row with all its enriched cells
-        for (const [rowId, cells] of cellsByRow.entries()) {
-          try {
-            const rowToUpdate = rowData.find(r => r.id === rowId);
-            if (rowToUpdate) {
-              // Build update object with all enriched cells for this row
-              const updateData = { ...rowToUpdate.data };
-              for (const enrichedCell of cells) {
-                updateData[enrichedCell.columnKey] = enrichedCell.enrichedValue;
-              }
-              
-              await apiClient.updateRow(tableId, rowId, {
-                data: updateData,
-              });
+
+          // Group enriched cells by row to batch updates
+          const cellsByRow = new Map<string, typeof result.results>();
+          
+          for (const enrichedCell of successfulResults) {
+            if (!cellsByRow.has(enrichedCell.rowId)) {
+              cellsByRow.set(enrichedCell.rowId, []);
             }
-          } catch (updateError) {
-            console.error('Failed to update row:', updateError);
+            cellsByRow.get(enrichedCell.rowId)!.push(enrichedCell);
           }
+          
+          // Update each row with all its enriched cells
+          for (const [rowId, cells] of cellsByRow.entries()) {
+            try {
+              const rowToUpdate = rowData.find(r => r.id === rowId);
+              if (rowToUpdate) {
+                // Build update object with all enriched cells for this row
+                const updateData = { ...rowToUpdate.data };
+                for (const enrichedCell of cells) {
+                  updateData[enrichedCell.columnId] = enrichedCell.enrichedValue;
+                }
+                
+                await apiClient.updateRow(tableId, rowId, {
+                  data: updateData,
+                });
+              }
+            } catch (updateError) {
+              console.error('Failed to update row:', updateError);
+            }
+          }
+          
+          // Reload table data to show enriched values
+          await loadData();
+          
+          // Clear selection
+          setSelectionRange(null);
+          
+          const failedCount = result.results.length - successfulResults.length;
+          alert(`Successfully enriched ${successfulResults.length} cells!${failedCount > 0 ? ` (${failedCount} failed)` : ''}`);
+        } else {
+          alert('No cells were enriched. Make sure rows have some data.');
         }
-        
-        // Reload table data to show enriched values
-        await loadData();
-        
-        // Clear selection
-        setSelectionRange(null);
-        
-        alert(`Successfully enriched ${result.enrichedCells.length} cells!${result.skippedCells > 0 ? ` (${result.skippedCells} empty rows skipped)` : ''}`);
-      } else {
-        alert('No cells were enriched. Make sure rows have some data.');
+      } catch (fetchError) {
+        // Get more detailed error info
+        const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+        console.error('Enrichment API error:', fetchError);
+        throw new Error(`Enrichment API error: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Enrichment error:', error);

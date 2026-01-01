@@ -154,3 +154,38 @@ export type CachedEnrichment = {
   createdAt: string;
   expiresAt: string;
 };
+
+// ============ New Unified Enrichment Request/Response ============
+export interface CellSelection {
+  rowId: string;
+  columnId: string;
+}
+
+export type EnrichTarget = 
+  | { type: 'cells'; selections: CellSelection[] }
+  | { type: 'rows'; rowIds: string[] }
+  | { type: 'columns'; columnIds: string[] };
+
+export interface EnrichRequest {
+  tableId: string;
+  targets: EnrichTarget[];
+}
+
+export interface EnrichResult {
+  rowId: string;
+  columnId: string;
+  originalValue: any;
+  enrichedValue: any;
+  status: 'success' | 'error';
+  error?: string;
+}
+
+export interface EnrichResponse {
+  tableId: string;
+  results: EnrichResult[];
+  metadata: {
+    processed: number;
+    failed: number;
+    cost?: number;
+  };
+}
