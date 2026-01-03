@@ -53,14 +53,6 @@ export const enrichmentConfig = {
     },
 
     /**
-     * ContactOut for email/phone lookup
-     */
-    contactOut: {
-      enabled: false,
-      costPerLookup: 50, // cents
-    },
-
-    /**
      * LinkedIn scraping
      */
     linkedin: {
@@ -175,10 +167,9 @@ export const getServiceCost = (service: keyof typeof enrichmentConfig.services) 
  * Migration Guide to Production Mode:
  * 
  * 1. Set mode to 'production'
- * 2. Enable required services (search, contactOut, etc.)
+ * 2. Enable required services (search, etc.)
  * 3. Configure API keys in environment variables:
  *    - SERPER_API_KEY
- *    - CONTACTOUT_API_KEY
  *    - etc.
  * 4. Set autoSaveResults to true if you want automatic updates
  * 5. Configure fieldMapping.custom for specific column mappings

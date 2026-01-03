@@ -43,3 +43,5 @@ yarn-error.log*
 AGENTS.md
 instructions.md
 CONTEXT.md
+
+.env.docker

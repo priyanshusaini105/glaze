@@ -63,7 +63,7 @@ export const analyzeGaps = (
 
 /**
  * Merge multiple EnrichmentData objects, preferring higher confidence values
- * Source ranking: website_scrape > linkedin_scrape > cache > contactout > search_result > ai_inference
+ * Source ranking: website_scrape > linkedin_scrape > cache > search_result > ai_inference
  */
 export const mergeEnrichmentData = (
   ...dataSets: Partial<EnrichmentData>[]
@@ -170,16 +170,6 @@ export const suggestPaidSources = (
   gaps: EnrichmentField[]
 ): { source: EnrichmentSource; fields: EnrichmentField[]; estimatedCostCents: number }[] => {
   const suggestions: { source: EnrichmentSource; fields: EnrichmentField[]; estimatedCostCents: number }[] = [];
-
-  // ContactOut for person email/phone
-  const personContactFields = gaps.filter((f) => ['person_email', 'person_phone'].includes(f));
-  if (personContactFields.length > 0) {
-    suggestions.push({
-      source: 'contactout',
-      fields: personContactFields,
-      estimatedCostCents: 25 // per lookup
-    });
-  }
 
   // Search for company data gaps
   const companyDataFields = gaps.filter((f) => 

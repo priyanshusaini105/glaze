@@ -376,7 +376,6 @@ If enrichment fails for a specific cell, the result will contain an error:
 
 1. **Integrate with Real Enrichment Services**
    - Connect to Serper API for web search
-   - Integrate ContactOut for B2B lookups
    - Add LinkedIn scraping capabilities
 
 2. **Add Caching**

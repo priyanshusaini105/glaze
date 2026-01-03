@@ -32,8 +32,8 @@ export type EnrichmentField = typeof ENRICHMENT_FIELDS[number];
 export const ENRICHMENT_SOURCES = [
   'website_scrape',
   'linkedin_scrape',
+  'linkedin_api',
   'search_result',
-  'contactout',
   'cache',
   'ai_inference'
 ] as const;
@@ -42,11 +42,11 @@ export type EnrichmentSource = typeof ENRICHMENT_SOURCES[number];
 
 // Source ranking for confidence (higher = more trusted)
 export const SOURCE_CONFIDENCE: Record<EnrichmentSource, number> = {
-  website_scrape: 95,
-  linkedin_scrape: 90,
+  linkedin_api: 95,        // New: Direct LinkedIn API
+  website_scrape: 90,
+  linkedin_scrape: 85,     // Scraping vs API
   cache: 85,
   search_result: 70,
-  contactout: 80,
   ai_inference: 40
 };
 
@@ -136,7 +136,7 @@ export type EnrichmentJobStatus = {
 };
 
 // ============ Pipeline Stage Types ============
-export type PipelineStage = 'free' | 'cheap' | 'paid';
+export type PipelineStage = 'free' | 'cheap' | 'premium' | 'paid';
 
 export type StageResult = {
   stage: PipelineStage;

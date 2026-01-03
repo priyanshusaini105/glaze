@@ -20,7 +20,6 @@ Ensure the backend enrichment pipeline is ready:
 
 1. **Check service implementations**:
    - `apps/api/src/services/search-service.ts` - Search API integration
-   - `apps/api/src/services/contactout-client.ts` - ContactOut API
    - `apps/api/src/services/enrichment-pipeline.ts` - Full pipeline
 
 2. **Verify environment variables**:
@@ -28,7 +27,6 @@ Ensure the backend enrichment pipeline is ready:
 ```bash
 # apps/api/.env
 SERPER_API_KEY=your_serper_key
-CONTACTOUT_API_KEY=your_contactout_key
 # Add other service keys as needed
 ```
 
@@ -72,10 +70,6 @@ export const enrichmentConfig = {
       enabled: true,
       provider: 'serper',
       costPerQuery: 1,
-    },
-    contactOut: {
-      enabled: true,
-      costPerLookup: 50,
     },
     linkedin: {
       enabled: true,
@@ -301,9 +295,7 @@ autoSaveResults: false,
 3. **Disable specific services**:
 ```typescript
 services: {
-  contactOut: {
-    enabled: false, // Disable problematic service
-  },
+  // Disable problematic services as needed
 }
 ```
 

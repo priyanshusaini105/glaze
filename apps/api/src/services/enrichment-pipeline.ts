@@ -9,9 +9,16 @@ import {
 } from '../types/enrichment';
 import { scrapeWebsite, extractDomainFromUrl } from './website-scraper';
 import { searchForCompanyData, isSearchServiceConfigured } from './search-service';
-import { lookupPersonByLinkedIn, isContactOutConfigured, requiresContactOut } from './contactout-client';
 import { analyzeGaps, mergeEnrichmentData, buildProvenance, shouldUsePaidLayer } from './gap-analyzer';
 import { getCachedFields, updateCachedEnrichment } from './enrichment-cache';
+import {
+  LinkedInProfileProvider,
+  LinkedInCompanyProvider,
+  detectLinkedInUrlType,
+  extractLinkedInUrl,
+  shouldUseLinkedInProvider,
+} from './linkedin-provider';
+import { Effect } from 'effect';
 
 export type PipelineContext = {
   job: Job<EnrichmentJobInput, EnrichmentJobResult>;
@@ -230,80 +237,126 @@ const runCheapLayer = async (ctx: PipelineContext): Promise<void> => {
 };
 
 /**
- * Stage 3: Paid layer - ContactOut for person data
+ * Stage 3: Premium layer - LinkedIn API enrichment
  */
-const runPaidLayer = async (ctx: PipelineContext): Promise<void> => {
+const runPremiumLayer = async (ctx: PipelineContext): Promise<void> => {
   const startTime = Date.now();
   const analysis = analyzeGaps(ctx.data, ctx.input.requiredFields);
   
-  const { proceed, reason } = shouldUsePaidLayer(
-    analysis.gaps,
-    ctx.remainingBudgetCents,
-    analysis.completionPercentage
-  );
-
-  if (!proceed) {
-    ctx.notes.push(`Paid layer skipped: ${reason}`);
+  if (analysis.gaps.length === 0) {
+    ctx.notes.push('LinkedIn layer skipped: no gaps');
     return;
   }
 
-  // Check if we need ContactOut (person email/phone)
-  if (!requiresContactOut(analysis.gaps)) {
-    ctx.notes.push('Paid layer skipped: no ContactOut fields needed');
+  // Check if LinkedIn is enabled
+  const linkedInEnabled = process.env.LINKEDIN_ENRICHMENT_ENABLED !== 'false';
+  if (!linkedInEnabled) {
+    ctx.notes.push('LinkedIn layer skipped: disabled in config');
     return;
   }
 
-  if (!isContactOutConfigured()) {
-    ctx.notes.push('Paid layer skipped: ContactOut not configured');
-    return;
-  }
-
-  // Only use ContactOut for LinkedIn profile inputs
-  if (ctx.input.detectedInputType !== 'linkedin_profile') {
-    ctx.notes.push('Paid layer skipped: ContactOut requires LinkedIn profile URL');
+  // Minimum budget check
+  const minBudget = Number(process.env.LINKEDIN_MIN_BUDGET_CENTS) || 10;
+  if (ctx.remainingBudgetCents < minBudget) {
+    ctx.notes.push(`LinkedIn layer skipped: budget too low (${ctx.remainingBudgetCents}¢ < ${minBudget}¢)`);
     return;
   }
 
   try {
+    ctx.job.updateProgress(65);
+
+    // Detect LinkedIn URL from input or existing data
+    let linkedInUrl: string | null = null;
+    let linkedInType: 'profile' | 'company' | null = null;
+
+    // First, check the input URL
+    const inputType = detectLinkedInUrlType(ctx.input.normalizedUrl);
+    if (inputType) {
+      linkedInUrl = ctx.input.normalizedUrl;
+      linkedInType = inputType;
+    } else {
+      // Check if we found LinkedIn URLs in previous stages
+      const extracted = extractLinkedInUrl(ctx.data);
+      if (extracted) {
+        linkedInUrl = extracted.url;
+        linkedInType = extracted.type;
+      }
+    }
+
+    // Decide if we should use LinkedIn
+    const decision = shouldUseLinkedInProvider({
+      gaps: analysis.gaps,
+      remainingBudgetCents: ctx.remainingBudgetCents,
+      linkedInUrl,
+      linkedInType,
+    });
+
+    if (!decision.shouldUse) {
+      ctx.notes.push(`LinkedIn layer skipped: ${decision.reason}`);
+      return;
+    }
+
+    ctx.notes.push(`LinkedIn layer: ${decision.reason}`);
+
+    // Select the appropriate provider
+    const provider =
+      linkedInType === 'profile'
+        ? LinkedInProfileProvider
+        : LinkedInCompanyProvider;
+
     ctx.job.updateProgress(70);
 
-    const lookupResult = await lookupPersonByLinkedIn(
-      ctx.input.normalizedUrl,
-      analysis.gaps,
-      ctx.remainingBudgetCents
+    // Call LinkedIn API via Effect
+    const enrichmentEffect = provider.lookup(linkedInUrl!);
+    
+    const linkedInData = await Effect.runPromise(enrichmentEffect).catch(
+      (error) => {
+        ctx.notes.push(
+          `LinkedIn API error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+        return null;
+      }
     );
 
-    if (lookupResult.success && Object.keys(lookupResult.data).length > 0) {
-      const { merged } = mergeEnrichmentData(ctx.data, lookupResult.data);
+    if (linkedInData && Object.keys(linkedInData).length > 0) {
+      // Convert back to EnrichmentData format
+      const typedData = linkedInData as unknown as EnrichmentData;
+      
+      // Merge with existing data
+      const { merged } = mergeEnrichmentData(ctx.data, typedData);
       ctx.data = merged;
 
       ctx.stages.push({
-        stage: 'paid',
-        source: 'contactout',
-        data: lookupResult.data,
-        costCents: lookupResult.costCents,
-        durationMs: Date.now() - startTime
+        stage: 'premium',
+        source: 'linkedin_api',
+        data: typedData,
+        costCents: provider.costCents,
+        durationMs: Date.now() - startTime,
       });
 
-      ctx.totalCostCents += lookupResult.costCents;
-      ctx.remainingBudgetCents -= lookupResult.costCents;
+      ctx.totalCostCents += provider.costCents;
+      ctx.remainingBudgetCents -= provider.costCents;
 
-      ctx.notes.push(`ContactOut: ${Object.keys(lookupResult.data).length} fields, $${(lookupResult.costCents / 100).toFixed(2)}`);
-    } else if (lookupResult.error) {
-      ctx.notes.push(`ContactOut error: ${lookupResult.error}`);
+      ctx.notes.push(
+        `LinkedIn ${linkedInType}: ${Object.keys(linkedInData).length} fields, $${(provider.costCents / 100).toFixed(2)}`
+      );
     }
+
+    ctx.job.updateProgress(80);
   } catch (err) {
     ctx.stages.push({
-      stage: 'paid',
-      source: 'contactout',
+      stage: 'premium',
+      source: 'linkedin_api',
       data: {},
       costCents: 0,
       durationMs: Date.now() - startTime,
-      error: err instanceof Error ? err.message : 'unknown'
+      error: err instanceof Error ? err.message : 'unknown',
     });
+    
+    ctx.notes.push(
+      `LinkedIn layer error: ${err instanceof Error ? err.message : 'unknown'}`
+    );
   }
-
-  ctx.job.updateProgress(80);
 };
 
 /**
@@ -375,7 +428,7 @@ export const runEnrichmentPipeline = async (
     await runCacheStage(ctx);
     await runFreeLayer(ctx);
     await runCheapLayer(ctx);
-    await runPaidLayer(ctx);
+    await runPremiumLayer(ctx); // New: LinkedIn API layer
 
     return await finalizeResult(ctx);
   } catch (err) {

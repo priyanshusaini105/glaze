@@ -68,7 +68,6 @@ async function simulateDelay(source: EnrichmentSource): Promise<void> {
     website_scrape: 800,
     linkedin_scrape: 1200,
     search_result: 600,
-    contactout: 1500,
     ai_inference: 2000
   };
   

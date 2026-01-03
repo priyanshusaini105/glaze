@@ -3,6 +3,7 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { tablesRoutes } from './routes/tables';
 import { registerEnrichmentRoutes } from './routes/enrich';
+import { registerLinkedInRoutes } from './routes/linkedin';
 import { startEnrichmentWorker } from './services/enrichment-queue';
 
 export const buildApp = () => {
@@ -40,11 +41,13 @@ export const buildApp = () => {
         health: '/health',
         tables: '/tables',
         enrich: '/enrich',
+        linkedin: '/linkedin',
         docs: '/docs'
       }
     }))
     .use(tablesRoutes)
-    .use(registerEnrichmentRoutes);
+    .use(registerEnrichmentRoutes)
+    .use(registerLinkedInRoutes);
 
   return app;
 };

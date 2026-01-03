@@ -62,7 +62,7 @@ curl -s -X POST http://localhost:3001/icps/resolve \
 ## Data Enrichment (Waterfall) – Production Plan
 
 ### Overview
-- Goal: cost-aware waterfall enrichment for company/person inputs with free → cheap → paid steps; ContactOut only for people-contact gaps.
+- Goal: cost-aware waterfall enrichment for company/person inputs with free → cheap → paid steps.
 - Constraints: long-running scrapes happen in background workers; cache prior results to avoid paid lookups.
 
 ### Milestones & Status
@@ -72,13 +72,11 @@ curl -s -X POST http://localhost:3001/icps/resolve \
 - [ ] M4: Free layer – Firecrawl/Puppeteer website scrape (home/about/contact/team) with parsers for description, HQ, socials, generic emails, leadership names.
 - [ ] M5: Cheap layer – Serper/targeted search for revenue, funding, employee count when missing or low confidence.
 - [ ] M6: Gap analyzer – confidence scoring + gap list; source ranking (website > search > paid > ai guess).
-- [ ] M7: Paid layer – ContactOut client restricted to person lookups (email/phone) for specific people surfaced earlier; enforce per-request budget guardrail.
-- [ ] M8: Cache/store – persist enrichments by normalized domain/LinkedIn URL + field set; reuse before paid calls; store provenance + timestamps.
-- [ ] M9: Observability – structured logs per stage, cost metrics, audit trail of sources used.
-- [ ] M10: Docs/tests – README updates, manual curl steps, worker health check, and stage-by-stage tests/mocks.
+- [ ] M7: Cache/store – persist enrichments by normalized domain/LinkedIn URL + field set; reuse before paid calls; store provenance + timestamps.
+- [ ] M8: Observability – structured logs per stage, cost metrics, audit trail of sources used.
+- [ ] M9: Docs/tests – README updates, manual curl steps, worker health check, and stage-by-stage tests/mocks.
 
 ### Notes/Risks
-- ContactOut is people-only; do not query it for company revenue/size. Treat cost as per-profile, not per-field.
 - Long-running scrapes (20–60s) must run in the worker, not in request/response handlers to avoid timeouts.
 
 ### Quick test (M1 stub)

@@ -47,6 +47,10 @@ services:
       PORT: ${API_PORT:-3001}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY}
+      RAPIDAPI_LINKEDIN_HOST: ${RAPIDAPI_LINKEDIN_HOST:-linkedin-data-api.p.rapidapi.com}
+      LINKEDIN_ENRICHMENT_ENABLED: ${LINKEDIN_ENRICHMENT_ENABLED:-true}
+      LINKEDIN_MIN_BUDGET_CENTS: ${LINKEDIN_MIN_BUDGET_CENTS:-10}
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
