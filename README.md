@@ -1,52 +1,314 @@
-# Turborepo starter
+# Glaze - High-Performance Data Enrichment Platform
 
-This Turborepo starter is maintained by the Turborepo core team.
+A modern, scalable platform for enriching company and profile data with multiple data sources and AI-powered fallback.
 
-## Using this example
+## 🚀 Features
 
-Run the following command:
+- **Multi-provider enrichment** - LinkedIn, website scraping, search APIs
+- **Intelligent caching** - Redis-backed cache with 7-day TTL
+- **LLM fallback** - Claude/GPT for inferring missing fields
+- **Background workers** - Separate process for pipeline execution
+- **Trigger.dev workflows** - Scheduled and on-demand enrichment jobs
+- **Type-safe** - Full TypeScript with shared type definitions
+- **Scalable** - BullMQ job queue, configurable concurrency
 
-```sh
-npx create-turbo@latest
+## 📁 Project Structure
+
+This is a [pnpm workspaces](https://pnpm.io/workspaces) monorepo with the following structure:
+
+### Apps
+
+- **[apps/api](/apps/api)** - HTTP API server (Elysia)
+  - REST endpoints for enrichment requests
+  - Table CRUD operations
+  - LinkedIn integration endpoints
+  - Swagger documentation
+
+- **[apps/worker](/apps/worker)** - Background enrichment process
+  - Executes enrichment pipeline
+  - Orchestrates provider adapters
+  - Manages cache and database writes
+  - Handles retries and error recovery
+
+- **[apps/workflows](/apps/workflows)** - Trigger.dev task definitions
+  - Single enrichment tasks
+  - Batch processing workflows
+  - Scheduled jobs
+
+- **[apps/web](/apps/web)** - Next.js frontend
+  - Data visualization and management
+  - Enrichment request UI
+  - Results dashboard
+
+### Packages
+
+- **[packages/types](/packages/types)** - Shared TypeScript types
+  - Enrichment job schemas
+  - LinkedIn data structures
+  - API response types
+  - ICP profile definitions
+
+- **[packages/ui](/packages/ui)** - Shared React components
+
+- **[packages/trigger](/packages/trigger)** - Legacy (being migrated to apps/workflows/)
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐
+│   Web UI    │
+└──────┬──────┘
+       │
+┌──────▼──────────────┐
+│   API Server        │
+│  (Elysia)           │
+└──────┬──────────────┘
+       │
+       ├─ Create Job ──┐
+       │               ▼
+       │        ┌─────────────┐
+       │        │ Redis Queue │
+       │        │  (BullMQ)   │
+       │        └──────┬──────┘
+       │               │
+       └─ Poll────┐    │
+           Status │    ▼
+                  │ ┌──────────────────────┐
+                  │ │ Worker Process       │
+                  │ │  (enrichment-worker) │
+                  │ └──────┬───────────────┘
+                  │        │
+                  │        ├─ LinkedIn Provider
+                  │        ├─ Website Scraper
+                  │        ├─ Search Service
+                  │        └─ LLM Provider
+                  │
+                  ▼
+          ┌──────────────────┐
+          │   PostgreSQL DB  │
+          │  + Redis Cache   │
+          └──────────────────┘
 ```
 
-## What's inside?
+## 🚀 Quick Start
 
-This Turborepo includes the following packages/apps:
+### Prerequisites
 
-### Apps and Packages
+- Node.js 18+
+- Bun 1.0+ or pnpm 8+
+- PostgreSQL 14+
+- Redis 6+
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### Development Setup
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+```bash
+# Install dependencies
+pnpm install
 
-### Utilities
+# Copy environment template
+cp .env.example .env.local
+# Edit .env.local with your credentials
 
-This Turborepo has some additional tools already setup for you:
+# Set up database
+cd apps/api && pnpm run prisma:migrate:dev
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
+# Start all services
+./scripts/dev-all.sh
 ```
-cd my-turborepo
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
+This starts:
+- **API**: http://localhost:3001 (Swagger docs: /docs)
+- **Worker**: Background process listening to Redis queue
+- **Web**: http://localhost:3000 (if configured)
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+### Individual Services
+
+```bash
+# API only
+cd apps/api && bun run --watch src/index.ts
+
+# Worker only
+./scripts/run-worker.sh
+
+# Workflows only (requires Trigger.dev account)
+./scripts/run-workflows.sh
 ```
+
+## 📚 Documentation
+
+- **[CONTRIBUTORS.md](/CONTRIBUTORS.md)** - Development guide and architecture overview
+- **[apps/api/README.md](/apps/api/README.md)** - API server documentation
+- **[apps/worker/README.md](/apps/worker/README.md)** - Worker process documentation
+- **[apps/workflows/README.md](/apps/workflows/README.md)** - Workflow definitions guide
+- **[docs/](/docs)** - Architecture and integration guides
+
+## 🔧 Common Commands
+
+```bash
+# Check types
+pnpm check-types
+
+# Lint code
+pnpm lint
+
+# Format code
+pnpm prettier --write .
+
+# Database operations
+cd apps/api
+pnpm run prisma:studio     # Open database UI
+pnpm run prisma:migrate:dev  # Create migration
+
+# Run tests
+pnpm test
+```
+
+## 🗂️ Workspace Scripts
+
+Located in `/scripts/`:
+
+- `dev-all.sh` - Start all services locally
+- `run-worker.sh` - Start enrichment worker
+- `run-workflows.sh` - Start Trigger.dev workflows
+- `docker-setup.sh` - Docker environment setup
+- `init-db.sql` - Database initialization
+
+## 🛠️ Tech Stack
+
+### Core
+- **Runtime**: Bun (API), Node.js (Worker/Workflows)
+- **Language**: TypeScript
+- **Package Manager**: pnpm
+
+### Backend
+- **API Framework**: [Elysia](https://elysiajs.com/) with Eden
+- **Database**: PostgreSQL + Prisma ORM
+- **Cache**: Redis + ioredis
+- **Job Queue**: BullMQ
+
+### Enrichment
+- **Workflows**: [Trigger.dev v3](https://trigger.dev/)
+- **LLM**: Anthropic Claude or OpenAI GPT
+- **Web Scraping**: Cheerio
+
+### Frontend
+- **Framework**: Next.js
+- **Components**: Shadcn/ui, Mantine UI, HeroUI
+
+### Development
+- **Build**: TypeScript, esbuild
+- **Testing**: TBD
+- **Linting**: ESLint
+- **Formatting**: Prettier
+
+## 📊 Pipeline Stages
+
+Each enrichment request goes through:
+
+1. **Cache Check** - Redis cache lookup
+2. **LinkedIn Provider** - API/scraper data (95% confidence)
+3. **Website Scraper** - Company website extraction (80% confidence)
+4. **Search Service** - Third-party data APIs (70% confidence)
+5. **Gap Analysis** - Identify missing fields
+6. **LLM Fallback** - AI-powered inference (60% confidence)
+7. **Merge & Validate** - Combine and verify results
+8. **Write** - Store in DB and cache
+
+## 🔐 Environment Variables
+
+Create `.env.local` in project root:
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/glaze
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# API
+PORT=3001
+API_URL=http://localhost:3001
+
+# LinkedIn (if using API)
+LINKEDIN_API_KEY=xxx
+
+# LLM
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-sonnet-20240229
+LLM_API_KEY=xxx
+
+# Trigger.dev (optional)
+TRIGGER_API_KEY=xxx
+```
+
+## 📈 Monitoring & Scaling
+
+### Logging
+All services use `[prefix]` log format:
+- `[api]` - API server logs
+- `[worker]` - Worker process logs
+- `[enrichment]` - Pipeline execution logs
+
+### Queue Monitoring
+```bash
+# Check queue size
+redis-cli XLEN enrichment-jobs
+
+# View job details
+redis-cli HGETALL job:<job-id>
+
+# List failed jobs
+redis-cli ZRANGE bull:enrichment:failed 0 -1
+```
+
+### Scaling Worker
+```bash
+# Increase concurrency
+export CONCURRENCY=20
+./scripts/run-worker.sh
+
+# Run multiple instances
+QUEUE_NAME=enrichment-1 ./scripts/run-worker.sh &
+QUEUE_NAME=enrichment-2 ./scripts/run-worker.sh &
+```
+
+## 🐛 Troubleshooting
+
+**Worker not processing jobs?**
+- Check Redis: `redis-cli PING`
+- Verify env vars: `echo $REDIS_URL`
+- Check logs: `./scripts/run-worker.sh` (watch terminal)
+
+**Database connection error?**
+- Verify PostgreSQL running: `psql -h localhost -U postgres`
+- Check DATABASE_URL in .env.local
+- Run migrations: `cd apps/api && pnpm run prisma:migrate:dev`
+
+**Type errors?**
+- Rebuild types: `pnpm check-types`
+- Clear cache: `rm -rf node_modules/.vite`
+
+See [CONTRIBUTORS.md](/CONTRIBUTORS.md#troubleshooting) for more help.
+
+## 🤝 Contributing
+
+We welcome contributions! Please read [CONTRIBUTORS.md](/CONTRIBUTORS.md) for:
+
+- Development setup instructions
+- Code organization guidelines
+- Adding new provider adapters
+- Testing procedures
+- Deployment guide
+
+## 📄 License
+
+[Add your license here]
+
+---
+
+**Status**: Active Development  
+**Last Updated**: January 2026  
+**Maintainers**: [@priyanshusaini105](https://github.com/priyanshusaini105)
 
 You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
 

@@ -45,3 +45,5 @@ instructions.md
 CONTEXT.md
 
 .env.docker
+
+.trigger
