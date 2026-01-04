@@ -491,27 +491,28 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     }
   };
 
-  const handleDeleteSelectedRows = async () => {
-    if (selectedRowIds.size === 0) return;
-    
-    try {
-      // Delete all selected rows
-      await Promise.all(
-        Array.from(selectedRowIds).map(rowId => 
-          apiClient.deleteRow(tableId, rowId)
-        )
-      );
-      
-      // Remove from local state
-      setRowData(prevData => prevData.filter(row => !selectedRowIds.has(row.id)));
-      setSelectedRowIds(new Set());
-      setAllChecked(false);
-    } catch (error) {
-      console.error('Failed to delete rows:', error);
-      // Reload on error
-      await loadData();
-    }
-  };
+  // Unused - will be implemented later
+  // const handleDeleteSelectedRows = async () => {
+  //   if (selectedRowIds.size === 0) return;
+  //   
+  //   try {
+  //     // Delete all selected rows
+  //     await Promise.all(
+  //       Array.from(selectedRowIds).map(rowId => 
+  //         apiClient.deleteRow(tableId, rowId)
+  //       )
+  //     );
+  //     
+  //     // Remove from local state
+  //     setRowData(prevData => prevData.filter(row => !selectedRowIds.has(row.id)));
+  //     setSelectedRowIds(new Set());
+  //     setAllChecked(false);
+  //   } catch (error) {
+  //     console.error('Failed to delete rows:', error);
+  //     // Reload on error
+  //     await loadData();
+  //   }
+  // };
 
   const handleRowSelectionStart = (e: React.MouseEvent, index: number, id: string) => {
     e.preventDefault();

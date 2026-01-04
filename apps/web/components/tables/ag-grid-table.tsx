@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
   ColDef,
-  GridApi,
   GridReadyEvent,
   CellValueChangedEvent,
   RowClassRules,
+  ICellRendererParams,
 } from 'ag-grid-community';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
@@ -39,7 +39,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
         field: '__actions',
         width: 120,
         pinned: 'left',
-        cellRenderer: (params: any) => {
+        cellRenderer: (params: ICellRendererParams) => {
           const isEnriching = enrichingRows.has(params.data.id);
           
           const onDelete = async () => {
@@ -72,8 +72,8 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
               const enrichResponse = await apiClient.enrichData(enrichRequest);
 
               // Update all cells in the row with enriched values
-              const updateData: Record<string, any> = {};
-              enrichResponse.results.forEach((result: any) => {
+              const updateData: Record<string, unknown> = {};
+              enrichResponse.results.forEach((result: Record<string, unknown>) => {
                 if (result.status === 'success') {
                   params.node.setDataValue(result.columnId, result.enrichedValue);
                   updateData[result.columnId] = result.enrichedValue;
@@ -155,19 +155,19 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
           colDef.filter = 'agDateColumnFilter';
           break;
         case 'boolean':
-          colDef.cellRenderer = (params: any) => {
+          colDef.cellRenderer = (params: ICellRendererParams) => {
             return params.value ? '✓' : '';
           };
           colDef.cellEditor = 'agCheckboxCellEditor';
           break;
         case 'url':
-          colDef.cellRenderer = (params: any) => {
+          colDef.cellRenderer = (params: ICellRendererParams) => {
             if (!params.value) return '';
             return `<a href="${params.value}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${params.value}</a>`;
           };
           break;
         case 'email':
-          colDef.cellRenderer = (params: any) => {
+          colDef.cellRenderer = (params: ICellRendererParams) => {
             if (!params.value) return '';
             return `<a href="mailto:${params.value}" class="text-blue-600 hover:underline">${params.value}</a>`;
           };
@@ -180,7 +180,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     });
 
     return cols;
-  }, [columns, tableId, enrichingRows, loadRows, apiClient]);
+  }, [columns, tableId, enrichingRows, loadRows]);
 
   // Load rows from API
   const loadRows = useCallback(async () => {
@@ -217,7 +217,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
       
       if (!rowId || !field || field === '__actions') return;
 
-      const updatedData: Record<string, any> = {};
+      const updatedData: Record<string, unknown> = {};
       updatedData[field] = event.newValue;
 
       try {
@@ -234,7 +234,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
 
   // Add new row
   const addRow = useCallback(async () => {
-    const newRowData: Record<string, any> = {};
+    const newRowData: Record<string, unknown> = {};
     columns.forEach((col) => {
       newRowData[col.key] = '';
     });

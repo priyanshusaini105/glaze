@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 'use client';
 
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { Play, Plus, Trash2, Check, Sparkles, X } from 'lucide-react';
-import type { EnrichmentResponse } from '@/lib/api-types';
+import { Play, Plus, Trash2, Check } from 'lucide-react';
 
 type ColumnType = 'text' | 'number' | 'url' | 'email' | 'date';
 
@@ -119,10 +117,10 @@ export function InteractiveTable({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectionRange, editingCell, columns]);
+  }, [selectionRange, editingCell, columns, handleCopy]);
 
   // Copy to clipboard
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (!selectionRange) return;
 
     const { start, end } = selectionRange;
@@ -151,9 +149,9 @@ export function InteractiveTable({
       setIsCopyFlash(true);
       setTimeout(() => setIsCopyFlash(false), 300);
     } catch (err) {
-      console.error('Failed to copy', err);
+      console.error('Failed to copy:', err);
     }
-  };
+  }, [selectionRange, columns, data]);
 
   // Update row
   const updateRow = useCallback((id: string, field: string, newValue: string) => {
@@ -312,39 +310,41 @@ export function InteractiveTable({
     : 0;
 
   // Get selected cells for enrichment
-  const getSelectedCells = () => {
-    if (!selectionRange) return [];
-    
-    const { start, end } = selectionRange;
-    const minR = Math.min(start.r, end.r);
-    const maxR = Math.max(start.r, end.r);
-    const minC = Math.min(start.c, end.c);
-    const maxC = Math.max(start.c, end.c);
-
-    const cells = [];
-    for (let r = minR; r <= maxR; r++) {
-      const row = data[r];
-      if (!row) continue;
-      for (let c = minC; c <= maxC; c++) {
-        const col = columns[c];
-        if (col) {
-          cells.push({
-            row: r,
-            col: col.id,
-            value: row[col.id] || ''
-          });
-        }
-      }
-    }
-    return cells;
-  };
+  // Commented out for future use
+  // const getSelectedCells = () => {
+  //   if (!selectionRange) return [];
+  //   
+  //   const { start, end } = selectionRange;
+  //   const minR = Math.min(start.r, end.r);
+  //   const maxR = Math.max(start.r, end.r);
+  //   const minC = Math.min(start.c, end.c);
+  //   const maxC = Math.max(start.c, end.c);
+  //
+  //   const cells = [];
+  //   for (let r = minR; r <= maxR; r++) {
+  //     const row = data[r];
+  //     if (!row) continue;
+  //     for (let c = minC; c <= maxC; c++) {
+  //       const col = columns[c];
+  //       if (col) {
+  //         cells.push({
+  //           row: r,
+  //           col: col.id,
+  //           value: row[col.id] || ''
+  //         });
+  //       }
+  //     }
+  //   }
+  //   return cells;
+  // };
 
   // Handle enrichment complete
-  const handleEnrichmentComplete = (result: EnrichmentResponse) => {
-    console.log('Enrichment complete:', result);
-    // Here you would update the table data with enriched results
-    // For now, just log it
-  };
+  // Commented out for future use
+  // const handleEnrichmentComplete = (result: EnrichmentResponse) => {
+  //   console.log('Enrichment complete:', result);
+  //   // Here you would update the table data with enriched results
+  //   // For now, just log it
+  // };
 
   return (
     <div className="flex flex-col h-full rounded-xl border border-gray-200/60 bg-white shadow-lg overflow-hidden">

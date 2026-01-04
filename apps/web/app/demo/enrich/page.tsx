@@ -175,7 +175,7 @@ export default function ContactEnrichmentDemo() {
             <h4 className="font-semibold text-blue-900 mb-2">How it works</h4>
             <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
               <li>Enter a LinkedIn profile URL</li>
-              <li>Click "Enrich" to fetch information</li>
+              <li>Click &quot;Enrich&quot; to fetch information</li>
               <li>Multiple sources provide data enrichment</li>
               <li>Results show enriched details with confidence scores</li>
             </ol>

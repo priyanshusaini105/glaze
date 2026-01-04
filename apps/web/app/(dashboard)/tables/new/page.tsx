@@ -6,7 +6,6 @@ import { useCreateTable } from '@/hooks/use-query-api';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CSVImport } from '@/components/tables/csv-import';
-import { apiClient } from '@/lib/api-client';
 
 export default function NewTablePage() {
   const router = useRouter();
@@ -78,9 +77,9 @@ export default function NewTablePage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to import CSV');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('CSV import error:', err);
-      setCSVError(err.message || 'Failed to import CSV');
+      setCSVError(err instanceof Error ? err.message : 'Failed to import CSV');
     } finally {
       setCSVImporting(false);
     }

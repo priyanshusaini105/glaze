@@ -42,12 +42,18 @@ model Column {
 }
 
 model Row {
-  id        String   @id @default(uuid())
-  tableId   String
-  data      Json     // Keyed by columnId or name
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  tableId    String
+  data       Json     // Keyed by columnId or name
+  
+  // Enrichment lifecycle tracking
+  status     String   @default("idle") // 'idle' | 'queued' | 'running' | 'done' | 'failed' | 'ambiguous'
+  confidence Float?   // Confidence score for enrichment results
+  error      String?  // Error message if enrichment failed
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("rows")
 }

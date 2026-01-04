@@ -116,8 +116,8 @@ export interface EnrichRequest {
 export interface EnrichResult {
   rowId: string;
   columnId: string;
-  originalValue: any;
-  enrichedValue: any;
+  originalValue: unknown;
+  enrichedValue: unknown;
   status: 'success' | 'error';
   error?: string;
 }

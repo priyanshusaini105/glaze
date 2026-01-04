@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 
 export function CTAIridescent() {
   return (
