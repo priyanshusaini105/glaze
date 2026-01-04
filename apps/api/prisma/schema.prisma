@@ -13,6 +13,15 @@ datasource db {
   provider = "postgresql"
 }
 
+enum RowStatus {
+  idle
+  queued
+  running
+  done
+  failed
+  ambiguous
+}
+
 model Table {
   id          String   @id @default(uuid())
   name        String
@@ -42,18 +51,19 @@ model Column {
 }
 
 model Row {
-  id         String   @id @default(uuid())
+  id         String     @id @default(uuid())
   tableId    String
-  data       Json     // Keyed by columnId or name
+  data       Json       // original + enriched data (keyed by column key)
   
   // Enrichment lifecycle tracking
-  status     String   @default("idle") // 'idle' | 'queued' | 'running' | 'done' | 'failed' | 'ambiguous'
-  confidence Float?   // Confidence score for enrichment results
-  error      String?  // Error message if enrichment failed
+  status     RowStatus  @default(idle)
+  confidence Float?     // 0.0 – 1.0, overall confidence of enrichment
+  error      String?    // error message if failed
+  lastRunAt  DateTime?  // last enrichment attempt
   
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  table      Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("rows")
 }
