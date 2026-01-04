@@ -10,5 +10,8 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"] || 'postgresql://postgres:postgres@postgres:5432/glaze_db'
+  },
+  seed: {
+    command: "bun run prisma/seed.ts"
   }
 });

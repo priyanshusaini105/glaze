@@ -7,6 +7,9 @@
 // Enrichment types
 export * from "./enrichment";
 
+// Cell-level enrichment types (new system)
+export * from "./cell-enrichment";
+
 // LinkedIn types
 export * from "./linkedin";
 

@@ -22,6 +22,23 @@ enum RowStatus {
   ambiguous
 }
 
+// Status for individual cell enrichment tasks
+enum CellTaskStatus {
+  queued
+  running
+  done
+  failed
+}
+
+// Status for batch enrichment jobs
+enum JobStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
 model Table {
   id          String   @id @default(uuid())
   name        String
@@ -30,6 +47,10 @@ model Table {
   updatedAt   DateTime @updatedAt
   columns     Column[]
   rows        Row[]
+  
+  // Relations for enrichment
+  enrichmentJobs      EnrichmentJob[]
+  cellEnrichmentTasks CellEnrichmentTask[]
 
   @@map("tables")
 }
@@ -45,6 +66,9 @@ model Column {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  // Relations for enrichment
+  cellEnrichmentTasks CellEnrichmentTask[]
 
   @@unique([tableId, key])
   @@map("columns")
@@ -64,6 +88,91 @@ model Row {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   table      Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  // Relations for enrichment
+  cellEnrichmentTasks CellEnrichmentTask[]
 
   @@map("rows")
+}
+
+// ============================================================
+// ENRICHMENT MODELS
+// ============================================================
+
+/**
+ * EnrichmentJob - Tracks a batch enrichment request
+ * 
+ * Created when user triggers enrichment on cells/rows/columns.
+ * Contains metadata about the batch and links to individual cell tasks.
+ */
+model EnrichmentJob {
+  id          String    @id @default(uuid())
+  tableId     String
+  table       Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  
+  // Job status and tracking
+  status      JobStatus @default(pending)
+  totalTasks  Int       @default(0)
+  doneTasks   Int       @default(0)
+  failedTasks Int       @default(0)
+  
+  // Metadata
+  createdBy   String?   // User ID if auth is implemented
+  error       String?   // Error message if job failed
+  
+  // Timestamps
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  cellTasks   CellEnrichmentTask[]
+
+  @@index([tableId])
+  @@index([status])
+  @@map("enrichment_jobs")
+}
+
+/**
+ * CellEnrichmentTask - The atomic unit of enrichment
+ * 
+ * Each task represents one (rowId, columnId) enrichment operation.
+ * Workers pick up queued tasks and execute them independently.
+ */
+model CellEnrichmentTask {
+  id          String         @id @default(uuid())
+  
+  // References
+  tableId     String
+  table       Table          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  rowId       String
+  row         Row            @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  columnId    String
+  column      Column         @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         EnrichmentJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  // Task status
+  status      CellTaskStatus @default(queued)
+  
+  // Result data
+  result      Json?          // The enriched value with metadata
+  confidence  Float?         // 0.0 – 1.0
+  error       String?        // Error message if failed
+  
+  // Execution tracking
+  attempts    Int            @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Ensure unique task per cell per job
+  @@unique([jobId, rowId, columnId])
+  @@index([jobId])
+  @@index([status])
+  @@index([rowId])
+  @@index([columnId])
+  @@map("cell_enrichment_tasks")
 }

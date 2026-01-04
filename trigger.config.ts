@@ -18,5 +18,6 @@ export default defineConfig({
       randomize: true,
     },
   },
-  dirs: ["packages/trigger"],
+  // Include both packages/trigger and apps/workflows for task discovery
+  dirs: ["packages/trigger", "apps/workflows/src"],
 });
