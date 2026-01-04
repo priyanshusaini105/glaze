@@ -31,6 +31,26 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
   const [loading, setLoading] = useState(false);
   const [enrichingRows, setEnrichingRows] = useState<Set<string>>(new Set());
 
+  // Load rows from API
+  const loadRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.getRows(tableId, { page: 1, limit: 1000 });
+      const transformedData = response.rows.map((row: Row) => ({
+        id: row.id,
+        data: row.data,
+        tableId: row.tableId,
+        ...row.data,
+      }));
+      setRowData(transformedData);
+    } catch (error) {
+      console.error('Failed to load rows:', error);
+      alert('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [tableId]);
+
   // Convert Column[] to AG Grid ColDef[]
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
@@ -41,7 +61,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
         pinned: 'left',
         cellRenderer: (params: ICellRendererParams) => {
           const isEnriching = enrichingRows.has(params.data.id);
-          
+
           const onDelete = async () => {
             if (confirm('Delete this row?')) {
               try {
@@ -56,9 +76,9 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
 
           const onEnrich = async () => {
             const rowId = params.data.id;
-            
+
             setEnrichingRows(prev => new Set(prev).add(rowId));
-            
+
             try {
               // Enrich entire row using new unified endpoint
               const enrichRequest = {
@@ -68,12 +88,12 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
                   rowIds: [rowId]
                 }]
               };
-              
+
               const enrichResponse = await apiClient.enrichData(enrichRequest);
 
               // Update all cells in the row with enriched values
               const updateData: Record<string, unknown> = {};
-              enrichResponse.results.forEach((result: Record<string, unknown>) => {
+              enrichResponse.results.forEach((result) => {
                 if (result.status === 'success') {
                   params.node.setDataValue(result.columnId, result.enrichedValue);
                   updateData[result.columnId] = result.enrichedValue;
@@ -102,17 +122,16 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
               });
             }
           };
-          
+
           return (
             <div className="flex gap-1">
               <button
                 onClick={onEnrich}
                 disabled={isEnriching}
-                className={`p-1 ${
-                  isEnriching
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-blue-600 hover:text-blue-800'
-                }`}
+                className={`p-1 ${isEnriching
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-blue-600 hover:text-blue-800'
+                  }`}
                 title="Enrich this row"
               >
                 <Sparkles size={14} />
@@ -182,24 +201,6 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     return cols;
   }, [columns, tableId, enrichingRows, loadRows]);
 
-  // Load rows from API
-  const loadRows = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await apiClient.getRows(tableId, { page: 1, limit: 1000 });
-      const transformedData = response.rows.map((row: Row) => ({
-        id: row.id,
-        ...row.data,
-      }));
-      setRowData(transformedData);
-    } catch (error) {
-      console.error('Failed to load rows:', error);
-      alert('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  }, [tableId]);
-
   useEffect(() => {
     loadRows();
   }, [loadRows]);
@@ -214,7 +215,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     async (event: CellValueChangedEvent) => {
       const rowId = event.data.id;
       const field = event.colDef.field;
-      
+
       if (!rowId || !field || field === '__actions') return;
 
       const updatedData: Record<string, unknown> = {};
@@ -244,6 +245,8 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
       setRowData((prev) => [
         {
           id: createdRow.id,
+          data: createdRow.data,
+          tableId: createdRow.tableId,
           ...createdRow.data,
         },
         ...prev,

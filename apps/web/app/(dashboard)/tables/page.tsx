@@ -208,11 +208,11 @@ export default function TablesPage() {
                     </div>
                     <div className="col-span-3 flex items-center justify-between">
                       <span className="text-sm text-gray-600">
-                        {new Date(table.createdAt).toLocaleDateString('en-US', {
+                        {table.createdAt ? new Date(table.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
-                        })}
+                        }) : '-'}
                       </span>
                       <button
                         onClick={() => setDeleteConfirm(table.id)}

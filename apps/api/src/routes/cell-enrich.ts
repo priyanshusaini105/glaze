@@ -79,9 +79,9 @@ function expandGridToCells(
   return cells;
 }
 
-export const cellEnrichmentRoutes = new Elysia({ prefix: "/tables" })
+export const cellEnrichmentRoutes = new Elysia()
   /**
-   * POST /tables/:tableId/enrich
+   * POST /tables/:id/enrich
    * 
    * Trigger cell-level enrichment for a table.
    * 
@@ -102,8 +102,8 @@ export const cellEnrichmentRoutes = new Elysia({ prefix: "/tables" })
    * }
    */
   .post(
-    "/:tableId/enrich",
-    async ({ params: { tableId }, body, error, set }) => {
+    "/tables/:id/enrich",
+    async ({ params: { id: tableId }, body, error, set }) => {
       try {
         // 1. Validate table exists
         const table = await prisma.table.findUnique({
@@ -253,12 +253,12 @@ export const cellEnrichmentRoutes = new Elysia({ prefix: "/tables" })
   )
 
   /**
-   * GET /tables/:tableId/enrich/jobs/:jobId
+   * GET /tables/:id/enrich/jobs/:jobId
    * 
    * Get the status of an enrichment job
    */
-  .get("/:tableId/enrich/jobs/:jobId", async ({ params, error, set }) => {
-    const { tableId, jobId } = params;
+  .get("/tables/:id/enrich/jobs/:jobId", async ({ params, error, set }) => {
+    const { id: tableId, jobId } = params;
 
     const job = await prisma.enrichmentJob.findFirst({
       where: {
@@ -293,14 +293,14 @@ export const cellEnrichmentRoutes = new Elysia({ prefix: "/tables" })
   })
 
   /**
-   * GET /tables/:tableId/enrich/jobs
+   * GET /tables/:id/enrich/jobs
    * 
    * List all enrichment jobs for a table
    */
   .get(
-    "/:tableId/enrich/jobs",
+    "/tables/:id/enrich/jobs",
     async ({ params, query, error, set }) => {
-      const { tableId } = params;
+      const { id: tableId } = params;
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
       const skip = (page - 1) * limit;
@@ -359,14 +359,14 @@ export const cellEnrichmentRoutes = new Elysia({ prefix: "/tables" })
   )
 
   /**
-   * GET /tables/:tableId/enrich/jobs/:jobId/tasks
+   * GET /tables/:id/enrich/jobs/:jobId/tasks
    * 
    * Get tasks for a specific enrichment job
    */
   .get(
-    "/:tableId/enrich/jobs/:jobId/tasks",
+    "/tables/:id/enrich/jobs/:jobId/tasks",
     async ({ params, query, error, set }) => {
-      const { tableId, jobId } = params;
+      const { id: tableId, jobId } = params;
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 50;
       const skip = (page - 1) * limit;

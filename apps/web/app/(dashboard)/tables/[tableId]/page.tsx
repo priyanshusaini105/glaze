@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Sparkles, 
+import {
+  Search,
+  Plus,
+  Sparkles,
   X,
   Check,
   ChevronDown,
@@ -19,7 +19,7 @@ import {
   Download,
 } from 'lucide-react';
 import { TableSidebar } from '../../../../components/tables/table-sidebar';
-import { apiClient } from '../../../../lib/api-client';
+import { typedApi } from '../../../../lib/typed-api-client';
 import { Table, Column, Row, DataType } from '../../../../lib/api-types';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -30,12 +30,12 @@ import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
 
 const Checkbox = ({ checked, onClick }: { checked: boolean; onClick?: () => void }) => (
-  <div 
+  <div
     onClick={onClick}
     className={cn(
       'w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors',
-      checked 
-        ? 'bg-purple-600 border-purple-600 shadow-sm' 
+      checked
+        ? 'bg-purple-600 border-purple-600 shadow-sm'
         : 'bg-white border-slate-300 hover:border-slate-400'
     )}
   >
@@ -77,7 +77,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [columnSaving, setColumnSaving] = useState(false);
   const [columnDeletingId, setColumnDeletingId] = useState<string | null>(null);
   const [columnError, setColumnError] = useState<string | null>(null);
-  
+
   // Selection states
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [allChecked, setAllChecked] = useState(false);
@@ -89,13 +89,14 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const rowSelectionStartRef = useRef<number | null>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const newColumnInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Modal states (currently used for enrichment actions)
   const [showEnrichModal, setShowEnrichModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // Enrichment state
   const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichingCells, setEnrichingCells] = useState<Set<string>>(new Set()); // Track cells being enriched (format: "rowId:columnKey")
 
   useEffect(() => {
     params.then((p) => setTableId(p.tableId));
@@ -103,11 +104,14 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
   const loadData = useCallback(async () => {
     if (!tableId) return;
-    
+
     setLoading(true);
     try {
       // Load all tables for sidebar
-      const allTables = await apiClient.getTables();
+      const { data: allTables, error: tablesError } = await typedApi.getTables();
+      if (tablesError || !allTables) {
+        throw new Error(tablesError || 'Failed to load tables');
+      }
       const formattedTables = allTables.map((t) => ({
         id: t.id,
         name: t.name,
@@ -116,17 +120,23 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setTables(formattedTables);
 
       // Load current table details with columns
-      const tableDetails = await apiClient.getTable(tableId);
+      const { data: tableDetails, error: tableError } = await typedApi.getTable(tableId);
+      if (tableError || !tableDetails) {
+        throw new Error(tableError || 'Failed to load table details');
+      }
       setCurrentTable(tableDetails);
-      
+
       // Extract columns from table details
       if ('columns' in tableDetails && Array.isArray(tableDetails.columns)) {
         setColumns(tableDetails.columns);
       }
-      
+
       // Load rows
-      const rowsResponse = await apiClient.getRows(tableId);
-      setRowData(rowsResponse.rows);
+      const { data: rowsData, error: rowsError } = await typedApi.getRows(tableId);
+      if (rowsError || !rowsData) {
+        throw new Error(rowsError || 'Failed to load rows');
+      }
+      setRowData(rowsData.rows);
     } catch (error) {
       console.error('Failed to load table data:', error);
     } finally {
@@ -176,12 +186,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     try {
       const key = generateColumnKey(newColumnLabel);
       const dataType = newColumnType === 'ai-agent' ? 'text' : newColumnType;
-      const newColumn = await apiClient.createColumn(tableId, {
+
+      const { data: newColumn, error } = await typedApi.createColumn(tableId, {
         key,
         label: newColumnLabel.trim(),
         dataType: dataType as DataType,
       });
 
+      if (error || !newColumn) {
+        throw new Error(error || 'Failed to create column');
+      }
       setColumns((prev) => [...prev, newColumn]);
       setRowData((prev) =>
         (prev || []).map((row) => ({
@@ -208,7 +222,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
     setColumnDeletingId(columnId);
     try {
-      await apiClient.deleteColumn(tableId, columnId);
+      const { error } = await typedApi.deleteColumn(tableId, columnId);
+      if (error) {
+        throw new Error('Failed to delete column');
+      }
       setColumns((prev) => prev.filter((c) => c.id !== columnId));
       setRowData((prev) =>
         prev.map((row) => {
@@ -235,7 +252,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     const maxC = Math.max(start.c, end.c);
 
     let clipboardText = '';
-    
+
     for (let r = minR; r <= maxR; r++) {
       const row = rowData[r];
       if (!row) continue;
@@ -259,13 +276,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   }, [selectionRange, rowData, columns]);
 
   const handleExportCSV = useCallback(async () => {
-    if (!currentTable || !columns.length) return;
-    
+    if (!currentTable || !columns.length || !rowData?.length) return;
+
     setIsExporting(true);
     try {
       // Extract headers from columns
       const headers = columns.map(col => col.label);
-      
+
       // Map rows to CSV format
       const csvRows = rowData.map(row => {
         const csvRow: Record<string, unknown> = {};
@@ -274,10 +291,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         });
         return csvRow;
       });
-      
+
       // Generate CSV content
       const csvContent = generateCSV(headers, csvRows);
-      
+
       // Download the file
       const filename = `${currentTable.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
       downloadCSV(filename, csvContent);
@@ -294,7 +311,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     if (!selectionRange || !tableId) return;
 
     setIsEnriching(true);
-    
+
     try {
       const { start, end } = selectionRange;
       const minR = Math.min(start.r, end.r);
@@ -302,9 +319,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       const minC = Math.min(start.c, end.c);
       const maxC = Math.max(start.c, end.c);
 
-      // Collect cell enrichment requests
+      // Collect cell enrichment requests and mark cells as enriching
       const cellSelections = [];
-      
+      const enrichingCellKeys = new Set<string>();
+
       for (let r = minR; r <= maxR; r++) {
         const row = rowData[r];
         if (!row) continue;
@@ -323,10 +341,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           const col = columns[c];
           if (!col) continue;
 
+          // Find the column ID from the column object
+          const columnId = col.id;
+
           cellSelections.push({
             rowId: row.id,
-            columnId: col.key, // Use columnId instead of columnKey
+            columnId: columnId, // Use the actual column ID
           });
+
+          // Track enriching cell
+          enrichingCellKeys.add(`${row.id}:${col.key}`);
         }
       }
 
@@ -334,6 +358,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         alert('No data to enrich. Make sure rows have some data.');
         return;
       }
+
+      // Mark cells as enriching
+      setEnrichingCells(enrichingCellKeys);
 
       // Call enrichment API with new unified format
       try {
@@ -345,29 +372,52 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           }],
         };
 
-        const result = await apiClient.enrichData(enrichRequest);
+        const { data: result, error } = await typedApi.enrichData(enrichRequest);
+        if (error || !result) {
+          throw new Error(error || 'Failed to enrich data');
+        }
         console.log('Enrichment result:', result);
 
         if (result.results && result.results.length > 0) {
           // Filter successful results
-          const successfulResults = result.results.filter(r => r.status === 'success');
-          
+          const successfulResults = result.results.filter((r: any) => r.status === 'success');
+
           if (successfulResults.length === 0) {
             alert('No cells were enriched. Please try again.');
+            setEnrichingCells(new Set());
             return;
           }
 
-          // Group enriched cells by row to batch updates
-          const cellsByRow = new Map<string, typeof result.results>();
-          
+          // Optimistically update UI first
+          setRowData(prevData => {
+            return prevData.map(row => {
+              const enrichedCellsForRow = successfulResults.filter((r: any) => r.rowId === row.id);
+              if (enrichedCellsForRow.length === 0) return row;
+
+              const newData = { ...row.data };
+              enrichedCellsForRow.forEach((enrichedCell: any) => {
+                // Find the column key from column ID
+                const column = columns.find(c => c.id === enrichedCell.columnId);
+                if (column) {
+                  newData[column.key] = enrichedCell.enrichedValue;
+                }
+              });
+
+              return { ...row, data: newData };
+            });
+          });
+
+          // Group enriched cells by row to batch updates to backend
+          const cellsByRow = new Map<string, any[]>();
+
           for (const enrichedCell of successfulResults) {
             if (!cellsByRow.has(enrichedCell.rowId)) {
               cellsByRow.set(enrichedCell.rowId, []);
             }
             cellsByRow.get(enrichedCell.rowId)!.push(enrichedCell);
           }
-          
-          // Update each row with all its enriched cells
+
+          // Update each row in the backend
           for (const [rowId, cells] of cellsByRow.entries()) {
             try {
               const rowToUpdate = rowData.find(r => r.id === rowId);
@@ -375,38 +425,48 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 // Build update object with all enriched cells for this row
                 const updateData = { ...rowToUpdate.data };
                 for (const enrichedCell of cells) {
-                  updateData[enrichedCell.columnId] = enrichedCell.enrichedValue;
+                  // Find the column key from column ID
+                  const column = columns.find(c => c.id === enrichedCell.columnId);
+                  if (column) {
+                    updateData[column.key] = enrichedCell.enrichedValue;
+                  }
                 }
-                
-                await apiClient.updateRow(tableId, rowId, {
+
+                const { error: updateError } = await typedApi.updateRow(tableId, rowId, {
                   data: updateData,
                 });
+                if (updateError) {
+                  console.error('Failed to update row:', updateError);
+                }
               }
             } catch (updateError) {
               console.error('Failed to update row:', updateError);
             }
           }
-          
-          // Reload table data to show enriched values
-          await loadData();
-          
+
+          // Clear enriching cells
+          setEnrichingCells(new Set());
+
           // Clear selection
           setSelectionRange(null);
-          
+
           const failedCount = result.results.length - successfulResults.length;
           alert(`Successfully enriched ${successfulResults.length} cells!${failedCount > 0 ? ` (${failedCount} failed)` : ''}`);
         } else {
           alert('No cells were enriched. Make sure rows have some data.');
+          setEnrichingCells(new Set());
         }
       } catch (fetchError) {
         // Get more detailed error info
         const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
         console.error('Enrichment API error:', fetchError);
+        setEnrichingCells(new Set());
         throw new Error(`Enrichment API error: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Enrichment error:', error);
       alert('Enrichment failed. Please try again.');
+      setEnrichingCells(new Set());
     } finally {
       setIsEnriching(false);
     }
@@ -419,7 +479,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setIsSelectingCells(false);
       rowSelectionStartRef.current = null;
     };
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         handleCopy();
@@ -449,19 +509,22 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
   const updateRow = async (rowId: string, field: string, newValue: string) => {
     // Optimistic update
-    setRowData(prevData => 
-      prevData.map(row => 
+    setRowData(prevData =>
+      prevData.map(row =>
         row.id === rowId ? { ...row, data: { ...row.data, [field]: newValue } } : row
       )
     );
-    
+
     // Persist to API
     try {
       const rowToUpdate = rowData.find(r => r.id === rowId);
       if (rowToUpdate) {
-        await apiClient.updateRow(tableId, rowId, {
+        const { error } = await typedApi.updateRow(tableId, rowId, {
           data: { ...rowToUpdate.data, [field]: newValue }
         });
+        if (error) {
+          throw new Error('Failed to update row');
+        }
       }
     } catch (error) {
       console.error('Failed to update row:', error);
@@ -477,10 +540,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       columns.forEach(col => {
         emptyData[col.key] = '';
       });
-      
-      const newRow = await apiClient.createRow(tableId, { data: emptyData });
+
+      const { data: newRow, error } = await typedApi.createRow(tableId, { data: emptyData });
+      if (error || !newRow) {
+        throw new Error(error || 'Failed to create row');
+      }
       setRowData([...(rowData || []), newRow]);
-      
+
       setTimeout(() => {
         if (gridContainerRef.current) {
           gridContainerRef.current.scrollTop = gridContainerRef.current.scrollHeight;
@@ -520,7 +586,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     rowSelectionStartRef.current = index;
     const newSet = new Set([id]);
     setSelectedRowIds(newSet);
-    setAllChecked(newSet.size === rowData.length);
+    setAllChecked(newSet.size === (rowData?.length || 0));
   };
 
   const handleRowSelectionMove = (index: number) => {
@@ -542,7 +608,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setSelectedRowIds(new Set());
       setAllChecked(false);
     } else {
-      const allIds = new Set(rowData.map(r => r.id));
+      const allIds = new Set((rowData || []).map(r => r.id));
       setSelectedRowIds(allIds);
       setAllChecked(true);
     }
@@ -576,7 +642,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     const maxC = Math.max(start.c, end.c);
 
     const isSelected = rowIndex >= minR && rowIndex <= maxR && colIndex >= minC && colIndex <= maxC;
-    
+
     if (!isSelected) return { isSelected: false, style: {} };
 
     const borderColor = '#2badee';
@@ -627,7 +693,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     <>
       <TableSidebar tables={tables} currentTableId={tableId} />
       <div className="flex flex-col h-screen w-full bg-white text-sm font-sans text-slate-900">
-        
+
         {/* Modern Header */}
         <div className="backdrop-blur-sm bg-white/80 border-b border-slate-200 px-5 py-3 flex items-center justify-between shrink-0 sticky top-0 z-20">
           {/* Left Section - Breadcrumbs & Title */}
@@ -643,8 +709,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           <div className="absolute left-1/2 transform -translate-x-1/2 max-w-md w-full">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <Input 
-                placeholder="Search rows or values..." 
+              <Input
+                placeholder="Search rows or values..."
                 className="w-full pl-10 pr-16 bg-slate-50/80 border-transparent focus:bg-white focus:border-slate-200 rounded-lg"
               />
               <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-xs font-medium text-slate-600">
@@ -667,14 +733,14 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               <span className="text-xs font-medium text-slate-600">{columns.length} Columns</span>
               <span className="text-xs font-medium text-slate-600">{rowData?.length || 0} Rows</span>
             </div>
-            
+
             <div className="flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-9 px-3 gap-2"
                 onClick={handleExportCSV}
-                disabled={isExporting || !rowData.length}
+                disabled={isExporting || !rowData?.length}
               >
                 {isExporting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -713,11 +779,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         {/* Table Container */}
         <div className="flex-1 overflow-auto relative select-none bg-white" ref={gridContainerRef}>
           <div className="min-w-300">
-            
+
             {/* Header */}
             <div className="flex items-center h-11 bg-slate-50/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-30 shadow-sm">
               {/* Checkbox Column */}
-              <div 
+              <div
                 className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-slate-50/80 backdrop-blur-sm z-30 border-r border-transparent hover:border-slate-200 transition-colors cursor-pointer"
                 onClick={toggleAllRows}
               >
@@ -732,8 +798,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               {/* Columns */}
               {columns.map((col, idx) => {
                 return (
-                  <div 
-                    key={col.id} 
+                  <div
+                    key={col.id}
                     className={cn(
                       'flex items-center gap-2 px-4 border-r border-slate-200 shrink-0 h-full transition-colors bg-white',
                       'w-64',
@@ -762,7 +828,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               })}
 
               {/* New Column Header */}
-              <div 
+              <div
                 className="px-4 flex items-center cursor-pointer hover:bg-slate-50 transition-colors h-full text-slate-500 hover:text-slate-900 gap-2 shrink-0 min-w-37.5"
                 onClick={() => {
                   setShowAddColumnPanel(true);
@@ -781,8 +847,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 const rowBg = isRowSelected ? 'bg-cyan-50/60' : (rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white');
 
                 return (
-                  <div 
-                    key={row.id} 
+                  <div
+                    key={row.id}
                     className={cn(
                       'flex items-center h-14 transition-colors group relative',
                       rowBg,
@@ -790,7 +856,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                     )}
                   >
                     {/* Left Gutter Checkbox */}
-                    <div 
+                    <div
                       className={cn(
                         'w-12 flex items-center justify-center shrink-0 sticky left-0 z-20 cursor-grab active:cursor-grabbing border-r border-slate-100',
                         isRowSelected ? 'bg-cyan-50/90' : 'bg-white'
@@ -817,15 +883,18 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                       const { style } = getCellSelectionState(rIndex, cIndex);
                       const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
                       const value = row.data?.[col.key];
-                      
+                      const cellKey = `${row.id}:${col.key}`;
+                      const isCellEnriching = enrichingCells.has(cellKey);
+
                       return (
-                        <div 
+                        <div
                           key={col.id}
                           className={cn(
                             'h-full flex items-center px-4 shrink-0 border-r border-slate-100 relative outline-none',
                             'w-64',
                             cIndex === 0 && 'sticky left-26 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
                             cIndex === 0 && (isRowSelected ? 'bg-cyan-50/90' : 'bg-white'),
+                            isCellEnriching && 'bg-amber-50/50',
                           )}
                           style={style}
                           onMouseDown={(e) => {
@@ -836,8 +905,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                           onMouseEnter={() => handleCellMouseEnter(rIndex, cIndex)}
                           onDoubleClick={() => setEditingCell({ rowIndex: rIndex, colId: col.id })}
                         >
+                          {isCellEnriching && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-amber-50/80 backdrop-blur-sm">
+                              <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                            </div>
+                          )}
                           {isEditing ? (
-                            <Input 
+                            <Input
                               autoFocus
                               className="h-8 shadow-none border-cyan-500 ring-2 ring-cyan-100"
                               value={String(value || '')}
@@ -856,7 +930,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                         </div>
                       );
                     })}
-                    
+
                     {/* Empty Cell Spacer */}
                     <div className="min-w-37.5 shrink-0"></div>
                   </div>
@@ -865,7 +939,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             </div>
 
             {/* Add Row Button */}
-            <div 
+            <div
               className="sticky left-0 w-full pl-26 border-t border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors cursor-pointer group"
               onClick={handleAddRow}
             >
@@ -885,16 +959,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             const minC = Math.min(start.c, end.c);
             const maxC = Math.max(start.c, end.c);
             const selectedCellCount = (maxR - minR + 1) * (maxC - minC + 1);
-            
+
             return selectedCellCount > 0 ? (
               <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
                 <div className="backdrop-blur-md bg-white/95 border border-slate-200 rounded-full shadow-xl shadow-slate-900/10 px-2 py-1.5 flex items-center gap-1">
                   <div className="px-4 py-1 border-r border-slate-200">
                     <span className="text-sm font-semibold text-slate-900">{selectedCellCount} {selectedCellCount === 1 ? 'cell' : 'cells'} selected</span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="gap-2 rounded-full px-5 hover:bg-purple-50 hover:text-purple-700"
                     onClick={handleRunEnrichment}
                     disabled={isEnriching}
@@ -911,9 +985,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                       </>
                     )}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-9 w-9 p-0 rounded-full hover:bg-slate-100"
                     onClick={() => setSelectionRange(null)}
                   >
@@ -927,11 +1001,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           {/* Enrich Modal */}
           {showEnrichModal && (
             <>
-              <div 
-                className="fixed inset-0 z-40 bg-transparent" 
+              <div
+                className="fixed inset-0 z-40 bg-transparent"
                 onClick={() => setShowEnrichModal(false)}
               />
-              <div 
+              <div
                 className="absolute z-50 w-85 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-100 top-20 right-20"
               >
                 <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -946,12 +1020,12 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 <div className="p-2">
                   <div className="relative mb-2">
                     <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400" />
-                    <Input 
-                      placeholder="Find a provider..." 
+                    <Input
+                      placeholder="Find a provider..."
                       className="pl-9 bg-slate-50 border-slate-200"
                     />
                   </div>
-                  
+
                   <div className="space-y-1">
                     {[
                       { icon: LinkIcon, color: 'text-blue-600 bg-blue-50', title: 'Get website text', sub: 'Extract copy from landing page' },
@@ -984,9 +1058,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             {/* Panel Header */}
             <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
               <h3 className="font-semibold text-slate-900">New Column</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-6 w-6 p-0 rounded-md hover:bg-slate-100"
                 onClick={() => {
                   setShowAddColumnPanel(false);

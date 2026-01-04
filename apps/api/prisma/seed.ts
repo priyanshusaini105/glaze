@@ -9,9 +9,22 @@
  * Run with: bun run seed
  */
 
+import { config } from "dotenv";
+import { resolve } from "path";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
-const prisma = new PrismaClient();
+// Load environment variables from the api directory
+config({ path: resolve(__dirname, "../.env") });
+
+const connectionString = process.env.DATABASE_URL!;
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 async function main() {
   console.log("🌱 Starting seed...\n");

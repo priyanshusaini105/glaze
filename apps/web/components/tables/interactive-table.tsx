@@ -69,19 +69,54 @@ export function InteractiveTable({
   const [data, setData] = useState<TableRow[]>(initialRows);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; colId: string } | null>(null);
   const [editValue, setEditValue] = useState('');
-  
+
   // Cell selection state
   const [selectionRange, setSelectionRange] = useState<CellSelection>(null);
   const [isSelectingCells, setIsSelectingCells] = useState(false);
   const [isCopyFlash, setIsCopyFlash] = useState(false);
-  
+
   // Row selection state
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [isDraggingRows, setIsDraggingRows] = useState(false);
   const rowSelectionStartRef = useRef<number | null>(null);
   const [allChecked, setAllChecked] = useState(false);
 
+
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Copy to clipboard
+  const handleCopy = useCallback(async () => {
+    if (!selectionRange) return;
+
+    const { start, end } = selectionRange;
+    const minR = Math.min(start.r, end.r);
+    const maxR = Math.max(start.r, end.r);
+    const minC = Math.min(start.c, end.c);
+    const maxC = Math.max(start.c, end.c);
+
+    let clipboardText = '';
+
+    for (let r = minR; r <= maxR; r++) {
+      const row = data[r];
+      if (!row) continue;
+      const rowValues = [];
+      for (let c = minC; c <= maxC; c++) {
+        const col = columns[c];
+        if (col) {
+          rowValues.push(row[col.id] || '');
+        }
+      }
+      clipboardText += rowValues.join('\t') + (r < maxR ? '\n' : '');
+    }
+
+    try {
+      await navigator.clipboard.writeText(clipboardText);
+      setIsCopyFlash(true);
+      setTimeout(() => setIsCopyFlash(false), 300);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [selectionRange, columns, data]);
 
   // Global mouse up handler
   useEffect(() => {
@@ -119,39 +154,6 @@ export function InteractiveTable({
     };
   }, [selectionRange, editingCell, columns, handleCopy]);
 
-  // Copy to clipboard
-  const handleCopy = useCallback(async () => {
-    if (!selectionRange) return;
-
-    const { start, end } = selectionRange;
-    const minR = Math.min(start.r, end.r);
-    const maxR = Math.max(start.r, end.r);
-    const minC = Math.min(start.c, end.c);
-    const maxC = Math.max(start.c, end.c);
-
-    let clipboardText = '';
-
-    for (let r = minR; r <= maxR; r++) {
-      const row = data[r];
-      if (!row) continue;
-      const rowValues = [];
-      for (let c = minC; c <= maxC; c++) {
-        const col = columns[c];
-        if (col) {
-          rowValues.push(row[col.id] || '');
-        }
-      }
-      clipboardText += rowValues.join('\t') + (r < maxR ? '\n' : '');
-    }
-
-    try {
-      await navigator.clipboard.writeText(clipboardText);
-      setIsCopyFlash(true);
-      setTimeout(() => setIsCopyFlash(false), 300);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }, [selectionRange, columns, data]);
 
   // Update row
   const updateRow = useCallback((id: string, field: string, newValue: string) => {
@@ -233,7 +235,7 @@ export function InteractiveTable({
   // Cell selection handlers
   const handleCellMouseDown = (rowIndex: number, colIndex: number, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'A') return;
-    
+
     setIsSelectingCells(true);
     setSelectionRange({
       start: { r: rowIndex, c: colIndex },
@@ -306,7 +308,7 @@ export function InteractiveTable({
 
   const selectedCellCount = selectionRange
     ? (Math.abs(selectionRange.end.r - selectionRange.start.r) + 1) *
-      (Math.abs(selectionRange.end.c - selectionRange.start.c) + 1)
+    (Math.abs(selectionRange.end.c - selectionRange.start.c) + 1)
     : 0;
 
   // Get selected cells for enrichment
@@ -373,135 +375,135 @@ export function InteractiveTable({
       <div className="flex-1 flex overflow-hidden">
         {/* Table Container */}
         <div className="flex-1 overflow-auto relative select-none transition-all duration-300" ref={containerRef}>
-        <div className="min-w-full">
-          {/* Header Row */}
-          <div className="flex items-center h-12 border-b-2 border-gray-200/80 bg-white sticky top-0 z-30">
-            {/* Checkbox Column */}
-            <div
-              className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-white z-30 border-r border-gray-200/40 hover:bg-gray-50 transition-colors h-full"
-              onClick={toggleAllRows}
-            >
-              <Checkbox checked={allChecked} />
-            </div>
-
-            {/* Column Headers */}
-            {columns.map((col, idx) => (
+          <div className="min-w-full">
+            {/* Header Row */}
+            <div className="flex items-center h-12 border-b-2 border-gray-200/80 bg-white sticky top-0 z-30">
+              {/* Checkbox Column */}
               <div
-                key={col.id}
-                className={cn(
-                  'flex flex-col gap-1.5 px-4 py-2 border-r border-gray-200/40 shrink-0 h-full justify-center transition-colors bg-linear-to-b from-gray-50/90 to-white/70 group',
-                  idx === 0 && 'sticky left-12 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
-                  'min-w-50'
-                )}
+                className="w-12 flex items-center justify-center shrink-0 sticky left-0 bg-white z-30 border-r border-gray-200/40 hover:bg-gray-50 transition-colors h-full"
+                onClick={toggleAllRows}
               >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={col.name}
-                    onChange={(e) => renameColumn(col.id, e.target.value)}
-                    className="w-full bg-transparent text-xs font-semibold uppercase tracking-wider text-gray-700 outline-none hover:text-gray-900 transition-colors"
-                    placeholder="Column name"
-                  />
-                  <button
-                    aria-label="Delete column"
-                    onClick={() => deleteColumn(col.id)}
-                    className="text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm shrink-0"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{col.id}</span>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-200">
-                    {col.type}
-                  </span>
-                </div>
+                <Checkbox checked={allChecked} />
               </div>
-            ))}
-          </div>
 
-          {/* Data Rows */}
-          <div className="divide-y divide-slate-100 relative">
-            {data.map((row, rIndex) => {
-              const isRowSelected = selectedRowIds.has(row.id);
-              const rowBg = rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white';
-
-              return (
+              {/* Column Headers */}
+              {columns.map((col, idx) => (
                 <div
-                  key={row.id}
+                  key={col.id}
                   className={cn(
-                    'flex items-center h-14 transition-colors group relative',
-                    rowBg,
-                    isRowSelected && 'bg-blue-50/60'
+                    'flex flex-col gap-1.5 px-4 py-2 border-r border-gray-200/40 shrink-0 h-full justify-center transition-colors bg-linear-to-b from-gray-50/90 to-white/70 group',
+                    idx === 0 && 'sticky left-12 z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
+                    'min-w-50'
                   )}
                 >
-                  {/* Row Checkbox */}
-                  <div
-                    className={cn(
-                      'w-12 flex items-center justify-center shrink-0 sticky left-0 z-20 cursor-grab active:cursor-grabbing border-r border-slate-100 h-full',
-                      isRowSelected ? 'bg-blue-50/90' : 'bg-white'
-                    )}
-                    onMouseDown={(e) => handleRowSelectionStart(e, rIndex, row.id)}
-                    onMouseEnter={() => handleRowSelectionMove(rIndex)}
-                  >
-                    <Checkbox checked={isRowSelected} />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={col.name}
+                      onChange={(e) => renameColumn(col.id, e.target.value)}
+                      className="w-full bg-transparent text-xs font-semibold uppercase tracking-wider text-gray-700 outline-none hover:text-gray-900 transition-colors"
+                      placeholder="Column name"
+                    />
+                    <button
+                      aria-label="Delete column"
+                      onClick={() => deleteColumn(col.id)}
+                      className="text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-md hover:bg-red-50 hover:shadow-sm shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{col.id}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-200">
+                      {col.type}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                  {/* Data Cells */}
-                  {columns.map((col, cIndex) => {
-                    const { isSelected, style } = getCellSelectionState(rIndex, cIndex);
-                    const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
+            {/* Data Rows */}
+            <div className="divide-y divide-slate-100 relative">
+              {data.map((row, rIndex) => {
+                const isRowSelected = selectedRowIds.has(row.id);
+                const rowBg = rIndex % 2 === 1 ? 'bg-slate-50/30' : 'bg-white';
 
-                    return (
-                      <div
-                        key={col.id}
-                        className={cn(
-                          'h-full flex items-center px-4 shrink-0 border-r border-transparent relative outline-none min-w-50',
-                          cIndex === 0 && 'sticky left-12 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
-                          cIndex === 0 && (isRowSelected ? 'bg-blue-50/90' : 'bg-white')
-                        )}
-                        style={isSelected ? style : undefined}
-                        onMouseDown={(e) => handleCellMouseDown(rIndex, cIndex, e)}
-                        onMouseEnter={() => handleCellMouseEnter(rIndex, cIndex)}
-                        onDoubleClick={() => {
-                          setEditingCell({ rowIndex: rIndex, colId: col.id });
-                          setEditValue(row[col.id] || '');
-                        }}
-                      >
-                        {isEditing ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            className="w-full h-8 shadow-none border-2 border-purple-500 ring-2 ring-purple-100 rounded px-2 outline-none"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={() => {
-                              updateRow(row.id, col.id, editValue);
-                              setEditingCell(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
+                return (
+                  <div
+                    key={row.id}
+                    className={cn(
+                      'flex items-center h-14 transition-colors group relative',
+                      rowBg,
+                      isRowSelected && 'bg-blue-50/60'
+                    )}
+                  >
+                    {/* Row Checkbox */}
+                    <div
+                      className={cn(
+                        'w-12 flex items-center justify-center shrink-0 sticky left-0 z-20 cursor-grab active:cursor-grabbing border-r border-slate-100 h-full',
+                        isRowSelected ? 'bg-blue-50/90' : 'bg-white'
+                      )}
+                      onMouseDown={(e) => handleRowSelectionStart(e, rIndex, row.id)}
+                      onMouseEnter={() => handleRowSelectionMove(rIndex)}
+                    >
+                      <Checkbox checked={isRowSelected} />
+                    </div>
+
+                    {/* Data Cells */}
+                    {columns.map((col, cIndex) => {
+                      const { isSelected, style } = getCellSelectionState(rIndex, cIndex);
+                      const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
+
+                      return (
+                        <div
+                          key={col.id}
+                          className={cn(
+                            'h-full flex items-center px-4 shrink-0 border-r border-transparent relative outline-none min-w-50',
+                            cIndex === 0 && 'sticky left-12 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
+                            cIndex === 0 && (isRowSelected ? 'bg-blue-50/90' : 'bg-white')
+                          )}
+                          style={isSelected ? style : undefined}
+                          onMouseDown={(e) => handleCellMouseDown(rIndex, cIndex, e)}
+                          onMouseEnter={() => handleCellMouseEnter(rIndex, cIndex)}
+                          onDoubleClick={() => {
+                            setEditingCell({ rowIndex: rIndex, colId: col.id });
+                            setEditValue(row[col.id] || '');
+                          }}
+                        >
+                          {isEditing ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              className="w-full h-8 shadow-none border-2 border-purple-500 ring-2 ring-purple-100 rounded px-2 outline-none"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => {
                                 updateRow(row.id, col.id, editValue);
                                 setEditingCell(null);
-                              }
-                              if (e.key === 'Escape') {
-                                setEditingCell(null);
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full text-slate-700 text-sm">
-                            {renderCellContent(row[col.id] ?? '', col.type)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  updateRow(row.id, col.id, editValue);
+                                  setEditingCell(null);
+                                }
+                                if (e.key === 'Escape') {
+                                  setEditingCell(null);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full text-slate-700 text-sm">
+                              {renderCellContent(row[col.id] ?? '', col.type)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
         </div>
       </div>
 
@@ -518,11 +520,10 @@ export function InteractiveTable({
         </span>
         <button
           disabled={selectedCellCount === 0}
-          className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-md transition-all duration-200 ${
-            selectedCellCount === 0
+          className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-md transition-all duration-200 ${selectedCellCount === 0
               ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
               : 'bg-linear-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 hover:shadow-lg active:scale-95'
-          }`}
+            }`}
         >
           <Play size={16} className={selectedCellCount > 0 ? 'animate-pulse' : ''} />
           Run selected cells ({selectedCellCount})

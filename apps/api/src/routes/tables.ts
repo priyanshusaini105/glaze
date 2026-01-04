@@ -187,13 +187,11 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
     ]);
 
     return {
-      data: rows,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit)
-      }
+      rows: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
     };
   }, {
     query: t.Object({
@@ -229,11 +227,11 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       // If we want partial update of keys, we might need to fetch first or use raw query.
       // But for now, let's assume the client sends the patch and we merge it in code if needed, 
       // or just update the `data` field if the client sends the new state.
-      
+
       // Better approach for "spreadsheet": Client sends { "company_name": "New Name" } and we want to update ONLY that key.
       // But Prisma `data: { data: body.data }` will replace the whole JSON.
       // To do deep merge, we need to fetch first.
-      
+
       const row = await prisma.row.findUnique({ where: { id: rowId, tableId: id } });
       if (!row) return error(404, 'Row not found');
 
@@ -273,10 +271,10 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   .post('/import-csv', async ({ body, error }) => {
     try {
       const { name, description, csvContent } = body;
-      
+
       // Parse CSV
       const { headers, rows } = parseCSV(csvContent);
-      
+
       if (headers.length === 0) {
         return error(400, 'CSV must have headers');
       }
@@ -293,10 +291,10 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const columnsData = headers.map((header, index) => {
         const columnValues = rows.map(row => row[header]);
         const dataType = inferDataType(columnValues);
-        
+
         // Create a stable key from the header
         const key = header.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        
+
         return {
           tableId: table.id,
           key,
@@ -318,7 +316,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
           const key = columnsData[index].key;
           data[key] = row[header];
         });
-        
+
         return {
           tableId: table.id,
           data
@@ -386,11 +384,11 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const csvRows = rows.map(row => {
         const rowData = row.data as Record<string, any>;
         const csvRow: Record<string, any> = {};
-        
+
         table.columns.forEach(col => {
           csvRow[col.label] = rowData[col.key] || '';
         });
-        
+
         return csvRow;
       });
 

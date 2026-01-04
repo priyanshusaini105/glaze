@@ -34,6 +34,7 @@
     "ag-grid-react": "^35.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "elysia": "^1.4.19",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.562.0",
     "mini-svg-data-uri": "^1.4.4",
