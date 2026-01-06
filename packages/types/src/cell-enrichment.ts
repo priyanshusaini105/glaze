@@ -62,7 +62,7 @@ export const enrichTableRequestSchema = z
     // Grid mode: enrich all combinations of columns × rows
     columnIds: z.array(z.string()).optional(),
     rowIds: z.array(z.string()).optional(),
-    
+
     // Explicit mode: enrich specific cells
     cellIds: z.array(cellSelectionSchema).optional(),
   })
@@ -89,6 +89,10 @@ export interface EnrichTableResponse {
   status: JobStatusType;
   totalTasks: number;
   message: string;
+  /** Trigger.dev run ID for realtime subscription */
+  runId?: string;
+  /** Public access token for frontend realtime subscription */
+  publicAccessToken?: string;
 }
 
 export interface JobStatusResponse {
@@ -203,11 +207,11 @@ export function aggregateRowConfidence(
   const validConfidences = confidences.filter(
     (c): c is number => c !== null && c !== undefined
   );
-  
+
   if (validConfidences.length === 0) {
     return null;
   }
-  
+
   return (
     validConfidences.reduce((sum, c) => sum + c, 0) / validConfidences.length
   );

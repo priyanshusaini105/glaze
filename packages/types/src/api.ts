@@ -4,8 +4,10 @@
  * Shared types for API responses across all endpoints
  */
 
-// Row Status Enum
-export enum RowStatus {
+// Note: RowStatus is now defined in cell-enrichment.ts
+// This legacy enum is kept for backwards compatibility but not exported
+// to avoid conflicts. Use RowStatus from cell-enrichment.ts instead.
+enum RowStatusLegacy {
   idle = "idle",
   queued = "queued",
   running = "running",

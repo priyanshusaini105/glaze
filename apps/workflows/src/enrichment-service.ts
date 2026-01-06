@@ -102,7 +102,9 @@ async function runWaterfallEnrichment(
     let remainingBudget = budgetCents;
 
     // Stage 1: Check cache
+    const cacheStartTime = Date.now();
     const cached = getFromCache(rowId, field);
+    const cacheTime = Date.now() - cacheStartTime;
     if (cached) {
         result.data[field] = cached;
         result.provenance.push({
@@ -111,9 +113,10 @@ async function runWaterfallEnrichment(
             confidence: cached.confidence,
         });
         result.notes.push(`Cache hit for ${field}`);
-        logger.info('Cache hit', { field, rowId });
+        logger.info('💰 Cache hit', { field, rowId, cacheTimeMs: cacheTime });
         return result;
     }
+    logger.info('❌ Cache miss', { field, rowId, cacheTimeMs: cacheTime });
 
     // Stage 2-4: Try providers in waterfall order
     const tiers = ['free', 'cheap', 'premium'] as const;
@@ -134,7 +137,8 @@ async function runWaterfallEnrichment(
             }
 
             try {
-                logger.info('Trying provider', {
+                const providerStartTime = Date.now();
+                logger.info('🔌 Trying provider', {
                     provider: provider.name,
                     tier,
                     field,
@@ -142,6 +146,7 @@ async function runWaterfallEnrichment(
                 });
 
                 const enriched = await provider.enrich({ field, rowId });
+                const providerTime = Date.now() - providerStartTime;
 
                 if (enriched[field] && enriched[field].value !== null) {
                     const enrichedValue = enriched[field];
@@ -167,6 +172,13 @@ async function runWaterfallEnrichment(
                         setInCache(rowId, field, enrichedValue);
 
                         remainingBudget -= provider.costCents;
+
+                        logger.info('✅ Provider succeeded', {
+                            provider: provider.name,
+                            field,
+                            confidence: enrichedValue.confidence,
+                            providerTimeMs: providerTime,
+                        });
 
                         // Successfully enriched, return
                         return result;
@@ -210,7 +222,8 @@ export async function enrichCellWithProviders(
     const { columnKey, rowId, tableId } = context;
     const budgetCents = context.budgetCents ?? enrichmentConfig.maxCostPerCellCents;
 
-    logger.info('Starting cell enrichment', {
+    const serviceStartTime = Date.now();
+    logger.info('🔧 Enrichment service invoked', {
         columnKey,
         rowId,
         tableId,
@@ -221,17 +234,22 @@ export async function enrichCellWithProviders(
     const field = mapColumnKeyToField(columnKey);
 
     // Run waterfall enrichment
+    const waterfallStartTime = Date.now();
     const waterfallResult = await runWaterfallEnrichment(field, rowId, budgetCents);
+    const waterfallTime = Date.now() - waterfallStartTime;
+    logger.info('⏱️  Waterfall enrichment completed', { field, waterfallTimeMs: waterfallTime });
 
     // Build result
     const enrichedValue = waterfallResult.data[field];
 
     if (enrichedValue) {
-        logger.info('Cell enrichment succeeded', {
+        const totalServiceTime = Date.now() - serviceStartTime;
+        logger.info('✨ Cell enrichment succeeded', {
             field,
             source: enrichedValue.source,
             confidence: enrichedValue.confidence,
             cost: waterfallResult.cost.totalCents,
+            totalServiceTimeMs: totalServiceTime,
         });
 
         return {

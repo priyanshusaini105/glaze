@@ -116,10 +116,16 @@ class TypedApiClient {
   /**
    * Start a cell enrichment job using Trigger.dev workflows
    * This is the preferred method for enrichment as it uses the waterfall provider strategy
+   * 
+   * Supports two modes:
+   * 1. Grid mode: { columnIds: [...], rowIds: [...] } - enriches all combinations
+   * 2. Explicit mode: { cellIds: [{ rowId, columnId }, ...] } - enriches specific cells
    */
   async startCellEnrichment(
     tableId: string,
-    params: { columnIds: string[]; rowIds: string[] }
+    params:
+      | { columnIds: string[]; rowIds: string[] }
+      | { cellIds: Array<{ rowId: string; columnId: string }> }
   ) {
     return this.request<{
       jobId: string;
@@ -127,6 +133,10 @@ class TypedApiClient {
       status: string;
       totalTasks: number;
       message: string;
+      /** Trigger.dev run ID for realtime subscription */
+      runId?: string;
+      /** Public access token for frontend realtime subscription */
+      publicAccessToken?: string;
     }>(`/tables/${tableId}/enrich`, {
       method: 'POST',
       body: JSON.stringify(params),

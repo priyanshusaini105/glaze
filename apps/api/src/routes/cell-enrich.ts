@@ -9,7 +9,7 @@
 
 import { Elysia, t } from "elysia";
 import { prisma } from "../db";
-import { tasks } from "@trigger.dev/sdk";
+import { tasks, auth } from "@trigger.dev/sdk";
 import type {
   EnrichTableRequest,
   EnrichTableResponse,
@@ -193,14 +193,32 @@ export const cellEnrichmentRoutes = new Elysia()
           };
         });
 
-        // 4. Trigger the Trigger.dev workflow (fire-and-forget)
-        // We use triggerAndForget to not block the API response
+        // 4. Trigger the Trigger.dev workflow and get run handle for realtime updates
+        let runId: string | undefined;
+        let publicAccessToken: string | undefined;
+
         try {
-          await tasks.trigger("process-enrichment-job", {
+          const handle = await tasks.trigger("process-enrichment-job", {
             jobId: result.job.id,
             tableId,
             taskIds: result.taskIds,
           });
+
+          // Store the run ID
+          runId = handle.id;
+
+          // Generate a public access token for frontend realtime subscription
+          // This token is scoped to only this specific run
+          publicAccessToken = await auth.createPublicToken({
+            scopes: {
+              read: {
+                runs: [handle.id],
+              },
+            },
+            expirationTime: "1hr", // Token valid for 1 hour
+          });
+
+          console.log("[cell-enrich] Triggered workflow with run ID:", runId);
         } catch (triggerError) {
           // Log but don't fail the request - tasks are already queued
           console.error(
@@ -216,13 +234,15 @@ export const cellEnrichmentRoutes = new Elysia()
           });
         }
 
-        // 5. Return response
+        // 5. Return response with realtime subscription info
         const response: EnrichTableResponse = {
           jobId: result.job.id,
           tableId,
           status: "pending",
           totalTasks: cellSelections.length,
           message: `Created ${cellSelections.length} enrichment tasks`,
+          runId,
+          publicAccessToken,
         };
 
         set.status = 201;

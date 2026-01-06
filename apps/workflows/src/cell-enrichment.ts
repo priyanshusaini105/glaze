@@ -36,14 +36,16 @@ export const enrichCellTask = task({
     concurrencyLimit: 10,
   },
   run: async (payload: EnrichCellPayload, { ctx }) => {
+    const startTime = Date.now();
     const { taskId } = payload;
-    logger.info("Starting cell enrichment", { taskId });
+    logger.info("🚀 Cell enrichment task started", { taskId, startTime: new Date(startTime).toISOString() });
 
     const prisma = getPrisma();
 
     try {
       // 1. Load task AND mark as running in ONE operation (updateMany with return)
       // First get the task data we need
+      const dbStartTime = Date.now();
       const cellTask = await prisma.cellEnrichmentTask.update({
         where: { id: taskId },
         data: {
@@ -57,11 +59,16 @@ export const enrichCellTask = task({
         },
       });
 
+      const dbFetchTime = Date.now() - dbStartTime;
+      logger.info("⏱️  Database fetch completed", { taskId, dbFetchTimeMs: dbFetchTime });
+
       if (!cellTask) {
         throw new Error(`Task not found: ${taskId}`);
       }
 
       // 2. Run enrichment (NO database operations here - just mock/API calls)
+      const enrichmentStartTime = Date.now();
+      logger.info("🔍 Starting enrichment providers", { taskId, columnKey: cellTask.column.key });
       const enrichmentResult = await enrichCellWithProviders({
         columnKey: cellTask.column.key,
         rowId: cellTask.rowId,
@@ -77,12 +84,14 @@ export const enrichCellTask = task({
         metadata: enrichmentResult.metadata,
       };
 
-      logger.info("Enrichment completed", {
+      const enrichmentTime = Date.now() - enrichmentStartTime;
+      logger.info("✅ Enrichment completed", {
         taskId,
         columnKey: cellTask.column.key,
         value: cellResult.value,
         confidence: cellResult.confidence,
         source: cellResult.source,
+        enrichmentTimeMs: enrichmentTime,
       });
 
       // 3. SINGLE transaction to update everything
@@ -93,6 +102,8 @@ export const enrichCellTask = task({
       };
 
       // Get all cell tasks for this row to calculate status (in same transaction)
+      const txStartTime = Date.now();
+      logger.info("💾 Starting database transaction", { taskId });
       await prisma.$transaction(async (tx: any) => {
         // Update task with result
         await tx.cellEnrichmentTask.update({
@@ -143,6 +154,18 @@ export const enrichCellTask = task({
             data: { doneTasks: { increment: 1 } },
           }),
         ]);
+      });
+      const txTime = Date.now() - txStartTime;
+      const totalTime = Date.now() - startTime;
+      logger.info("🏁 Cell enrichment task completed", { 
+        taskId, 
+        txTimeMs: txTime,
+        totalTimeMs: totalTime,
+        breakdown: {
+          dbFetchMs: dbFetchTime,
+          enrichmentMs: enrichmentTime,
+          transactionMs: txTime
+        }
       });
 
       return {
@@ -235,23 +258,54 @@ export const processEnrichmentJobTask = task({
 
       logger.info("Processing tasks", {
         totalTasks: taskIds.length,
+        jobId,
+        tableId,
       });
 
-      // Trigger all tasks (they will run concurrently based on queue settings)
-      const allRuns = await Promise.all(
-        taskIds.map((taskId) =>
-          enrichCellTask.triggerAndWait({ taskId })
-        )
+      // Log task IDs for debugging
+      logger.info("Task IDs to process", {
+        taskIds: taskIds.slice(0, 10), // Log first 10 to avoid bloat
+        totalCount: taskIds.length,
+      });
+
+      // Use batchTriggerAndWait for efficient parallel execution
+      // This is much faster than sequential triggerAndWait calls
+      logger.info("Batch triggering all tasks in parallel", {
+        taskCount: taskIds.length,
+      });
+
+      const batchResult = await enrichCellTask.batchTriggerAndWait(
+        taskIds.map((taskId) => ({ payload: { taskId } }))
       );
+
+      // Transform batch results to match expected format
+      const allRuns = batchResult.runs.map((run) => ({
+        ok: run.ok,
+        output: run.ok ? run.output : undefined,
+        error: run.ok ? undefined : ('error' in run ? run.error : undefined),
+      }));
 
       // Check results
       const successCount = allRuns.filter((r) => r.ok).length;
       const failCount = allRuns.filter((r) => !r.ok).length;
 
+      // Log failed tasks for debugging
+      const failedTasks = allRuns
+        .map((r, index) => ({ run: r, taskId: taskIds[index] }))
+        .filter(({ run }) => !run.ok);
+
+      if (failedTasks.length > 0) {
+        logger.error("Some tasks failed", {
+          failedCount: failedTasks.length,
+          failedTaskIds: failedTasks.map(({ taskId }) => taskId),
+        });
+      }
+
       logger.info("Job tasks completed", {
         jobId,
         successCount,
         failCount,
+        totalTasks: taskIds.length,
       });
 
       // Update job status

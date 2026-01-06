@@ -24,6 +24,7 @@ import { Table, Column, Row, DataType } from '../../../../lib/api-types';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
+import { useRealtimeEnrichment } from '../../../../hooks/use-realtime-enrichment';
 
 
 /* --- Helper Components --- */
@@ -98,18 +99,28 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichingCells, setEnrichingCells] = useState<Set<string>>(new Set()); // Track cells being enriched (format: "rowId:columnKey")
 
+  // Realtime enrichment subscription state
+  const [activeRunId, setActiveRunId] = useState<string | undefined>();
+  const [activeAccessToken, setActiveAccessToken] = useState<string | undefined>();
+
   useEffect(() => {
     params.then((p) => setTableId(p.tableId));
   }, [params]);
 
-  const loadData = useCallback(async () => {
-    if (!tableId) return;
+  const loadData = useCallback(async (force = false) => {
+    if (!tableId) {
+      console.log('[loadData] No tableId provided, skipping load');
+      return;
+    }
 
+    console.log('[loadData] Starting data load for table:', { tableId, force });
     setLoading(true);
+    
     try {
       // Load all tables for sidebar
       const { data: allTables, error: tablesError } = await typedApi.getTables();
       if (tablesError || !allTables) {
+        console.error('[loadData] Failed to load tables:', tablesError);
         throw new Error(tablesError || 'Failed to load tables');
       }
       const formattedTables = allTables.map((t) => ({
@@ -122,30 +133,52 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       // Load current table details with columns
       const { data: tableDetails, error: tableError } = await typedApi.getTable(tableId);
       if (tableError || !tableDetails) {
+        console.error('[loadData] Failed to load table details:', tableError);
         throw new Error(tableError || 'Failed to load table details');
       }
       setCurrentTable(tableDetails);
 
       // Extract columns from table details
       if ('columns' in tableDetails && Array.isArray(tableDetails.columns)) {
+        console.log('[loadData] Setting columns:', tableDetails.columns.length);
         setColumns(tableDetails.columns);
+      } else {
+        console.warn('[loadData] No columns found in table details');
+        setColumns([]);
       }
 
       // Load rows
       const { data: rowsData, error: rowsError } = await typedApi.getRows(tableId);
       if (rowsError || !rowsData) {
+        console.error('[loadData] Failed to load rows:', rowsError);
         throw new Error(rowsError || 'Failed to load rows');
       }
+      
+      console.log('[loadData] Successfully loaded data:', {
+        rowCount: rowsData.rows.length,
+        columnCount: tableDetails.columns?.length || 0,
+        sampleRow: rowsData.rows[0],
+      });
+      
       setRowData(rowsData.rows);
     } catch (error) {
-      console.error('Failed to load table data:', error);
+      console.error('[loadData] Critical error loading table data:', error);
+      // Set empty states to prevent showing stale data
+      setRowData([]);
+      setColumns([]);
     } finally {
+      console.log('[loadData] Load complete, clearing loading state');
       setLoading(false);
     }
   }, [tableId]);
 
+  // Store loadData in ref to prevent dependency issues
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+
   useEffect(() => {
     if (tableId) {
+      console.log('[useEffect] Table ID changed, loading data:', tableId);
       loadData();
     }
   }, [tableId, loadData]);
@@ -306,7 +339,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     }
   }, [currentTable, columns, rowData]);
 
-  // Handle run enrichment - uses Trigger.dev workflow for real enrichment
+  // Handle run enrichment - uses Trigger.dev workflow with realtime updates
   const handleRunEnrichment = useCallback(async () => {
     if (!selectionRange || !tableId) return;
 
@@ -337,8 +370,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         }
       }
 
+      console.log('[handleRunEnrichment] Selection details:', {
+        totalCells: enrichingCellKeys.size,
+        uniqueRows: rowIds.size,
+        uniqueColumns: columnIds.size,
+        cellKeys: Array.from(enrichingCellKeys),
+      });
+
       if (columnIds.size === 0 || rowIds.size === 0) {
         alert('No cells selected for enrichment.');
+        setIsEnriching(false);
         return;
       }
 
@@ -352,53 +393,74 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       });
 
       if (startError || !enrichJob) {
+        console.error('[handleRunEnrichment] Failed to start job:', startError);
         throw new Error(startError || 'Failed to start enrichment job');
       }
 
-      console.log('Enrichment job started:', enrichJob);
+      console.log('[handleRunEnrichment] Enrichment job started:', {
+        jobId: enrichJob.jobId,
+        runId: enrichJob.runId,
+        totalTasks: enrichJob.totalTasks,
+        hasRealtimeAccess: Boolean(enrichJob.runId && enrichJob.publicAccessToken),
+      });
 
-      // Poll for job completion
-      let attempts = 0;
-      const maxAttempts = 120; // Max 2 minutes
-      const pollInterval = 1000; // 1 second
+      // Check if realtime subscription is available
+      if (enrichJob.runId && enrichJob.publicAccessToken) {
+        // Use realtime updates via Trigger.dev SSE
+        console.log('[handleRunEnrichment] Using realtime updates:', {
+          runId: enrichJob.runId,
+          jobId: enrichJob.jobId,
+          totalTasks: enrichJob.totalTasks,
+        });
+        setActiveRunId(enrichJob.runId);
+        setActiveAccessToken(enrichJob.publicAccessToken);
+        // The useRealtimeEnrichment hook will handle the rest
+      } else {
+        // Fallback to polling if realtime not available
+        console.log('[handleRunEnrichment] Realtime not available, falling back to polling');
+        let attempts = 0;
+        const maxAttempts = 120; // Max 2 minutes
+        const pollInterval = 1000; // 1 second
 
-      const pollForCompletion = async (): Promise<boolean> => {
-        const { data: jobStatus, error: statusError } = await typedApi.getEnrichmentJobStatus(
-          tableId,
-          enrichJob.jobId
-        );
+        const pollForCompletion = async (): Promise<boolean> => {
+          const { data: jobStatus, error: statusError } = await typedApi.getEnrichmentJobStatus(
+            tableId,
+            enrichJob.jobId
+          );
 
-        if (statusError) {
-          console.warn('Error polling job status:', statusError);
+          if (statusError) {
+            console.warn('Error polling job status:', statusError);
+            attempts++;
+            if (attempts >= maxAttempts) return true;
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            return pollForCompletion();
+          }
+
+          console.log('Job status:', jobStatus);
+
+          if (jobStatus?.status === 'done' || jobStatus?.status === 'failed') {
+            return true;
+          }
+
           attempts++;
-          if (attempts >= maxAttempts) return true;
+          if (attempts >= maxAttempts) {
+            console.warn('Job polling timeout');
+            return true;
+          }
+
           await new Promise(resolve => setTimeout(resolve, pollInterval));
           return pollForCompletion();
-        }
+        };
 
-        console.log('Job status:', jobStatus);
+        await pollForCompletion();
 
-        if (jobStatus?.status === 'done' || jobStatus?.status === 'failed') {
-          return true;
-        }
+        // Refresh the data to get enriched values
+        await loadData();
 
-        attempts++;
-        if (attempts >= maxAttempts) {
-          console.warn('Job polling timeout');
-          return true;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        return pollForCompletion();
-      };
-
-      await pollForCompletion();
-
-      // Refresh the data to get enriched values
-      await loadData();
-
-      // Clear enriching cells
-      setEnrichingCells(new Set());
+        // Clear enriching cells
+        setEnrichingCells(new Set());
+        setIsEnriching(false);
+      }
 
       // Clear selection
       setSelectionRange(null);
@@ -407,10 +469,50 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       console.error('Enrichment error:', error);
       alert('Enrichment failed. Please try again.');
       setEnrichingCells(new Set());
-    } finally {
       setIsEnriching(false);
+      setActiveRunId(undefined);
+      setActiveAccessToken(undefined);
     }
   }, [selectionRange, rowData, columns, tableId, loadData]);
+
+  // Handle realtime enrichment completion - use ref to prevent callback recreation
+  const handleEnrichmentComplete = useCallback(async (success: boolean, output?: any) => {
+    console.log('[handleEnrichmentComplete] Enrichment completed:', {
+      success,
+      output,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Refresh the data to get enriched values - use ref to get latest loadData
+    console.log('[handleEnrichmentComplete] Refreshing table data...');
+    try {
+      await loadDataRef.current(true); // Force reload
+      console.log('[handleEnrichmentComplete] Table data refreshed successfully');
+    } catch (error) {
+      console.error('[handleEnrichmentComplete] Failed to refresh data:', error);
+    }
+
+    // Clear enrichment state
+    console.log('[handleEnrichmentComplete] Clearing enrichment state');
+    setEnrichingCells(new Set());
+    setIsEnriching(false);
+    setActiveRunId(undefined);
+    setActiveAccessToken(undefined);
+
+    // Show success/failure message
+    if (success && output) {
+      console.log(`[handleEnrichmentComplete] Successfully enriched ${output.successCount}/${output.totalTasks} cells`);
+    } else if (!success) {
+      console.warn('[handleEnrichmentComplete] Enrichment failed or incomplete');
+    }
+  }, []);
+
+  // Subscribe to realtime enrichment updates
+  const enrichmentProgress = useRealtimeEnrichment({
+    runId: activeRunId,
+    publicAccessToken: activeAccessToken,
+    onComplete: handleEnrichmentComplete,
+  });
 
   // Global event handlers
   useEffect(() => {
@@ -655,6 +757,27 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 </div>
                 <span className="text-xs font-medium text-green-800">Live</span>
               </div>
+
+              {/* Realtime Enrichment Status Indicator */}
+              {isEnriching && enrichmentProgress.isActive && (
+                <div className="flex items-center gap-2 bg-purple-50 border border-purple-200/50 px-2.5 py-1 rounded-full animate-pulse">
+                  <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
+                  <span className="text-xs font-medium text-purple-800">
+                    {enrichmentProgress.status === 'EXECUTING' ? 'Enriching...' :
+                      enrichmentProgress.status === 'QUEUED' ? 'In Queue...' :
+                        enrichmentProgress.status === 'PENDING' ? 'Starting...' : 'Processing...'}
+                  </span>
+                </div>
+              )}
+
+              {/* Show completion flash */}
+              {!isEnriching && enrichmentProgress.isComplete && enrichmentProgress.isSuccess && (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200/50 px-2.5 py-1 rounded-full">
+                  <Check className="w-3 h-3 text-green-600" />
+                  <span className="text-xs font-medium text-green-800">Enriched!</span>
+                </div>
+              )}
+
               <span className="text-xs text-slate-500">|</span>
               <span className="text-xs font-medium text-slate-600">{columns.length} Columns</span>
               <span className="text-xs font-medium text-slate-600">{rowData?.length || 0} Rows</span>

@@ -5,6 +5,7 @@ import { tablesRoutes } from './routes/tables';
 import { registerEnrichmentRoutes } from './routes/enrich';
 import { registerLinkedInRoutes } from './routes/linkedin';
 import { registerCellEnrichmentRoutes } from './routes/cell-enrich';
+import { optimizedEnrichmentRoutes } from './routes/enrich-optimized';
 
 export const buildApp = () => {
   const app = new Elysia()
@@ -14,8 +15,8 @@ export const buildApp = () => {
         documentation: {
           info: {
             title: 'Glaze API',
-            version: '0.4.0',
-            description: 'High-performance data enrichment platform with cell-level enrichment'
+            version: '0.5.0',
+            description: 'High-performance data enrichment platform with entity-based enrichment'
           },
           servers: [
             {
@@ -36,11 +37,12 @@ export const buildApp = () => {
     }))
     .get('/', () => ({
       message: 'Welcome to Glaze API',
-      version: '0.4.0',
+      version: '0.5.0',
       endpoints: {
         health: '/health',
         tables: '/tables',
         enrich: '/enrich',
+        enrichOptimized: '/v2/tables/:tableId/enrich',
         cellEnrich: '/tables/:tableId/enrich',
         linkedin: '/linkedin',
         docs: '/docs'
@@ -49,7 +51,8 @@ export const buildApp = () => {
     .use(tablesRoutes)
     .use(registerEnrichmentRoutes)
     .use(registerLinkedInRoutes)
-    .use(registerCellEnrichmentRoutes);
+    .use(registerCellEnrichmentRoutes)
+    .use(optimizedEnrichmentRoutes);
 
   return app;
 };

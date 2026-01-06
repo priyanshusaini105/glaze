@@ -232,6 +232,10 @@ class ApiClient {
     status: string;
     totalTasks: number;
     message: string;
+    /** Trigger.dev run ID for realtime subscription */
+    runId?: string;
+    /** Public access token for frontend realtime subscription */
+    publicAccessToken?: string;
   }> {
     return this.request(`/tables/${tableId}/enrich`, {
       method: 'POST',

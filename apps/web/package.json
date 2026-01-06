@@ -27,6 +27,7 @@
     "@tanstack/react-query-devtools": "^5.62.18",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.13",
+    "@trigger.dev/react-hooks": "^4.3.1",
     "@tsparticles/engine": "^3.9.1",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.9.1",
