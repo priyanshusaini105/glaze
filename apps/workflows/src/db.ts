@@ -29,11 +29,19 @@ export function getPrisma(): PrismaClient {
             throw new Error('DATABASE_URL environment variable is not set');
         }
 
-        poolInstance = new pg.Pool({ connectionString });
+        // Optimized pool for serverless/cloud workers
+        // Single connection per worker to avoid pool overhead
+        poolInstance = new pg.Pool({
+            connectionString,
+            max: 1,                     // Single connection for serverless
+            idleTimeoutMillis: 60000,   // 60s idle timeout
+            connectionTimeoutMillis: 5000, // 5s connection timeout
+            statement_timeout: 30000,   // 30s statement timeout
+        });
         const adapter = new PrismaPg(poolInstance);
 
         prismaInstance = new PrismaClient({
-            log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+            log: ['error'],  // Minimal logging for performance
             adapter,
         });
     }

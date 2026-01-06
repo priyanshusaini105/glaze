@@ -9,7 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] || 'postgresql://postgres:postgres@postgres:5432/glaze_db'
+    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"] || 'postgresql://postgres:postgres@postgres:5432/glaze_db'
   },
   seed: {
     command: "bun run prisma/seed.ts"

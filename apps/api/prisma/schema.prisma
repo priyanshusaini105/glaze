@@ -92,6 +92,12 @@ model Row {
   // Relations for enrichment
   cellEnrichmentTasks CellEnrichmentTask[]
 
+  // CRITICAL: Index on tableId for foreign key lookups and filtering
+  @@index([tableId])
+  // Composite index for common query pattern (filter by table + order by creation)
+  @@index([tableId, createdAt])
+  // Index for status-based queries
+  @@index([status])
   @@map("rows")
 }
 

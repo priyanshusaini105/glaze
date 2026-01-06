@@ -73,5 +73,22 @@ export const startServer = (port = Number(process.env.PORT) || 3001) => {
     `🦊 Elysia is running at http://${server.hostname}:${server.port}`
   );
 
+  // Log connection pool stats on startup
+  console.log('🔌 Database connection pool initialized');
+
+  // Optional: Enable periodic connection pool monitoring
+  // Uncomment to see pool stats every minute:
+  /*
+  import { pool } from './db';
+  
+  setInterval(() => {
+    console.log('📊 Connection Pool Stats:', {
+      total: pool.totalCount,      // Total connections
+      idle: pool.idleCount,        // Available for reuse
+      waiting: pool.waitingCount,  // Waiting for connection
+    });
+  }, 60000); // Every 60 seconds
+  */
+
   return server;
 };

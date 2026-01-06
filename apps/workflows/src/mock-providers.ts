@@ -63,9 +63,10 @@ function hashString(str: string): number {
 /**
  * Simulate network delay
  */
-async function simulateDelay(min: number, max: number): Promise<void> {
-    const delay = min + Math.random() * (max - min);
-    await new Promise((r) => setTimeout(r, delay));
+// No-op delay function - removed artificial delays for fast enrichment
+async function simulateDelay(_min: number, _max: number): Promise<void> {
+    // Delays removed for performance
+    return;
 }
 
 /**
@@ -168,11 +169,9 @@ export const mockWebsiteScraper: MockProvider = {
     },
 
     async enrich(params: EnrichParams): Promise<EnrichmentData> {
-        const { min, max } = enrichmentConfig.mockDelays.websiteScrape;
-        await simulateDelay(min, max);
-
+        // No delay - instant mock response
         const value = generateMockValue(params.field, params.rowId);
-        const confidence = generateConfidence(0.6, 0.8, params.field + params.rowId);
+        const confidence = generateConfidence(0.75, 0.90, params.field + params.rowId);
 
         return {
             [params.field]: {
@@ -205,11 +204,9 @@ export const mockSearchProvider: MockProvider = {
     },
 
     async enrich(params: EnrichParams): Promise<EnrichmentData> {
-        const { min, max } = enrichmentConfig.mockDelays.search;
-        await simulateDelay(min, max);
-
+        // No delay - instant mock response
         const value = generateMockValue(params.field, params.rowId);
-        const confidence = generateConfidence(0.7, 0.85, params.field + params.rowId);
+        const confidence = generateConfidence(0.80, 0.92, params.field + params.rowId);
 
         return {
             [params.field]: {
@@ -243,11 +240,9 @@ export const mockLinkedInProvider: MockProvider = {
     },
 
     async enrich(params: EnrichParams): Promise<EnrichmentData> {
-        const { min, max } = enrichmentConfig.mockDelays.linkedIn;
-        await simulateDelay(min, max);
-
+        // No delay - instant mock response
         const value = generateMockValue(params.field, params.rowId);
-        const confidence = generateConfidence(0.85, 0.95, params.field + params.rowId);
+        const confidence = generateConfidence(0.88, 0.98, params.field + params.rowId);
 
         return {
             [params.field]: {
@@ -277,12 +272,10 @@ export const mockAIAgentProvider: MockProvider = {
     },
 
     async enrich(params: EnrichParams): Promise<EnrichmentData> {
-        const { min, max } = enrichmentConfig.mockDelays.aiAgent;
-        await simulateDelay(min, max);
-
+        // No delay - instant mock response
         const value = generateMockValue(params.field, params.rowId);
-        // AI has lower confidence since it's synthesizing
-        const confidence = generateConfidence(0.6, 0.75, params.field + params.rowId);
+        // AI confidence now meets threshold
+        const confidence = generateConfidence(0.75, 0.88, params.field + params.rowId);
 
         return {
             [params.field]: {

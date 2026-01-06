@@ -202,16 +202,40 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
 
   // Add row
   .post('/:id/rows', async ({ params: { id }, body, error }) => {
-    // Check if table exists
-    const table = await prisma.table.findUnique({ where: { id } });
-    if (!table) return error(404, 'Table not found');
+    const startTime = performance.now();
+    console.log('[POST /rows] Starting request for table:', id);
 
-    return await prisma.row.create({
-      data: {
-        tableId: id,
-        data: body.data
+    try {
+      // Check if table exists
+      const tableLookupStart = performance.now();
+      const table = await prisma.table.findUnique({ where: { id } });
+      const tableLookupEnd = performance.now();
+      console.log(`[POST /rows] Table lookup took: ${(tableLookupEnd - tableLookupStart).toFixed(2)}ms`);
+
+      if (!table) {
+        console.log('[POST /rows] Table not found:', id);
+        return error(404, 'Table not found');
       }
-    });
+
+      // Create row
+      const rowCreateStart = performance.now();
+      const newRow = await prisma.row.create({
+        data: {
+          tableId: id,
+          data: body.data
+        }
+      });
+      const rowCreateEnd = performance.now();
+      console.log(`[POST /rows] Row creation took: ${(rowCreateEnd - rowCreateStart).toFixed(2)}ms`);
+
+      const totalTime = performance.now() - startTime;
+      console.log(`[POST /rows] Total request time: ${totalTime.toFixed(2)}ms`);
+
+      return newRow;
+    } catch (err) {
+      console.error('[POST /rows] Error:', err);
+      throw err;
+    }
   }, {
     body: t.Object({
       data: t.Object({}, { additionalProperties: true }) // Accept any JSON object

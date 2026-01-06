@@ -645,20 +645,6 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             </div>
           </div>
 
-          {/* Center - Search Bar */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 max-w-md w-full">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <Input
-                placeholder="Search rows or values..."
-                className="w-full pl-10 pr-16 bg-slate-50/80 border-transparent focus:bg-white focus:border-slate-200 rounded-lg"
-              />
-              <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 font-mono text-xs font-medium text-slate-600">
-                <span className="text-sm">⌘</span>K
-              </kbd>
-            </div>
-          </div>
-
           {/* Right Section - Stats & Actions */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
