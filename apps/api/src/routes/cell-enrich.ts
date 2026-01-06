@@ -9,7 +9,7 @@
 
 import { Elysia, t } from "elysia";
 import { prisma } from "../db";
-import { tasks } from "@trigger.dev/sdk/v3";
+import { tasks } from "@trigger.dev/sdk";
 import type {
   EnrichTableRequest,
   EnrichTableResponse,
@@ -335,8 +335,8 @@ export const cellEnrichmentRoutes = new Elysia()
           progress:
             job.totalTasks > 0
               ? Math.round(
-                  ((job.doneTasks + job.failedTasks) / job.totalTasks) * 100
-                )
+                ((job.doneTasks + job.failedTasks) / job.totalTasks) * 100
+              )
               : 0,
           createdAt: job.createdAt.toISOString(),
           startedAt: job.startedAt?.toISOString() ?? null,

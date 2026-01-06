@@ -117,10 +117,10 @@ The enrichment pipeline processes company/person data through multiple stages:
 
 ### Job Queue
 
-Jobs flow through Redis/BullMQ:
+Jobs flow through Trigger.dev:
 
 ```
-API Request → Enrich Queue → Worker Process → Database Write → Webhook/Polling
+API Request → Trigger.dev Task → Workflow Process → Database Write → Webhook/Polling
 ```
 
 ### Type System

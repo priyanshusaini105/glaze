@@ -80,32 +80,48 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
             setEnrichingRows(prev => new Set(prev).add(rowId));
 
             try {
-              // Enrich entire row using new unified endpoint
-              const enrichRequest = {
-                tableId,
-                targets: [{
-                  type: 'rows' as const,
-                  rowIds: [rowId]
-                }]
-              };
+              // Get all column IDs for the row
+              const columnIds = columns.map(col => col.id);
 
-              const enrichResponse = await apiClient.enrichData(enrichRequest);
-
-              // Update all cells in the row with enriched values
-              const updateData: Record<string, unknown> = {};
-              enrichResponse.results.forEach((result) => {
-                if (result.status === 'success') {
-                  params.node.setDataValue(result.columnId, result.enrichedValue);
-                  updateData[result.columnId] = result.enrichedValue;
-                }
+              // Start enrichment job using the new Trigger.dev API
+              const enrichJob = await apiClient.startCellEnrichment(tableId, {
+                columnIds,
+                rowIds: [rowId],
               });
 
-              // Update in backend
-              if (Object.keys(updateData).length > 0) {
-                await apiClient.updateRow(tableId, rowId, {
-                  data: updateData,
-                });
-              }
+              console.log('Enrichment job started:', enrichJob);
+
+              // Poll for job completion
+              let attempts = 0;
+              const maxAttempts = 60; // Max 60 seconds
+              const pollInterval = 1000; // 1 second
+
+              const pollForCompletion = async (): Promise<boolean> => {
+                const jobStatus = await apiClient.getEnrichmentJobStatus(
+                  tableId,
+                  enrichJob.jobId
+                );
+
+                console.log('Job status:', jobStatus);
+
+                if (jobStatus.status === 'done' || jobStatus.status === 'failed') {
+                  return true;
+                }
+
+                attempts++;
+                if (attempts >= maxAttempts) {
+                  console.warn('Job polling timeout');
+                  return true;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+                return pollForCompletion();
+              };
+
+              await pollForCompletion();
+
+              // Refresh the row data to get enriched values
+              loadRows();
 
               setEnrichingRows(prev => {
                 const next = new Set(prev);

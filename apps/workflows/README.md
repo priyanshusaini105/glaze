@@ -158,7 +158,7 @@ export const enrichRoute = new Elysia()
 Schedule recurring enrichment jobs:
 
 ```typescript
-import { cron, task } from "@trigger.dev/sdk/v3";
+import { cron, task } from "@trigger.dev/sdk";
 
 export const dailyEnrichmentTask = task({
   id: "daily-enrich",
@@ -263,7 +263,7 @@ https://cloud.trigger.dev/projects/<project-id>/runs
 
 ```typescript
 // src/validate-data.ts
-import { task } from "@trigger.dev/sdk/v3";
+import { task } from "@trigger.dev/sdk";
 
 export const validateDataTask = task({
   id: "validate-data",

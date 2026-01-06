@@ -1,4 +1,3 @@
-import { Job } from 'bullmq';
 import {
   EnrichmentJobInput,
   EnrichmentJobResult,
@@ -20,8 +19,12 @@ import {
 } from './linkedin-provider';
 import { Effect } from 'effect';
 
+// Legacy pipeline context - no longer coupled to BullMQ
 export type PipelineContext = {
-  job: Job<EnrichmentJobInput, EnrichmentJobResult>;
+  job: {
+    updateProgress: (progress: number) => void | Promise<void>;
+    data: EnrichmentJobInput;
+  };
   input: EnrichmentJobInput;
   data: EnrichmentData;
   stages: StageResult[];
@@ -35,30 +38,30 @@ export type PipelineContext = {
  */
 export const normalizeInput = (url: string): { normalizedUrl: string; inputType: 'linkedin_profile' | 'company_website' | 'company_linkedin' } => {
   const lowerUrl = url.toLowerCase();
-  
+
   if (lowerUrl.includes('linkedin.com/in/')) {
-    return { 
-      normalizedUrl: url, 
-      inputType: 'linkedin_profile' 
+    return {
+      normalizedUrl: url,
+      inputType: 'linkedin_profile'
     };
   }
-  
+
   if (lowerUrl.includes('linkedin.com/company/')) {
-    return { 
-      normalizedUrl: url, 
-      inputType: 'company_linkedin' 
+    return {
+      normalizedUrl: url,
+      inputType: 'company_linkedin'
     };
   }
-  
+
   // Assume company website
   let normalizedUrl = url;
   if (!normalizedUrl.startsWith('http')) {
     normalizedUrl = `https://${normalizedUrl}`;
   }
-  
-  return { 
-    normalizedUrl, 
-    inputType: 'company_website' 
+
+  return {
+    normalizedUrl,
+    inputType: 'company_website'
   };
 };
 
@@ -67,7 +70,7 @@ export const normalizeInput = (url: string): { normalizedUrl: string; inputType:
  */
 const runCacheStage = async (ctx: PipelineContext): Promise<void> => {
   const startTime = Date.now();
-  
+
   if (ctx.input.skipCache) {
     ctx.notes.push('Cache skipped by request');
     return;
@@ -102,7 +105,7 @@ const runCacheStage = async (ctx: PipelineContext): Promise<void> => {
 const runFreeLayer = async (ctx: PipelineContext): Promise<void> => {
   const startTime = Date.now();
   const gaps = analyzeGaps(ctx.data, ctx.input.requiredFields).gaps;
-  
+
   if (gaps.length === 0) {
     ctx.notes.push('Free layer skipped: no gaps');
     return;
@@ -125,9 +128,9 @@ const runFreeLayer = async (ctx: PipelineContext): Promise<void> => {
   if (websiteUrl) {
     try {
       ctx.job.updateProgress(20);
-      
+
       const scrapeResult = await scrapeWebsite(websiteUrl, gaps);
-      
+
       if (Object.keys(scrapeResult.data).length > 0) {
         const { merged } = mergeEnrichmentData(ctx.data, scrapeResult.data);
         ctx.data = merged;
@@ -167,7 +170,7 @@ const runFreeLayer = async (ctx: PipelineContext): Promise<void> => {
 const runCheapLayer = async (ctx: PipelineContext): Promise<void> => {
   const startTime = Date.now();
   const analysis = analyzeGaps(ctx.data, ctx.input.requiredFields);
-  
+
   if (analysis.gaps.length === 0) {
     ctx.notes.push('Search layer skipped: no gaps');
     return;
@@ -175,7 +178,7 @@ const runCheapLayer = async (ctx: PipelineContext): Promise<void> => {
 
   // Only search for company data fields
   const companyGaps = analysis.gaps.filter((f) => f.startsWith('company_'));
-  
+
   if (companyGaps.length === 0 || !isSearchServiceConfigured()) {
     if (!isSearchServiceConfigured()) {
       ctx.notes.push('Search layer skipped: Serper API not configured');
@@ -242,7 +245,7 @@ const runCheapLayer = async (ctx: PipelineContext): Promise<void> => {
 const runPremiumLayer = async (ctx: PipelineContext): Promise<void> => {
   const startTime = Date.now();
   const analysis = analyzeGaps(ctx.data, ctx.input.requiredFields);
-  
+
   if (analysis.gaps.length === 0) {
     ctx.notes.push('LinkedIn layer skipped: no gaps');
     return;
@@ -308,7 +311,7 @@ const runPremiumLayer = async (ctx: PipelineContext): Promise<void> => {
 
     // Call LinkedIn API via Effect
     const enrichmentEffect = provider.lookup(linkedInUrl!);
-    
+
     const linkedInData = await Effect.runPromise(enrichmentEffect).catch(
       (error) => {
         ctx.notes.push(
@@ -321,7 +324,7 @@ const runPremiumLayer = async (ctx: PipelineContext): Promise<void> => {
     if (linkedInData && Object.keys(linkedInData).length > 0) {
       // Convert back to EnrichmentData format
       const typedData = linkedInData as unknown as EnrichmentData;
-      
+
       // Merge with existing data
       const { merged } = mergeEnrichmentData(ctx.data, typedData);
       ctx.data = merged;
@@ -352,7 +355,7 @@ const runPremiumLayer = async (ctx: PipelineContext): Promise<void> => {
       durationMs: Date.now() - startTime,
       error: err instanceof Error ? err.message : 'unknown',
     });
-    
+
     ctx.notes.push(
       `LinkedIn layer error: ${err instanceof Error ? err.message : 'unknown'}`
     );
@@ -402,12 +405,13 @@ const finalizeResult = async (ctx: PipelineContext): Promise<EnrichmentJobResult
 
 /**
  * Main waterfall pipeline executor
+ * Note: This is legacy code kept for reference. Active enrichment uses Trigger.dev.
  */
 export const runEnrichmentPipeline = async (
-  job: Job<EnrichmentJobInput, EnrichmentJobResult>
+  job: PipelineContext['job']
 ): Promise<EnrichmentJobResult> => {
   const input = job.data;
-  
+
   const ctx: PipelineContext = {
     job,
     input,

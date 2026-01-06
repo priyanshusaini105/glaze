@@ -4,17 +4,21 @@
   "description": "Trigger.dev workflows for data enrichment pipeline",
   "type": "module",
   "scripts": {
-    "dev": "trigger.dev dev",
+    "dev": "trigger.dev dev --skip-update-check",
     "deploy": "trigger.dev deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@trigger.dev/sdk": "^3.0.0",
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
     "@repo/types": "workspace:*",
-    "@prisma/client": "^7.2.0"
+    "@trigger.dev/sdk": "^4.3.1",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
-    "@trigger.dev/cli": "^3.0.0",
+    "@trigger.dev/build": "^4.3.1",
+    "@trigger.dev/cli": "^3.3.12",
+    "@types/pg": "^8.16.0",
     "typescript": "^5.0.0"
   }
 }

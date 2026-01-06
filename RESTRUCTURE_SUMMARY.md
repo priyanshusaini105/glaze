@@ -56,7 +56,7 @@ apps/worker/
 ```
 
 **Key Features**:
-- BullMQ job queue listener
+- ~~BullMQ job queue listener~~ **DEPRECATED** (replaced by Trigger.dev)
 - Provider adapter orchestration
 - **Isolated LLM Provider** - Centralized `llm-provider.ts` for all AI operations
 - Error handling and retries

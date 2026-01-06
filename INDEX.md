@@ -223,13 +223,13 @@ cd apps/api && pnpm run prisma:migrate:dev --name "description"  # Migration
 **Why**: Isolated concern, reusable, testable
 
 ### Worker Service
-**File**: `apps/worker/src/service.ts`
-- BullMQ job queue listener
-- Job processing orchestration
+**File**: `apps/worker/src/service.ts` (DEPRECATED - replaced by Trigger.dev)
+- ~~BullMQ job queue listener~~ (legacy)
+- Job processing orchestration now in `apps/workflows`
 - Error handling
 - Status reporting
 
-**Why**: Separates job queue logic from pipeline
+**Why**: Separated from API, now fully replaced by Trigger.dev workflows
 
 ### Pipeline Executor
 **File**: `apps/worker/src/pipeline.ts`

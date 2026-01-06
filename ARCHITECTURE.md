@@ -36,28 +36,29 @@ Visual reference for understanding Glaze's architecture after restructuring.
          └────────────────┴─────────────────┐
                           │                 │
                           ▼                 ▼
-        ┌──────────────────────────────────────┐
-        │   Worker Process (apps/worker/)      │
-        │                                      │
-        │   ✓ Job Queue Listener (BullMQ)     │
-        │   ✓ Pipeline Executor               │
-        │   ✓ Provider Orchestration          │
-        │   ✓ Error Handling & Retries        │
-        │                                      │
-        │   ┌──────────────────────────────┐  │
-        │   │   Provider Adapters          │  │
-        │   │ ┌────────────────────────┐  │  │
-        │   │ │ LinkedIn Provider      │  │  │
-        │   │ ├────────────────────────┤  │  │
-        │   │ │ Website Scraper        │  │  │
-        │   │ ├────────────────────────┤  │  │
-        │   │ │ Search Service         │  │  │
-        │   │ ├────────────────────────┤  │  │
-        │   │ │ LLM Provider (Claude)  │  │  │
-        │   │ └────────────────────────┘  │  │
-        │   └──────────────────────────────┘  │
-        │                                      │
-        └────────────┬─────────────────────────┘
+         ┌──────────────────────────────────────┐
+         │   Worker Process (apps/workflows/)   │
+         │   ~~(apps/worker/ - DEPRECATED)~~    │
+         │                                      │
+         │   ✓ Job Queue Listener (Trigger.dev) │
+         │   ✓ Pipeline Executor               │
+         │   ✓ Provider Orchestration          │
+         │   ✓ Error Handling & Retries        │
+         │                                      │
+         │   ┌──────────────────────────────┐  │
+         │   │   Provider Adapters          │  │
+         │   │ ┌────────────────────────┐  │  │
+         │   │ │ LinkedIn Provider      │  │  │
+         │   │ ├────────────────────────┤  │  │
+         │   │ │ Website Scraper        │  │  │
+         │   │ ├────────────────────────┤  │  │
+         │   │ │ Search Service         │  │  │
+         │   │ ├────────────────────────┤  │  │
+         │   │ │ LLM Provider (Claude)  │  │  │
+         │   │ └────────────────────────┘  │  │
+         │   └──────────────────────────────┘  │
+         │                                      │
+         └────────────┬─────────────────────────┘
                      │
         ┌────────────┴────────────┐
         │                         │
@@ -85,7 +86,7 @@ Visual reference for understanding Glaze's architecture after restructuring.
    ├─ Validate input
    ├─ Normalize URL
    ├─ Check Redis cache
-   └─ Create BullMQ job
+   └─ Create Trigger.dev task
                 │
                 ▼
 3. QUEUE CREATION

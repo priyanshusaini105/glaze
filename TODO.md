@@ -10,7 +10,7 @@
 ### Analysis Summary
 - Row already has lifecycle fields (status, confidence, error, lastRunAt) ✅
 - Trigger.dev configured at root with `trigger.config.ts` ✅
-- Worker infrastructure exists in `apps/worker` with BullMQ ✅
+- Worker infrastructure migrated from BullMQ to Trigger.dev ✅
 - Workflows exist in `apps/workflows` ✅
 - **Added**: CellEnrichmentTask model
 - **Added**: EnrichmentJob model for batch tracking
@@ -143,6 +143,6 @@ POST /tables/:tableId/enrich
 
 ## Notes
 - Using Trigger.dev for both orchestration AND worker execution
-- No separate BullMQ worker needed for cell enrichment (legacy worker still exists for other purposes)
+- BullMQ worker has been completely replaced by Trigger.dev workflows
 - Fake enrichment uses deterministic hash for consistent test data
 - Row status is automatically aggregated from its cell task statuses

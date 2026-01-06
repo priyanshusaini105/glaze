@@ -5,7 +5,6 @@ import { tablesRoutes } from './routes/tables';
 import { registerEnrichmentRoutes } from './routes/enrich';
 import { registerLinkedInRoutes } from './routes/linkedin';
 import { registerCellEnrichmentRoutes } from './routes/cell-enrich';
-import { startEnrichmentWorker } from './services/enrichment-queue';
 
 export const buildApp = () => {
   const app = new Elysia()
@@ -61,14 +60,8 @@ export type App = ReturnType<typeof buildApp>;
 export const startServer = (port = Number(process.env.PORT) || 3001) => {
   const app = buildApp();
 
-  if (process.env.ENRICH_WORKER_ENABLED !== 'false') {
-    try {
-      startEnrichmentWorker();
-    } catch (err: unknown) {
-      const error = err as Error;
-      console.error('[server] failed to start enrichment worker', error?.message || err);
-    }
-  }
+  // Note: BullMQ worker removed - all enrichment now handled by Trigger.dev
+  // See apps/workflows/src/cell-enrichment.ts for the Trigger.dev workflow
 
   // Use Bun's native server with Elysia
   const server = Bun.serve({

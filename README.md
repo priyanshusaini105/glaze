@@ -10,7 +10,7 @@ A modern, scalable platform for enriching company and profile data with multiple
 - **Background workers** - Separate process for pipeline execution
 - **Trigger.dev workflows** - Scheduled and on-demand enrichment jobs
 - **Type-safe** - Full TypeScript with shared type definitions
-- **Scalable** - BullMQ job queue, configurable concurrency
+- **Scalable** - Trigger.dev job queue, configurable concurrency
 
 ## 📁 Project Structure
 
@@ -24,11 +24,9 @@ This is a [pnpm workspaces](https://pnpm.io/workspaces) monorepo with the follow
   - LinkedIn integration endpoints
   - Swagger documentation
 
-- **[apps/worker](/apps/worker)** - Background enrichment process
-  - Executes enrichment pipeline
-  - Orchestrates provider adapters
-  - Manages cache and database writes
-  - Handles retries and error recovery
+- **[apps/worker](/apps/worker)** - ~~Background enrichment process~~ **DEPRECATED** (replaced by Trigger.dev)
+  - Legacy BullMQ worker, no longer used
+  - All enrichment now handled by `apps/workflows`
 
 - **[apps/workflows](/apps/workflows)** - Trigger.dev task definitions
   - Single enrichment tasks
@@ -64,18 +62,18 @@ This is a [pnpm workspaces](https://pnpm.io/workspaces) monorepo with the follow
 │  (Elysia)           │
 └──────┬──────────────┘
        │
-       ├─ Create Job ──┐
+       ├─ Trigger Task ┐
        │               ▼
-       │        ┌─────────────┐
-       │        │ Redis Queue │
-       │        │  (BullMQ)   │
-       │        └──────┬──────┘
+       │        ┌──────────────────┐
+       │        │  Trigger.dev     │
+       │        │  (Task Queue)    │
+       │        └──────┬───────────┘
        │               │
        └─ Poll────┐    │
            Status │    ▼
                   │ ┌──────────────────────┐
-                  │ │ Worker Process       │
-                  │ │  (enrichment-worker) │
+                  │ │ Workflow Process     │
+                  │ │  (apps/workflows)    │
                   │ └──────┬───────────────┘
                   │        │
                   │        ├─ LinkedIn Provider
@@ -118,20 +116,17 @@ cd apps/api && pnpm run prisma:migrate:dev
 
 This starts:
 - **API**: http://localhost:3001 (Swagger docs: /docs)
-- **Worker**: Background process listening to Redis queue
+- **Workflows**: Trigger.dev background task processing
 - **Web**: http://localhost:3000 (if configured)
 
 ### Individual Services
 
 ```bash
 # API only
-cd apps/api && bun run --watch src/index.ts
-
-# Worker only
-./scripts/run-worker.sh
+cd apps/api && bun run dev
 
 # Workflows only (requires Trigger.dev account)
-./scripts/run-workflows.sh
+cd apps/workflows && npx trigger.dev@latest dev
 ```
 
 ## 📚 Documentation
@@ -184,7 +179,7 @@ Located in `/scripts/`:
 - **API Framework**: [Elysia](https://elysiajs.com/) with Eden
 - **Database**: PostgreSQL + Prisma ORM
 - **Cache**: Redis + ioredis
-- **Job Queue**: BullMQ
+- **Job Queue**: Trigger.dev v3
 
 ### Enrichment
 - **Workflows**: [Trigger.dev v3](https://trigger.dev/)

@@ -84,7 +84,7 @@ class TypedApiClient {
     if (params?.page) searchParams.set('page', String(params.page));
     if (params?.limit) searchParams.set('limit', String(params.limit));
     const queryString = searchParams.toString();
-    
+
     return this.request<PaginatedRowsResponse>(
       `/tables/${tableId}/rows${queryString ? `?${queryString}` : ''}`
     );
@@ -110,6 +110,44 @@ class TypedApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  // ============= Cell Enrichment (Trigger.dev) =============
+  /**
+   * Start a cell enrichment job using Trigger.dev workflows
+   * This is the preferred method for enrichment as it uses the waterfall provider strategy
+   */
+  async startCellEnrichment(
+    tableId: string,
+    params: { columnIds: string[]; rowIds: string[] }
+  ) {
+    return this.request<{
+      jobId: string;
+      tableId: string;
+      status: string;
+      totalTasks: number;
+      message: string;
+    }>(`/tables/${tableId}/enrich`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Get the status of an enrichment job
+   */
+  async getEnrichmentJobStatus(tableId: string, jobId: string) {
+    return this.request<{
+      jobId: string;
+      status: 'pending' | 'running' | 'done' | 'failed';
+      totalTasks: number;
+      doneTasks: number;
+      failedTasks: number;
+      progress: number;
+      createdAt: string;
+      startedAt: string | null;
+      completedAt: string | null;
+    }>(`/tables/${tableId}/enrich/jobs/${jobId}`);
   }
 }
 

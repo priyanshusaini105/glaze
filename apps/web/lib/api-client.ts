@@ -36,7 +36,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       ...options,
       headers: {
@@ -47,7 +47,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         try {
@@ -64,7 +64,7 @@ class ApiClient {
       if (contentType && contentType.includes('application/json')) {
         return await response.json();
       }
-      
+
       return {} as T;
     } catch (error) {
       if (error instanceof Error) {
@@ -158,12 +158,12 @@ class ApiClient {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
-    
+
     const query = queryParams.toString();
     const endpoint = query ? `/tables/${tableId}/rows?${query}` : `/tables/${tableId}/rows`;
-    
+
     const response = await this.request<{ data: Row[]; meta: { total: number; page: number; limit: number; totalPages: number } }>(endpoint);
-    
+
     // Transform backend response format to match frontend expectations
     return {
       rows: response.data,
@@ -216,6 +216,66 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // ============= Cell Enrichment (Trigger.dev) =============
+  /**
+   * Start a cell enrichment job using Trigger.dev workflows
+   * This is the preferred method for enrichment as it uses the waterfall provider strategy
+   */
+  async startCellEnrichment(
+    tableId: string,
+    params: { columnIds: string[]; rowIds: string[] }
+  ): Promise<{
+    jobId: string;
+    tableId: string;
+    status: string;
+    totalTasks: number;
+    message: string;
+  }> {
+    return this.request(`/tables/${tableId}/enrich`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Get the status of an enrichment job
+   */
+  async getEnrichmentJobStatus(
+    tableId: string,
+    jobId: string
+  ): Promise<{
+    jobId: string;
+    status: 'pending' | 'running' | 'done' | 'failed';
+    totalTasks: number;
+    doneTasks: number;
+    failedTasks: number;
+    progress: number;
+    createdAt: string;
+    startedAt: string | null;
+    completedAt: string | null;
+  }> {
+    return this.request(`/tables/${tableId}/enrich/jobs/${jobId}`);
+  }
+
+  /**
+   * Get all enrichment jobs for a table
+   */
+  async getEnrichmentJobs(
+    tableId: string
+  ): Promise<{
+    data: Array<{
+      jobId: string;
+      status: string;
+      totalTasks: number;
+      doneTasks: number;
+      failedTasks: number;
+      createdAt: string;
+    }>;
+    meta: { total: number };
+  }> {
+    return this.request(`/tables/${tableId}/enrich/jobs`);
   }
 }
 

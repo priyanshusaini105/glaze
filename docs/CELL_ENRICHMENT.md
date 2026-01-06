@@ -227,7 +227,6 @@ For development, the system uses deterministic fake data generators:
 
 - Node.js 18+
 - PostgreSQL
-- Redis (for BullMQ queue)
 - Trigger.dev account (for orchestration)
 
 ### Setup
