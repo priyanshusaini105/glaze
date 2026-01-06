@@ -1,19 +1,57 @@
+# Dependencies
 node_modules
+**/node_modules
 npm-debug.log
+
+# Version control
 .git
 .gitignore
+
+# Environment files
 .env
 .env.local
 .env.*.local
+
+# IDE
 .vscode
 .idea
 *.swp
 *.swo
 *~
+
+# OS files
 .DS_Store
+
+# Build outputs
 dist
 build
 .turbo
 .next
+out
+coverage
+*.log
+
+# Lock files (except pnpm-lock.yaml which is needed)
 bun.lock
 bun.lockb
+package-lock.json
+yarn.lock
+
+# Test files
+**/__tests__
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+tests/
+test/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Other
+.cache
+.temp
+.tmp

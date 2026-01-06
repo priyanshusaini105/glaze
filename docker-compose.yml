@@ -40,6 +40,8 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     container_name: glaze-api
     environment:
       NODE_ENV: ${NODE_ENV:-development}

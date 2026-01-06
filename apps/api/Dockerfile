@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM oven/bun:1 AS base
 WORKDIR /app
 
@@ -8,8 +9,9 @@ COPY packages/eslint-config ./packages/eslint-config
 COPY packages/typescript-config ./packages/typescript-config
 COPY packages/types ./packages/types
 
-# Use pnpm via bunx to honor pnpm-lock.yaml
-RUN bunx --bun pnpm install --frozen-lockfile
+# Use pnpm via bunx to honor pnpm-lock.yaml with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    bunx --bun pnpm install --frozen-lockfile
 
 FROM base AS runtime
 COPY --from=install /app /app
