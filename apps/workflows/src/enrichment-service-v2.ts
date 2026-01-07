@@ -560,9 +560,10 @@ async function runSmartWaterfall(
 
         metrics.totalCostCents += bestResult.cost;
     } else {
-        // No provider succeeded - cache negative result
-        await setNegativeCache(rowId, field);
-        result.notes.push(`No provider could enrich ${field} - cached as unenrichable`);
+        // No provider succeeded - DO NOT cache negative result
+        // Negative caching prevents retries for transient failures (API issues, rate limits, etc.)
+        // Let the cell enrichment task's retry logic handle failures instead
+        result.notes.push(`No provider could enrich ${field} - will retry on next attempt`);
     }
 
     return result;

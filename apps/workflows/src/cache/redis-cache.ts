@@ -46,7 +46,7 @@ export interface CacheStats {
 
 const DEFAULT_CONFIG: CacheConfig = {
     defaultTtlSeconds: 3600,       // 1 hour
-    negativeTtlSeconds: 300,       // 5 minutes for "not found" entries
+    negativeTtlSeconds: 30,        // 30 seconds for "not found" entries (reduced from 5 min to handle transient failures)
     keyPrefix: 'enrich:v1',
     version: 1,
     maxMemoryEntries: 10000,

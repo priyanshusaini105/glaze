@@ -220,10 +220,15 @@ export const enrichCellTask = task({
         }
 
         const currentData = (currentRow.data as Record<string, unknown>) || {};
-        const updatedData = {
-          ...currentData,
-          [cellTask.column.key]: enrichmentResult.value,
-        };
+        
+        // Only update the cell value if enrichment returned a non-null result
+        // This preserves existing values when enrichment fails
+        const updatedData = enrichmentResult.value !== null
+          ? {
+              ...currentData,
+              [cellTask.column.key]: enrichmentResult.value,
+            }
+          : currentData;
 
         const newDoneTasks = currentRow.doneTasks + 1;
         const newRunningTasks = Math.max(0, currentRow.runningTasks - 1); // Ensure non-negative
