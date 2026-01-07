@@ -12,6 +12,7 @@
 export type EnrichmentFieldKey =
     | "name"
     | "company"
+    | "website"         // Full company website URL
     | "email"           // Primary verified email
     | "emailCandidates" // List of candidate emails
     | "title"
@@ -181,6 +182,7 @@ export const SOURCE_WEIGHTS: Record<string, number> = {
 export const CONFIDENCE_THRESHOLDS: Partial<Record<EnrichmentFieldKey, number>> = {
     name: 0.6,
     company: 0.6,
+    website: 0.6,        // Must be verified domain
     emailCandidates: 0.5,
     title: 0.5,
     shortBio: 0.4, // LLM-generated, lower bar
@@ -198,6 +200,7 @@ export const CONFIDENCE_THRESHOLDS: Partial<Record<EnrichmentFieldKey, number>> 
 export const FIELD_TTL_DAYS: Partial<Record<EnrichmentFieldKey, number>> = {
     name: 90,
     company: 60,
+    website: 60,         // TTL 60 days as per requirements
     emailCandidates: 14, // Emails change frequently
     title: 30,
     shortBio: 60,

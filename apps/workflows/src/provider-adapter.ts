@@ -53,17 +53,60 @@ function wrapRealProvider(provider: ProviderToolInterface): UnifiedProvider {
         async enrich(params: EnrichParams): Promise<EnrichmentData> {
             const { field, rowId, existingData, context } = params;
 
+            // Normalize field names from column keys to standard field keys
+            // Common patterns: "COMPANY NAME" -> "company", "WEBSITE" -> "domain"
+            const normalizeFieldKey = (key: string): string => {
+                const lowerKey = key.toLowerCase().replace(/\s+/g, '_');
+                // Map common column names to standard field names
+                if (lowerKey === 'company_name' || lowerKey === 'company') return 'company';
+                if (lowerKey === 'website' || lowerKey === 'domain') return 'domain';
+                if (lowerKey === 'linkedin' || lowerKey === 'linkedin_url') return 'linkedinUrl';
+                if (lowerKey === 'email' || lowerKey === 'email_address') return 'email';
+                if (lowerKey === 'name' || lowerKey === 'person_name' || lowerKey === 'full_name') return 'name';
+                return lowerKey;
+            };
+
+            // Build normalized data with normalized keys
+            const normalizedData: Record<string, unknown> = {};
+            if (existingData) {
+                for (const [key, value] of Object.entries(existingData)) {
+                    const normalizedKey = normalizeFieldKey(key);
+                    normalizedData[normalizedKey] = value;
+                }
+            }
+
+            // Extract domain from website URL if present
+            let domain = normalizedData.domain as string | undefined;
+            if (domain && domain.includes('http')) {
+                try {
+                    const url = new URL(domain);
+                    domain = url.hostname.replace(/^www\./, '');
+                    normalizedData.domain = domain;
+                } catch {
+                    // Invalid URL, keep original
+                }
+            }
+
             // Build NormalizedInput from params
             const normalizedInput: NormalizedInput = {
                 rowId,
                 tableId: (context?.tableId as string) || 'unknown',
                 raw: existingData || {},
-                name: existingData?.name as string | undefined,
-                domain: existingData?.domain as string | undefined,
-                linkedinUrl: existingData?.linkedinUrl as string | undefined,
-                email: existingData?.email as string | undefined,
-                company: existingData?.company as string | undefined,
+                name: normalizedData.name as string | undefined,
+                domain: domain,
+                linkedinUrl: normalizedData.linkedinUrl as string | undefined,
+                email: normalizedData.email as string | undefined,
+                company: normalizedData.company as string | undefined,
             };
+
+            logger.info('🔌 Real provider enrichment', {
+                provider: provider.name,
+                field,
+                hasCompany: !!normalizedInput.company,
+                hasDomain: !!normalizedInput.domain,
+                hasName: !!normalizedInput.name,
+                normalizedDataKeys: Object.keys(normalizedData),
+            });
 
             try {
                 const result = await provider.enrich(normalizedInput, field as EnrichmentFieldKey);

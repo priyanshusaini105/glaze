@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { ArrowRight, Code2 } from 'lucide-react';
 import { TableDemo } from './TableDemo';
 
@@ -37,10 +38,10 @@ export function HeroIridescent() {
             <span>Start Enrichment</span>
             <ArrowRight className="w-5 h-5" />
           </button>
-          <button className="flex items-center justify-center gap-2 h-12 px-8 rounded-lg bg-white border border-border-light text-text-main font-bold text-base hover:bg-surface-light hover:border-slate-300 transition-all active:scale-95 shadow-sm">
+          <Link href="/coming-soon" className="flex items-center justify-center gap-2 h-12 px-8 rounded-lg bg-white border border-border-light text-text-main font-bold text-base hover:bg-surface-light hover:border-slate-300 transition-all active:scale-95 shadow-sm">
             <Code2 className="w-5 h-5" />
             <span>Open Source</span>
-          </button>
+          </Link>
         </div>
 
         <TableDemo />

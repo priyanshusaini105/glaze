@@ -52,7 +52,7 @@ export function NavigationIridescent() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="https://github.com/priyanshusaini105/glaze"
+              href="/coming-soon"
               className="hidden sm:flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text-main transition-colors"
             >
               <span className="truncate">GitHub</span>

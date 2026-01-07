@@ -49,7 +49,7 @@ export function FooterIridescent() {
               Blog
             </a>
             <a
-              href="https://github.com/glaze/glaze"
+              href="/coming-soon"
               className="text-sm text-text-muted hover:text-text-main transition-colors"
             >
               GitHub
@@ -67,9 +67,7 @@ export function FooterIridescent() {
               <Twitter className="w-4 h-4" />
             </a>
             <a
-              href="https://github.com/glaze"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/coming-soon"
               className="w-9 h-9 rounded-lg bg-surface-light border border-border-light flex items-center justify-center text-text-muted hover:text-text-main hover:border-slate-300 transition-all"
             >
               <Github className="w-4 h-4" />

@@ -99,6 +99,10 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichingCells, setEnrichingCells] = useState<Set<string>>(new Set()); // Track cells being enriched (format: "rowId:columnKey")
 
+  // Delete rows state
+  const [isDeletingRows, setIsDeletingRows] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Realtime enrichment subscription state
   const [activeRunId, setActiveRunId] = useState<string | undefined>();
   const [activeAccessToken, setActiveAccessToken] = useState<string | undefined>();
@@ -599,28 +603,45 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     }
   };
 
-  // Unused - will be implemented later
-  // const handleDeleteSelectedRows = async () => {
-  //   if (selectedRowIds.size === 0) return;
-  //   
-  //   try {
-  //     // Delete all selected rows
-  //     await Promise.all(
-  //       Array.from(selectedRowIds).map(rowId => 
-  //         apiClient.deleteRow(tableId, rowId)
-  //       )
-  //     );
-  //     
-  //     // Remove from local state
-  //     setRowData(prevData => prevData.filter(row => !selectedRowIds.has(row.id)));
-  //     setSelectedRowIds(new Set());
-  //     setAllChecked(false);
-  //   } catch (error) {
-  //     console.error('Failed to delete rows:', error);
-  //     // Reload on error
-  //     await loadData();
-  //   }
-  // };
+  const handleDeleteSelectedRows = async () => {
+    if (selectedRowIds.size === 0) return;
+    
+    // Confirm deletion
+    const count = selectedRowIds.size;
+    if (!confirm(`Are you sure you want to delete ${count} row${count === 1 ? '' : 's'}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeletingRows(true);
+    setDeleteError(null);
+
+    try {
+      // Delete all selected rows
+      const deletePromises = Array.from(selectedRowIds).map(rowId => 
+        typedApi.deleteRow(tableId, rowId)
+      );
+      
+      const results = await Promise.all(deletePromises);
+      
+      // Check for errors in results
+      const hasError = results.some(result => result.error);
+      if (hasError) {
+        throw new Error('Failed to delete one or more rows');
+      }
+      
+      // Remove from local state
+      setRowData(prevData => prevData.filter(row => !selectedRowIds.has(row.id)));
+      setSelectedRowIds(new Set());
+      setAllChecked(false);
+    } catch (error) {
+      console.error('Failed to delete rows:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete rows');
+      // Reload on error
+      await loadData();
+    } finally {
+      setIsDeletingRows(false);
+    }
+  };
 
   const handleRowSelectionStart = (e: React.MouseEvent, index: number, id: string) => {
     e.preventDefault();
@@ -783,7 +804,45 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               <span className="text-xs font-medium text-slate-600">{rowData?.length || 0} Rows</span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {selectedRowIds.size > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-linear-to-r from-red-500/10 to-red-600/10 border border-red-200/60 rounded-md shadow-sm">
+                  <span className="text-xs font-semibold text-red-700 min-w-fit">
+                    {selectedRowIds.size} row{selectedRowIds.size === 1 ? '' : 's'} selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 gap-1 text-xs font-semibold text-red-700 hover:bg-red-100/80 hover:text-red-800"
+                    onClick={handleDeleteSelectedRows}
+                    disabled={isDeletingRows}
+                  >
+                    {isDeletingRows ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-5 p-0 text-red-700 hover:bg-red-100/80"
+                    onClick={() => {
+                      setSelectedRowIds(new Set());
+                      setAllChecked(false);
+                    }}
+                    title="Clear selection"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1046,6 +1105,21 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               </div>
             ) : null;
           })()}
+
+          {/* Delete Error Toast */}
+          {deleteError && (
+            <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">{deleteError}</span>
+                <button
+                  onClick={() => setDeleteError(null)}
+                  className="text-red-700 hover:text-red-900"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Enrich Modal */}
           {showEnrichModal && (

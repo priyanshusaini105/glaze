@@ -91,11 +91,11 @@ export function OpenSourceIridescent() {
               </li>
             </ul>
             <div className="flex gap-4">
-              <a href="https://github.com/glaze/glaze" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
+              <a href="/coming-soon" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
                 <Github className="w-5 h-5" />
                 Star on GitHub
               </a>
-              <a href="https://github.com/glaze/glaze#readme" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg border border-border-light bg-white text-text-main font-semibold hover:bg-surface-light transition-colors">
+              <a href="/coming-soon" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg border border-border-light bg-white text-text-main font-semibold hover:bg-surface-light transition-colors">
                 <Terminal className="w-5 h-5" />
                 Read Docs
               </a>

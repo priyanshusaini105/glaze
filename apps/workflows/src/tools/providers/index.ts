@@ -27,6 +27,9 @@ import { openCorporatesProvider } from "./opencorporates-provider";
 // Cheap Providers (1-2x cost)
 import { prospeoProvider } from "./prospeo-provider";
 
+// Smart Enrichment Provider (3-layer verified workflow)
+import { smartEnrichmentProvider } from "../smart-enrichment";
+
 // Re-export real providers
 export { serperProvider, SerperProvider } from "./serper-provider";
 export { linkedInProvider, LinkedInProvider } from "./linkedin-provider";
@@ -35,6 +38,7 @@ export { companyScraperProvider, CompanyScraperProvider } from "./company-scrape
 export { wikipediaProvider, WikipediaProvider } from "./wikipedia-provider";
 export { openCorporatesProvider, OpenCorporatesProvider } from "./opencorporates-provider";
 export { prospeoProvider, ProspeoProvider } from "./prospeo-provider";
+export { smartEnrichmentProvider, SmartEnrichmentProvider } from "../smart-enrichment";
 
 /**
  * Mock providers (for development/testing)
@@ -49,6 +53,9 @@ export const mockProviders: ProviderToolInterface[] = [
 /**
  * Real providers (for production)
  * Ordered by tier: free → cheap → premium
+ * 
+ * Smart Enrichment is prioritized for domain/industry as it uses
+ * the 3-layer verification workflow (candidate collection → verification → decision)
  */
 export const realProviders: ProviderToolInterface[] = [
     // Free tier (0x cost)
@@ -56,11 +63,12 @@ export const realProviders: ProviderToolInterface[] = [
     wikipediaProvider,        // 0¢ - Wikipedia/Wikidata (unlimited)
     openCorporatesProvider,   // 0¢ - Corporate registry (generous limits)
     companyScraperProvider,   // 0¢ - Website scraping
-    
-    // Cheap tier (1-2x cost)
+
+    // Cheap tier (1-2x cost) - Smart Enrichment first!
+    smartEnrichmentProvider,  // 2¢ - 3-layer verified enrichment (Serper + verification)
     serperProvider,           // 1¢ - SERP discovery (2500/mo free)
     prospeoProvider,          // 1¢ - Email finder (75/mo free)
-    
+
     // Premium tier (3x+ cost)
     linkedInProvider,         // 2-5¢ - LinkedIn API (RapidAPI)
 ];

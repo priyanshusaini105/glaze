@@ -51,7 +51,7 @@ async function searchWikipedia(query: string): Promise<WikipediaSearchResult[]> 
     try {
         const response = await fetch(`${WIKIPEDIA_API}?${params}`);
         if (!response.ok) return [];
-        
+
         const data = await response.json();
         return data.query?.search || [];
     } catch (error) {
@@ -78,7 +78,7 @@ async function getWikipediaPage(title: string): Promise<WikipediaPage | null> {
     try {
         const response = await fetch(`${WIKIPEDIA_API}?${params}`);
         if (!response.ok) return null;
-        
+
         const data = await response.json();
         const pages = data.query?.pages;
         if (!pages) return null;
@@ -113,7 +113,7 @@ async function searchWikidata(query: string, type?: "person" | "company"): Promi
     try {
         const response = await fetch(`${WIKIDATA_API}?${params}`);
         if (!response.ok) return null;
-        
+
         const data = await response.json();
         return data.search?.[0]?.id || null;
     } catch (error) {
@@ -137,12 +137,39 @@ async function getWikidataEntity(entityId: string): Promise<WikidataEntity | nul
     try {
         const response = await fetch(`${WIKIDATA_API}?${params}`);
         if (!response.ok) return null;
-        
+
         const data = await response.json();
         return data.entities?.[entityId] || null;
     } catch (error) {
         logger.error("Wikidata entity fetch failed", { error, entityId });
         return null;
+    }
+}
+
+/**
+ * Resolve a Wikidata entity ID to its label
+ */
+async function resolveEntityLabel(entityId: string): Promise<string | null> {
+    if (!entityId.startsWith("Q")) return entityId;
+
+    const params = new URLSearchParams({
+        action: "wbgetentities",
+        ids: entityId,
+        props: "labels",
+        languages: "en",
+        format: "json",
+        origin: "*",
+    });
+
+    try {
+        const response = await fetch(`${WIKIDATA_API}?${params}`);
+        if (!response.ok) return entityId;
+
+        const data = await response.json();
+        const entity = data.entities?.[entityId];
+        return entity?.labels?.en?.value || entityId;
+    } catch {
+        return entityId;
     }
 }
 
@@ -161,9 +188,24 @@ function extractClaim(entity: WikidataEntity, propertyId: string): string | null
     if (value.text) return value.text;
     if (value.time) return value.time.replace(/^\+/, "").split("T")[0]; // Date
     if (value.amount) return value.amount;
-    if (value.id) return value.id; // Entity reference
-    
+    if (value.id) return value.id; // Entity reference - will be resolved later
+
     return null;
+}
+
+/**
+ * Extract claim and resolve if it's an entity ID
+ */
+async function extractClaimWithResolve(entity: WikidataEntity, propertyId: string): Promise<string | null> {
+    const value = extractClaim(entity, propertyId);
+    if (!value) return null;
+
+    // If it looks like a Wikidata entity ID, resolve it
+    if (value.match(/^Q\d+$/)) {
+        return await resolveEntityLabel(value);
+    }
+
+    return value;
 }
 
 /**
@@ -214,11 +256,11 @@ export class WikipediaProvider extends BaseProvider {
         try {
             // Search Wikidata first (structured data)
             const entityId = await searchWikidata(searchTerm);
-            
+
             if (entityId) {
                 const entity = await getWikidataEntity(entityId);
                 if (entity) {
-                    const result = this.extractFromWikidata(entity, field, input);
+                    const result = await this.extractFromWikidata(entity, field, input);
                     if (result) return result;
                 }
             }
@@ -229,7 +271,7 @@ export class WikipediaProvider extends BaseProvider {
 
             const firstResult = searchResults[0];
             if (!firstResult) return null;
-            
+
             const page = await getWikipediaPage(firstResult.title);
             if (!page) return null;
 
@@ -241,11 +283,11 @@ export class WikipediaProvider extends BaseProvider {
         }
     }
 
-    private extractFromWikidata(
+    private async extractFromWikidata(
         entity: WikidataEntity,
         field: EnrichmentFieldKey,
         input: NormalizedInput
-    ): ProviderResult | null {
+    ): Promise<ProviderResult | null> {
         let value: unknown = null;
         let confidence = 0.8;
 
@@ -258,15 +300,15 @@ export class WikipediaProvider extends BaseProvider {
                 confidence = 0.7;
                 break;
             case "industry":
-                const industryId = extractClaim(entity, WIKIDATA_PROPS.industry);
-                value = industryId; // Would need to resolve entity ID
+                // Resolve entity ID to human-readable label
+                value = await extractClaimWithResolve(entity, WIKIDATA_PROPS.industry);
                 break;
             case "foundedDate":
                 value = extractClaim(entity, WIKIDATA_PROPS.foundedDate);
                 break;
             case "location":
-                const hqId = extractClaim(entity, WIKIDATA_PROPS.headquarters);
-                value = hqId; // Would need to resolve entity ID
+                // Resolve entity ID to human-readable label
+                value = await extractClaimWithResolve(entity, WIKIDATA_PROPS.headquarters);
                 break;
             case "shortBio":
                 value = entity.descriptions.en?.value;
@@ -278,12 +320,12 @@ export class WikipediaProvider extends BaseProvider {
                 const linkedin = extractClaim(entity, WIKIDATA_PROPS.linkedin);
                 const github = extractClaim(entity, WIKIDATA_PROPS.github);
                 const website = extractClaim(entity, WIKIDATA_PROPS.website);
-                
+
                 if (twitter) links.twitter = `https://twitter.com/${twitter}`;
                 if (linkedin) links.linkedin = `https://linkedin.com/in/${linkedin}`;
                 if (github) links.github = `https://github.com/${github}`;
                 if (website) links.website = website;
-                
+
                 if (Object.keys(links).length > 0) {
                     value = links;
                 }

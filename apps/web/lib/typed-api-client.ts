@@ -104,6 +104,12 @@ class TypedApiClient {
     });
   }
 
+  async deleteRow(tableId: string, rowId: string) {
+    return this.request<void>(`/tables/${tableId}/rows/${rowId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ============= Enrichment =============
   async enrichData(request: any) {
     return this.request<any>('/enrich', {
