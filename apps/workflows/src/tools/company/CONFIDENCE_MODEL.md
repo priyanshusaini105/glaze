@@ -26,11 +26,11 @@ INPUT: Company Name (e.g., "Stripe")
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ SIGNALS (Add Points)                                  Weight   ✓/✗      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ A. Official Website Match                            +0.35              │
+│ A. Official Website Match                            +0.40              │
 │    • Title contains company name                                        │
 │    • Snippet contains company name                                      │
 │                                                                          │
-│ B. Search Intent Alignment                           +0.20              │
+│ B. Search Intent Alignment                           +0.25              │
 │    • Found via "official" query                                         │
 │    • Found via "about" query                                            │
 │                                                                          │
@@ -38,10 +38,9 @@ INPUT: Company Name (e.g., "Stripe")
 │    • HTTPS enabled                                                      │
 │    • High search position (1-5)                                         │
 │                                                                          │
-│ D. External Corroboration                            +0.20              │
-│    • LinkedIn mentioned                                                 │
-│    • GitHub mentioned                                                   │
-│    • Product Hunt mentioned                                             │
+│ D. External Corroboration (WEAK)                     +0.10              │
+│    • Platform mentions in snippet                                       │
+│    • NOT real corroboration (just text mentions)                        │
 │                                                                          │
 │ E. Name Uniqueness                                   +0.10              │
 │    • Rare/specific name                                                 │
@@ -98,26 +97,26 @@ EXAMPLE SCORING:
 │ Case: "Stripe"                                                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Signals:                                                                │
-│   A: Official match      +0.35  ✓ (title & snippet match)              │
-│   B: Search intent       +0.20  ✓ (via "official" query)               │
+│   A: Official match      +0.40  ✓ (title & snippet match)              │
+│   B: Search intent       +0.25  ✓ (via "official" query)               │
 │   C: Domain quality      +0.15  ✓ (HTTPS, position 1)                  │
-│   D: External            +0.20  ✓ (LinkedIn, GitHub)                   │
+│   D: External            +0.10  ✓ (Mentions)                            │
 │   E: Uniqueness          +0.10  ✓ (unique name, 1 candidate)           │
 │   Subtotal: 1.00                                                        │
 │                                                                          │
 │ Penalties: None                                                         │
 │                                                                          │
-│ Final: 0.95 (capped) → HIGH                                             │
+│ Final: 0.95 (single candidate, no penalties) → HIGH                     │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ Case: "Linear"                                                          │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Signals:                                                                │
-│   A: Official match      +0.35  ✓                                       │
-│   B: Search intent       +0.20  ✓                                       │
+│   A: Official match      +0.40  ✓                                       │
+│   B: Search intent       +0.25  ✓                                       │
 │   C: Domain quality      +0.15  ✓                                       │
-│   D: External            +0.20  ✓                                       │
+│   D: External            +0.10  ✓                                       │
 │   E: Uniqueness          +0.05  ~ (short word)                          │
 │   Subtotal: 0.95                                                        │
 │                                                                          │

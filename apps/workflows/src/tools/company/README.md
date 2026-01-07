@@ -128,11 +128,13 @@ Confidence is: **"How safe downstream enrichment is."**
 
 | Signal | Weight | What It Checks |
 |--------|--------|----------------|
-| **A: Official Website Match** | +0.35 | Title/snippet contains company name |
-| **B: Search Intent Alignment** | +0.20 | Found via "official" style query |
+| **A: Official Website Match** | +0.40 | Title/snippet contains company name |
+| **B: Search Intent Alignment** | +0.25 | Found via "official" style query |
 | **C: Domain Quality** | +0.15 | HTTPS, high search position |
-| **D: External Corroboration** | +0.20 | LinkedIn, GitHub, Product Hunt mentions |
+| **D: External Corroboration** | +0.10 | Platform mentions in snippet (weak) |
 | **E: Name Uniqueness** | +0.10 | Rare/specific company name |
+
+**Note:** External corroboration is weighted low (0.10) because snippet mentions are not real corroboration—SEO blogs mention "LinkedIn" all the time. Real corroboration would require actual link verification (future improvement).
 
 ### Penalties (Subtract Points)
 
@@ -173,14 +175,14 @@ Clamped between 0.0 and 1.0.
 2. Search → 3 queries
 3. Candidates → `stripe.com`, `stripe-payments.co`, ...
 4. Score `stripe.com`:
-   - Official match: +0.35 ✓
-   - Search intent: +0.20 ✓
+   - Official match: +0.40 ✓
+   - Search intent: +0.25 ✓
    - Domain quality: +0.15 ✓
-   - External: +0.20 ✓
+   - External: +0.10 ✓
    - Uniqueness: +0.10 ✓
    - **Subtotal: 1.00**
    - Penalties: 0
-   - **Final: 0.95** (capped)
+   - **Final: 0.95** (single candidate, no penalties)
 
 **Output:**
 ```typescript
@@ -202,10 +204,10 @@ Clamped between 0.0 and 1.0.
 2. Search → 3 queries
 3. Candidates → `linear.app`, `linearfitness.com`, ...
 4. Score `linear.app`:
-   - Official match: +0.35 ✓
-   - Search intent: +0.20 ✓
+   - Official match: +0.40 ✓
+   - Search intent: +0.25 ✓
    - Domain quality: +0.15 ✓
-   - External: +0.20 ✓
+   - External: +0.10 ✓
    - Uniqueness: +0.05 (shorter word)
    - **Subtotal: 0.95**
    - Multiple candidates penalty: -0.20
@@ -268,9 +270,9 @@ Clamped between 0.0 and 1.0.
 ## Usage
 
 ```typescript
-import { resolveCompanyFromName } from './company-name-resolver';
+import { resolveCompanyIdentityFromName } from './resolve-company-identity-from-name';
 
-const result = await resolveCompanyFromName("Stripe");
+const result = await resolveCompanyIdentityFromName("Stripe");
 
 if (result.confidenceLevel === "HIGH") {
   // Safe to proceed with enrichment

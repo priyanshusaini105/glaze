@@ -6,13 +6,23 @@ import { Plus, Loader2, Trash2, Search, MoreVertical, FileSpreadsheet, Database,
 import { useTables, useDeleteTable } from '@/hooks/use-query-api';
 import { CreateTableModal } from '@/components/tables/create-table-modal';
 import { TableSidebar } from '@/components/tables/table-sidebar';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 
 export default function TablesPage() {
   const { data: tables, isLoading, error } = useTables();
   const deleteTable = useDeleteTable();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const handleComingSoon = (name: string) => {
+    toast({
+      title: `${name} Coming Soon`,
+      description: `${name} integration will be available soon. Stay tuned!`,
+    });
+  };
 
   const handleDeleteTable = async (tableId: string) => {
     try {
@@ -29,12 +39,24 @@ export default function TablesPage() {
   ) || [];
 
   const quickActions = [
-    { icon: '🔶', label: 'HubSpot', color: 'from-orange-400 to-red-400' },
-    { icon: '☁️', label: 'Salesforce', color: 'from-blue-400 to-cyan-400' },
-    { icon: <FileSpreadsheet className="w-5 h-5" />, label: 'CSV', color: 'from-green-400 to-emerald-400' },
-    { icon: <Webhook className="w-4 h-4" />, label: 'Webhooks', color: 'from-purple-400 to-pink-400' },
-    { icon: <Database className="w-5 h-5" />, label: 'Scratch', color: 'from-slate-400 to-slate-600' },
+    { icon: <FileSpreadsheet className="w-5 h-5" />, label: 'CSV', color: 'from-green-400 to-emerald-400', action: 'csv' },
+    { icon: <Database className="w-5 h-5" />, label: 'Scratch', color: 'from-slate-400 to-slate-600', action: 'scratch' },
+    { icon: '🔶', label: 'HubSpot', color: 'from-orange-400 to-red-400', action: 'hubspot' },
+    { icon: '☁️', label: 'Salesforce', color: 'from-blue-400 to-cyan-400', action: 'salesforce' },
+    { icon: <Webhook className="w-4 h-4" />, label: 'Webhooks', color: 'from-purple-400 to-pink-400', action: 'webhooks' },
   ];
+
+  const handleQuickAction = (action: string) => {
+    if (action === 'csv' || action === 'scratch') {
+      setIsCreateModalOpen(true);
+    } else if (action === 'hubspot') {
+      handleComingSoon('HubSpot');
+    } else if (action === 'salesforce') {
+      handleComingSoon('Salesforce');
+    } else if (action === 'webhooks') {
+      handleComingSoon('Webhooks');
+    }
+  };
 
   return (
     <div className="flex w-full">
@@ -62,7 +84,7 @@ export default function TablesPage() {
               {quickActions.map((action, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setIsCreateModalOpen(true)}
+                  onClick={() => handleQuickAction(action.action)}
                   className="bg-white rounded-xl p-4 hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-gray-300 group"
                 >
                   <div className={`w-12 h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br ${action.color} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
@@ -286,6 +308,7 @@ export default function TablesPage() {
         </div>
       )}
     </div>
+    <Toaster />
     </div>
   );
 }

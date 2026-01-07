@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Database, Copy, Sparkles, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCreateTable } from '@/hooks/use-query-api';
+import { useToast } from '@/hooks/use-toast';
 import { CSVImport } from './csv-import';
 
 interface CreateTableModalProps {
@@ -20,6 +21,7 @@ type CreateOption =
 export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
   const router = useRouter();
   const { mutate: createTable, isPending } = useCreateTable();
+  const { toast } = useToast();
   const [selectedOption, setSelectedOption] = useState<CreateOption>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [csvError, setCSVError] = useState<string | null>(null);
@@ -336,9 +338,35 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
                 />
               </div>
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-sm text-purple-700">
-                  Example selection interface will be available after table creation.
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-purple-900 mb-4">Real Company Examples</p>
+                  <div className="space-y-3 text-sm">
+                    <div className="bg-white p-3 rounded-lg border border-purple-100">
+                      <p className="font-medium text-gray-900 mb-1">Google LLC</p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <p><span className="font-medium text-gray-700">Website:</span> google.com</p>
+                        <p><span className="font-medium text-gray-700">Industry:</span> Technology/Search</p>
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-purple-100">
+                      <p className="font-medium text-gray-900 mb-1">Microsoft Corporation</p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <p><span className="font-medium text-gray-700">Website:</span> microsoft.com</p>
+                        <p><span className="font-medium text-gray-700">Industry:</span> Software/Cloud</p>
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-purple-100">
+                      <p className="font-medium text-gray-900 mb-1">Amazon.com Inc</p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <p><span className="font-medium text-gray-700">Website:</span> amazon.com</p>
+                        <p><span className="font-medium text-gray-700">Industry:</span> E-commerce/Cloud</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-purple-600 pt-2 border-t border-purple-200">
+                  Your table will be pre-populated with real company examples including Name, Website, and Industry columns.
                 </p>
               </div>
               <div className="flex gap-3 pt-4">

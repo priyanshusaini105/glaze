@@ -1,10 +1,10 @@
 /**
  * Test: Company Resolver Tool
  * 
- * Tests the resolveCompanyFromDomain function
+ * Tests the resolveCompanyIdentityFromDomain function
  */
 
-import { resolveCompanyFromDomain } from "../tools/company/company-resolver";
+import { resolveCompanyIdentityFromDomain } from "../tools/company/resolve-company-identity-from-domain";
 
 async function testCompanyResolver() {
     console.log("🧪 Testing Company Resolver Tool\n");
@@ -22,9 +22,9 @@ async function testCompanyResolver() {
     for (const domain of testDomains) {
         console.log(`\n📍 Testing: ${domain}`);
         console.log("─".repeat(50));
-        
-        const result = await resolveCompanyFromDomain(domain);
-        
+
+        const result = await resolveCompanyIdentityFromDomain(domain);
+
         console.log("Result:", {
             status: result.status,
             companyName: result.companyName,

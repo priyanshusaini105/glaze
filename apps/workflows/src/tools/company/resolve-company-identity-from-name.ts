@@ -1,5 +1,5 @@
 /**
- * Company Name Resolver Tool
+ * Company Identity Tool (Name)
  * 
  * DNS-like resolution for company names.
  * 
@@ -38,12 +38,16 @@ const CONFIDENCE_THRESHOLDS = {
 
 /**
  * Signal weights for confidence calculation
+ * 
+ * V1 conservative weights:
+ * - External corroboration reduced from 0.20 to 0.10 (snippet mentions are not real corroboration)
+ * - Weight redistributed to official match and search intent
  */
 const SIGNAL_WEIGHTS = {
-    OFFICIAL_WEBSITE_MATCH: 0.35,    // <title>, H1, footer contains company name
-    SEARCH_INTENT_ALIGNMENT: 0.20,   // Found via "official" style query
-    DOMAIN_QUALITY: 0.15,            // HTTPS, age, not parked
-    EXTERNAL_CORROBORATION: 0.20,    // LinkedIn, GitHub, Product Hunt links
+    OFFICIAL_WEBSITE_MATCH: 0.40,    // <title>, H1, footer contains company name
+    SEARCH_INTENT_ALIGNMENT: 0.25,   // Found via "official" style query
+    DOMAIN_QUALITY: 0.15,            // HTTPS, high search position
+    EXTERNAL_CORROBORATION: 0.10,    // Mentions in snippet (weak signal)
     NAME_UNIQUENESS: 0.10,           // Rare company name
 } as const;
 
@@ -333,17 +337,19 @@ function scoreDomainQuality(candidate: CompanyCandidate): number {
 }
 
 /**
- * Signal D: External corroboration (+0.20)
- * - We can check if known platforms are present in snippet
+ * Signal D: External corroboration (+0.10, reduced from 0.20)
+ * - Weak signal: just checks if platforms are mentioned in snippet
+ * - NOT real corroboration (that would require actual link verification)
+ * - SEO blogs mention "LinkedIn" all the time, so this is noisy
  */
 function scoreExternalCorroboration(candidate: CompanyCandidate): number {
     const snippet = candidate.snippet.toLowerCase();
     let score = 0;
 
-    // Check for mentions of trusted platforms
-    if (snippet.includes("linkedin")) score += 0.07;
-    if (snippet.includes("github")) score += 0.07;
-    if (snippet.includes("product hunt")) score += 0.06;
+    // Conservative scoring: mentions are weak signals
+    if (snippet.includes("linkedin")) score += 0.03;
+    if (snippet.includes("github")) score += 0.03;
+    if (snippet.includes("product hunt")) score += 0.04;
 
     return Math.min(score, SIGNAL_WEIGHTS.EXTERNAL_CORROBORATION);
 }
@@ -446,6 +452,7 @@ async function scoreCandidates(
     }
 
     // Apply multiple candidates penalty if needed
+    // Only penalize the top candidate (others are already losers)
     const sortedByConfidence = [...candidates].sort((a, b) => b.confidence - a.confidence);
 
     if (sortedByConfidence.length >= 2) {
@@ -453,14 +460,22 @@ async function scoreCandidates(
         const top2 = sortedByConfidence[1];
 
         if (top1 && top2 && Math.abs(top1.confidence - top2.confidence) < 0.10) {
-            // Top candidates are too close
-            for (const candidate of candidates) {
-                candidate.penalties.multipleStrongCandidates = PENALTIES.MULTIPLE_STRONG_CANDIDATES;
-                const penaltySum = Object.values(candidate.penalties).reduce((a, b) => a + b, 0);
-                const signalSum = Object.values(candidate.signals).reduce((a, b) => a + b, 0);
-                candidate.confidence = Math.max(0, Math.min(1.0, signalSum - penaltySum));
-            }
+            // Top candidates are too close - penalize only the top one
+            top1.penalties.multipleStrongCandidates = PENALTIES.MULTIPLE_STRONG_CANDIDATES;
+            const penaltySum = Object.values(top1.penalties).reduce((a, b) => a + b, 0);
+            const signalSum = Object.values(top1.signals).reduce((a, b) => a + b, 0);
+            top1.confidence = Math.max(0, Math.min(1.0, signalSum - penaltySum));
         }
+    }
+
+    // Log signal breakdown for debugging (gold for debugging)
+    for (const candidate of sortedByConfidence.slice(0, 3)) {
+        logger.debug("📊 Candidate scoring breakdown", {
+            domain: candidate.domain,
+            signals: candidate.signals,
+            penalties: candidate.penalties,
+            finalConfidence: candidate.confidence.toFixed(3),
+        });
     }
 
     return candidates.sort((a, b) => b.confidence - a.confidence);
@@ -507,7 +522,7 @@ function extractCanonicalName(candidate: CompanyCandidate, originalName: string)
  * @param companyName - The company name to resolve (e.g., "Stripe" or "Linear")
  * @returns Company resolution result with confidence score
  */
-export async function resolveCompanyFromName(
+export async function resolveCompanyIdentityFromName(
     companyName: string
 ): Promise<CompanyNameResolutionResult> {
     try {
@@ -598,8 +613,38 @@ export async function resolveCompanyFromName(
 
         const confidenceLevel = getConfidenceLevel(bestCandidate.confidence);
 
-        // Conservative: cap confidence at 0.95 even for perfect scores
-        const cappedConfidence = Math.min(0.95, bestCandidate.confidence);
+        // Conservative: cap confidence at 0.90 for safety
+        // Only exceed 0.90 if: single candidate, zero penalties, strong signals
+        let cappedConfidence = bestCandidate.confidence;
+        const penaltySum = Object.values(bestCandidate.penalties).reduce((a, b) => a + b, 0);
+
+        if (penaltySum > 0 || scoredCandidates.length > 1) {
+            cappedConfidence = Math.min(0.90, cappedConfidence);
+        } else {
+            cappedConfidence = Math.min(0.95, cappedConfidence);
+        }
+
+        // Generate reason for LOW or FAIL confidence
+        let reason: string | undefined;
+        if (confidenceLevel === "LOW" || confidenceLevel === "FAIL") {
+            const reasons: string[] = [];
+            if (bestCandidate.penalties.multipleStrongCandidates > 0) {
+                reasons.push("Multiple strong candidates");
+            }
+            if (bestCandidate.penalties.genericName > 0) {
+                reasons.push("Generic company name");
+            }
+            if (bestCandidate.penalties.weakHomepageSignals > 0) {
+                reasons.push("Weak homepage signals");
+            }
+            if (bestCandidate.signals.officialWebsiteMatch < 0.20) {
+                reasons.push("Low website match quality");
+            }
+            if (scoredCandidates.length > 5) {
+                reasons.push("Too many candidates");
+            }
+            reason = reasons.join(", ") || "Low confidence";
+        }
 
         logger.info("🏢 CompanyNameResolver: Resolution complete", {
             companyName,
@@ -608,6 +653,7 @@ export async function resolveCompanyFromName(
             confidence: cappedConfidence,
             confidenceLevel,
             candidatesEvaluated: scoredCandidates.length,
+            reason,
         });
 
         return {
@@ -616,6 +662,7 @@ export async function resolveCompanyFromName(
             domain: bestCandidate.domain,
             confidence: cappedConfidence,
             confidenceLevel,
+            reason,
         };
 
     } catch (error) {

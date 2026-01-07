@@ -24,7 +24,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-1">Welcome back! Here's your data overview.</p>
         </div>
         <Link
-          href="/tables/new"
+          href="/tables"
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
         >
           <Plus size={20} />

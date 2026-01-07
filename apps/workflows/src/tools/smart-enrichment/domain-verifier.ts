@@ -93,6 +93,36 @@ function normalizeText(text: string): string {
 }
 
 /**
+ * Extract base domain name without TLD
+ */
+function extractBaseDomain(domain: string): string {
+    // Remove common TLDs and get base domain
+    const parts = domain.toLowerCase().split('.');
+    // Handle cases like 'reddit.com', 'business.reddit.com', 'redditinc.com'
+    // Return the main identifying part
+    const basePart = parts[0]!;
+    return basePart.replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Check if domain is canonical (domain name = company name)
+ * e.g., "reddit.com" for "Reddit" or "google.com" for "Google"
+ */
+function isCanonicalDomain(domain: string, companyName: string): boolean {
+    const normalizedCompany = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseDomain = extractBaseDomain(domain);
+
+    // Exact match: reddit.com for "Reddit"
+    if (baseDomain === normalizedCompany) {
+        return true;
+    }
+
+    // Handle "Inc", "Corp", "LLC" suffixes in domain: redditinc.com ≠ canonical for "Reddit"
+    // Only match if company already has that suffix
+    return false;
+}
+
+/**
  * Check if text contains company name (fuzzy match)
  */
 function containsCompanyName(text: string, companyName: string): boolean {
@@ -156,6 +186,13 @@ export async function verifyCandidate(
         domain: candidate.domain,
         companyName,
     });
+
+    // Check 0: CANONICAL DOMAIN BONUS (most important signal)
+    // If domain exactly matches company name, this is almost certainly correct
+    if (isCanonicalDomain(candidate.domain, companyName)) {
+        score += 0.25;
+        reasons.push("canonical_domain");
+    }
 
     // Check 1: Company name in search snippet/title (from Serper)
     const searchText = `${candidate.title} ${candidate.snippet}`;
@@ -225,14 +262,36 @@ export async function verifyCandidate(
 
 /**
  * Verify all candidates and return sorted results
+ * 
+ * FAST PATH: If first candidate is canonical (domain = company name),
+ * we only verify the top 2 candidates to save HTTP requests.
  */
 export async function verifyCandidates(
     candidates: SearchCandidate[],
     companyName: string,
     industry?: string
 ): Promise<VerificationResult[]> {
+    if (candidates.length === 0) return [];
+
+    // Check if first candidate is canonical for fast path
+    const firstCandidate = candidates[0]!;
+    const firstIsCanonical = isCanonicalDomain(firstCandidate.domain, companyName);
+
+    // If first is canonical, only verify top 2 (the canonical + one backup)
+    const candidatesToVerify = firstIsCanonical
+        ? candidates.slice(0, 2)
+        : candidates;
+
+    if (firstIsCanonical) {
+        logger.info("⚡ DomainVerifier: Fast path - canonical first, limiting verification", {
+            companyName,
+            canonicalDomain: firstCandidate.domain,
+            verifyingCount: candidatesToVerify.length,
+        });
+    }
+
     const results = await Promise.all(
-        candidates.map(c => verifyCandidate(c, companyName, industry))
+        candidatesToVerify.map(c => verifyCandidate(c, companyName, industry))
     );
 
     // Sort by score descending

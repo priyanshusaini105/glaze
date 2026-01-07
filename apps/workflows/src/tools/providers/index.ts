@@ -6,7 +6,7 @@
  */
 
 import type { ProviderToolInterface, ProviderTier } from "../../types/enrichment";
-import { enrichmentConfig } from "../../enrichment-config";
+import { config } from "../../config/enrichment";
 
 // Mock Providers
 import { mockHunterProvider } from "./mock-hunter";
@@ -76,7 +76,7 @@ export const realProviders: ProviderToolInterface[] = [
 /**
  * All registered providers based on configuration.
  */
-export const providers: ProviderToolInterface[] = enrichmentConfig.useMockProviders
+export const providers: ProviderToolInterface[] = config.useMockProviders
     ? mockProviders
     : realProviders;
 
@@ -99,6 +99,19 @@ export function getProvidersForField(field: string): ProviderToolInterface[] {
  */
 export function getProviderByName(name: string): ProviderToolInterface | undefined {
     return providers.find((p) => p.name === name);
+}
+
+/**
+ * Get all provider descriptions for AI planning
+ */
+export function getAllProviderDescriptions() {
+    return providers.map(p => ({
+        name: p.name,
+        tier: p.tier,
+        costCents: p.costCents,
+        fields: p.supportedFields || [],
+        description: `${p.name} - ${p.tier} tier provider (${p.costCents}¢)`,
+    }));
 }
 
 /**

@@ -209,6 +209,7 @@ export class SerperProvider extends BaseProvider {
         "name",
         "title",
         "company",
+        "website",
         "socialLinks",
         "location",
         "shortBio",
@@ -245,12 +246,21 @@ export class SerperProvider extends BaseProvider {
                     query = `"${namePart}" LinkedIn`;
                 }
             }
-        } else if (field === "company" || field === "socialLinks") {
+        } else if (field === "company" || field === "socialLinks" || field === "website") {
             // Company search
             if (input.domain) {
                 query = `site:${input.domain} OR "${input.domain}" about`;
             } else if (input.company) {
                 query = `"${input.company}" company about`;
+            } else if (input.name) {
+                // Search for company by name
+                query = `"${input.name}" official website`;
+            } else if ((input as any).bio) {
+                // Extract key terms from bio and search
+                const bio = (input as any).bio as string;
+                // Take first meaningful sentence/phrase (up to 100 chars)
+                const bioSnippet = bio.slice(0, 100).split('.')[0];
+                query = `${bioSnippet} company`;
             }
         }
 
@@ -312,6 +322,12 @@ export class SerperProvider extends BaseProvider {
             if (companyInfo.name) {
                 value = companyInfo.name;
                 confidence = 0.7;
+            }
+        } else if (field === "website") {
+            const companyInfo = extractCompanyInfo(response.organic, response.knowledgeGraph);
+            if (companyInfo.website) {
+                value = companyInfo.website;
+                confidence = 0.8;
             }
         } else if (field === "shortBio") {
             // Extract bio from LinkedIn snippet or knowledge graph

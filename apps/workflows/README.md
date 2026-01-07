@@ -1,457 +1,262 @@
 # Workflows
 
-Trigger.dev workflow definitions for the enrichment pipeline. These workflows orchestrate data enrichment jobs across the system.
+> **✨ New Architecture!** The workflow system has been completely restructured for scalability and ease of extension.
 
-## Overview
+Trigger.dev v3 workflows for enrichment pipeline orchestration with a plugin-based architecture.
 
-Workflows are long-running tasks that can be scheduled, triggered manually, or invoked from the API. They integrate with the Worker process to execute enrichment pipelines.
+## 🚀 Quick Start
 
-## Getting Started
+### Use the Unified Enrichment Task
 
-### Prerequisites
-
-1. **Trigger.dev Account** - Sign up at [trigger.dev](https://trigger.dev)
-2. **Project Created** - Create a project in your organization
-3. **API Key** - Get your project API key from dashboard
-4. **Trigger CLI** - `npm install -g @trigger.dev/cli`
-
-### Local Development
-
-```bash
-# Install dependencies
-cd apps/workflows
-pnpm install
-
-# Set up environment
-TRIGGER_API_KEY=<your-api-key> pnpm run dev
-
-# Or use provided script
-./../../scripts/run-workflows.sh
-```
-
-### Deployment
-
-```bash
-# Deploy to Trigger.dev
-cd apps/workflows
-pnpm run deploy
-
-# With specific environment
-TRIGGER_ENV=production pnpm run deploy
-```
-
-## Project Structure
-
-```
-apps/workflows/
-├── src/
-│   ├── index.ts           # Entry point, exports all tasks
-│   └── enrichment.ts      # Enrichment workflow definitions
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## Available Workflows
-
-### 1. Enrich Data Task
-
-Single URL enrichment with priority queue support.
-
-**Trigger ID**: `enrich-data`
-
-**Input**:
 ```typescript
-{
-  url: string;                                           // Company/profile URL
-  type: 'company_website' | 'linkedin_profile' | 'company_linkedin';
-  requiredFields: string[];                              // Fields to enrich
-  skipCache?: boolean;                                   // Bypass cache
-}
-```
+import { enrichTask } from '@workflows/tasks/enrich';
 
-**Output**:
-```typescript
-{
-  status: 'success' | 'failed' | 'partial';
-  data: EnrichmentData;                                  // Enriched fields
-  costs: { provider: number; llm: number; total: number };
-  stages: StageResult[];
-  timestamp: string;
-}
-```
-
-**Example**:
-```typescript
-import { enrichDataTask } from '@workflows/enrichment';
-
-const result = await enrichDataTask.trigger({
-  url: 'https://example.com',
-  type: 'company_website',
-  requiredFields: ['company_name', 'company_industry', 'company_size']
+const result = await enrichTask.trigger({
+  input: { linkedinUrl: 'https://linkedin.com/in/example' },
+  fields: ['email', 'company', 'title'],
+  budgetCents: 100,
 });
 ```
 
-### 2. Batch Enrich Task
+### Add a New Tool (in 2 steps!)
 
-Process multiple URLs in parallel.
-
-**Trigger ID**: `batch-enrich`
-
-**Input**:
+1. Create `tools/providers/my-tool.ts`:
 ```typescript
-{
-  urls: Array<{
-    url: string;
-    type: 'company_website' | 'linkedin_profile' | 'company_linkedin';
-  }>;
-  requiredFields?: string[];
-}
-```
+import { defineProvider } from '../../core/registry';
 
-**Output**:
-```typescript
-{
-  status: 'processing' | 'completed' | 'partial_failure';
-  count: number;
-  results: EnrichmentJobResult[];
-  failedJobs: string[];
-  timestamp: string;
-}
-```
-
-**Example**:
-```typescript
-const result = await batchEnrichTask.trigger({
-  urls: [
-    { url: 'https://example.com', type: 'company_website' },
-    { url: 'https://linkedin.com/in/john', type: 'linkedin_profile' },
-  ],
-  requiredFields: ['person_name', 'person_title', 'company_name']
-});
-```
-
-## Usage Patterns
-
-### From API
-
-Trigger workflows from your API endpoints:
-
-```typescript
-// apps/api/src/routes/enrich.ts
-import { enrichDataTask } from '@workflows/enrichment';
-
-export const enrichRoute = new Elysia()
-  .post('/enrich', async (body) => {
-    const result = await enrichDataTask.trigger({
-      url: body.url,
-      type: body.type,
-      requiredFields: body.fields
-    });
-
-    return { jobId: result.id };
-  });
-```
-
-### Scheduled Workflows
-
-Schedule recurring enrichment jobs:
-
-```typescript
-import { cron, task } from "@trigger.dev/sdk";
-
-export const dailyEnrichmentTask = task({
-  id: "daily-enrich",
-  trigger: cron.daily(),
-  run: async () => {
-    // Find pending enrichments from database
-    // Batch trigger them
+export const myTool = defineProvider({
+  name: 'my-tool',
+  description: 'What this tool does',
+  costMultiplier: 1.0,
+  supportedFields: ['email'],
+  async execute(input, context) {
+    return { email: 'found@example.com' };
   }
 });
 ```
 
-### Error Handling
-
-Workflows include automatic retry logic:
-
+2. Register in `tools/providers/registry.ts`:
 ```typescript
-export const enrichDataTask = task({
-  id: "enrich-data",
-  maxDuration: 600,
-  run: async (payload, { ctx }) => {
-    try {
-      // Enrichment logic
-    } catch (error) {
-      logger.error("Enrichment failed", { error, payload });
-      throw error; // Trigger.dev will retry
-    }
-  }
-});
+import './my-tool';
 ```
 
-## Integration with Worker
+**Done!** Your tool is now available to all plans.
 
-Workflows trigger enrichment by:
+### Add a New Plan (Strategy)
 
-1. **Creating a job** in Redis queue
-2. **Worker picks it up** and processes
-3. **Reports back** via webhook/polling
-
-```
-API → Workflow → Redis Queue → Worker → Database → Callback
-```
-
-## Environment Variables
-
-```bash
-# .env.local in project root
-
-# Trigger.dev
-TRIGGER_API_KEY=<your-api-key>
-TRIGGER_API_URL=https://api.trigger.dev
-
-# Worker connection
-REDIS_URL=redis://localhost:6379
-QUEUE_NAME=enrichment
-
-# API callback
-API_WEBHOOK_SECRET=<secret>
-API_CALLBACK_URL=https://your-api.com/webhooks/enrichment
-```
-
-## Monitoring
-
-### View Logs
-
-```bash
-# In local development
-pnpm run dev
-
-# View specific task logs
-trigger.dev logs enrich-data
-
-# Follow real-time logs
-trigger.dev logs -f enrich-data
-```
-
-### View Runs
-
-```bash
-# List recent runs
-trigger.dev runs list
-
-# Get run details
-trigger.dev runs get <run-id>
-
-# Replay a run
-trigger.dev runs replay <run-id>
-```
-
-### Dashboard
-
-Access your Trigger.dev dashboard:
-
-```
-https://cloud.trigger.dev/projects/<project-id>/runs
-```
-
-## Development Workflow
-
-### Add New Workflow
-
-1. **Create task** in `src/`:
-
+1. Create `plans/my-plan.ts`:
 ```typescript
-// src/validate-data.ts
-import { task } from "@trigger.dev/sdk";
+import { definePlan } from '../core/plan-registry';
 
-export const validateDataTask = task({
-  id: "validate-data",
-  run: async (payload: { data: string }) => {
-    // Validation logic
-    return { valid: true };
-  }
-});
-```
-
-2. **Export from index**:
-
-```typescript
-// src/index.ts
-export * from "./validate-data";
-```
-
-3. **Test locally**:
-
-```bash
-pnpm run dev
-# Call task from API
-curl -X POST http://localhost:3000/enrich \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com",...}'
-```
-
-4. **Deploy**:
-
-```bash
-pnpm run deploy
-```
-
-### Modify Task
-
-After changing a task:
-
-```bash
-# Redeploy to update
-pnpm run deploy
-
-# Old runs continue with old code
-# New runs use new code
-```
-
-## Performance Tips
-
-1. **Set reasonable maxDuration** - Prevent hanging tasks
-2. **Use queue names** - Separate by priority
-3. **Batch when possible** - Reduce API calls
-4. **Implement caching** - Store recent results
-5. **Monitor costs** - LLM calls are expensive
-
-## Scaling
-
-### Concurrent Runs
-
-Limit concurrent task executions:
-
-```typescript
-export const enrichDataTask = task({
-  id: "enrich-data",
-  maxDuration: 600,
-  queue: {
-    name: "enrichment",
-    concurrencyLimit: 50  // Max 50 parallel
-  },
-  run: async (payload) => {
-    // ...
-  }
-});
-```
-
-### Multiple Queues
-
-Use separate queues for different priorities:
-
-```typescript
-export const priorityEnrichTask = task({
-  id: "priority-enrich",
-  queue: { name: "enrichment-priority" },
-  run: async (payload) => { /* ... */ }
-});
-
-export const batchEnrichTask = task({
-  id: "batch-enrich",
-  queue: { name: "enrichment-batch" },
-  run: async (payload) => { /* ... */ }
-});
-```
-
-## Troubleshooting
-
-### Task not triggering?
-
-```bash
-# Check API key
-echo $TRIGGER_API_KEY
-
-# Verify connection
-pnpm run dev
-
-# Check logs
-trigger.dev logs -f
-```
-
-### Worker not processing?
-
-- Ensure Worker is running: `./scripts/run-worker.sh`
-- Check Redis connection: `redis-cli PING`
-- View queue size: `redis-cli XLEN enrichment-jobs`
-
-### High latency?
-
-- Check Worker concurrency
-- Monitor Redis memory
-- Check database connection pool
-- Review provider timeouts
-
-### High costs?
-
-- Increase cache TTL
-- Reduce LLM fallback threshold
-- Batch similar requests
-- Use cheaper providers first
-
-## Cost Estimation
-
-Per enrichment job (typical case):
-
-| Provider | Cost | Confidence |
-|----------|------|-----------|
-| Cache hit | $0 | 95% |
-| LinkedIn API | $0.01-0.05 | 95% |
-| Website scraper | $0 | 70% |
-| Search service | $0.02 | 80% |
-| LLM fallback | $0.02-0.05 | 60% |
-
-**Average total**: $0.03-0.10 per job
-
-## Related Documentation
-
-- [Worker README](/apps/worker/README.md)
-- [API Documentation](/apps/api/README.md)
-- [Contributors Guide](/CONTRIBUTORS.md)
-- [Trigger.dev Docs](https://trigger.dev/docs)
-
-## API Reference
-
-### enrichDataTask.trigger(payload)
-
-```typescript
-const run = await enrichDataTask.trigger({
-  url: 'https://example.com',
-  type: 'company_website',
-  requiredFields: ['company_name', 'company_industry'],
-  skipCache: false
-}, {
-  delay: 5000,              // Delay 5 seconds
-  idempotencyKey: 'unique', // Prevent duplicates
-  tags: ['batch-001']       // Organize runs
-});
-
-console.log(run.id);  // run_xxx
-```
-
-### batchEnrichTask.trigger(payload)
-
-```typescript
-const run = await batchEnrichTask.trigger({
-  urls: [
-    { url: 'https://example.com', type: 'company_website' }
+export const myPlan = definePlan({
+  name: 'my-plan',
+  priority: 5,
+  canHandle: (input, fields) => !!input.email,
+  generateSteps: async (input, fields, budget) => [
+    { tool: 'my-tool', field: 'email', reason: 'Custom logic' }
   ]
 });
-
-console.log(run.id);
 ```
 
-## Contributing
+2. Register in `plans/index.ts`:
+```typescript
+import './my-plan';
+```
 
-See [CONTRIBUTORS.md](/CONTRIBUTORS.md) for guidelines on:
+**Done!** Your plan is now available.
 
-- Adding new workflow tasks
-- Modifying existing tasks
-- Testing changes
+## 📚 Documentation
+
+- **[Architecture Guide](../../docs/WORKFLOW_ARCHITECTURE.md)** - Complete system overview
+- **[Quick Reference](../../docs/WORKFLOW_QUICK_START.md)** - Cheat sheet for adding tools/plans
+
+## 📁 Structure
+
+```
+src/
+├── core/              # Core system (registry, orchestrator)
+├── tools/             # Tool implementations
+│   └── providers/     # Data providers (add new tools here!)
+├── plans/             # Execution strategies (add new plans here!)
+├── tasks/             # Trigger.dev tasks
+├── config/            # Configuration
+└── index.ts           # Main entry point
+```
+
+## 🏗️ Architecture Overview
+
+The new architecture is based on three core concepts:
+
+### 1. Tools (Providers)
+Self-contained modules that fetch data from various sources.
+
+- Auto-discovered and registered
+- Simple interface: `execute(input, context) => data`
+- Cost tracking via `costMultiplier`
+
+### 2. Plans (Strategies)
+Define how to orchestrate tools for specific scenarios.
+
+- Auto-discovered and registered
+- Priority-based selection
+- Generate execution steps dynamically
+
+### 3. Orchestrator
+Single unified entry point that:
+
+- Selects the best plan
+- Executes steps in order
+- Tracks costs and provenance
+- Handles errors and cancellation
+
+## 🔧 Development
+
+### Install Dependencies
+
+```bash
+pnpm install
+```
+
+### Run Development Server
+
+```bash
+pnpm dev
+```
+
+### Deploy to Trigger.dev
+
+```bash
+pnpm deploy
+```
+
+## 🎯 Available Tasks
+
+### New Unified Task (Recommended)
+
+- **`enrich`** - Unified enrichment with plugin system
+
+### Production Tasks
+
+- **`process-enrichment-job`** - Cell-level enrichment orchestration
+- **`enrich-cell`** - Single cell enrichment
+- **`process-entity-enrichment`** - Entity-based enrichment
+
+### Legacy Tasks (Deprecated)
+
+- **`enrich-data`** - Old URL enrichment
+- **`batch-enrich`** - Old batch enrichment
+- **`multi-agent-enrichment`** - Old multi-agent system
+
+## 🧪 Testing
+
+### Test a Provider
+
+```typescript
+import { getRegistry } from './src/core/registry';
+
+const provider = getRegistry().get('github');
+const result = await provider.execute(
+  { linkedinUrl: 'https://...' },
+  { budgetCents: 100 }
+);
+```
+
+### Test a Plan
+
+```typescript
+import { getPlanRegistry } from './src/core/plan-registry';
+
+const plan = getPlanRegistry().get('linkedin-focused');
+const steps = await plan.generateSteps(input, fields, 100);
+```
+
+## 📊 Cost Management
+
+Each provider has a `costMultiplier`:
+
+- **0** - Free (GitHub, Wikipedia, OpenCorporates)
+- **0.5-1** - Cheap (Serper, Prospeo free tiers)
+- **2-5** - Premium (LinkedIn API)
+
+Budget is tracked automatically and execution stops when exceeded.
+
+## 🔄 Migration Guide
+
+### From Old Code
+
+```typescript
+// OLD
+import { simpleEnrich } from './simple-enrichment';
+const result = await simpleEnrich(input, fields, options);
+
+// NEW
+import { orchestrator } from './core/orchestrator';
+const result = await orchestrator.enrich(input, {
+  fields,
+  budgetCents: options.maxCostCents || 100,
+});
+```
+
+## 🌟 Examples
+
+### LinkedIn Profile Enrichment
+
+```typescript
+const result = await enrichTask.trigger({
+  input: { linkedinUrl: 'https://linkedin.com/in/johndoe' },
+  fields: ['name', 'title', 'company', 'email'],
+  budgetCents: 50,
+});
+// Uses 'linkedin-focused' plan automatically
+```
+
+### Company Domain Enrichment
+
+```typescript
+const result = await enrichTask.trigger({
+  input: { domain: 'example.com' },
+  fields: ['company', 'industry', 'size'],
+  budgetCents: 30,
+});
+// Uses 'company-focused' plan automatically
+```
+
+### Custom Plan Selection
+
+```typescript
+const result = await enrichTask.trigger({
+  input: { email: 'john@example.com' },
+  fields: ['company', 'name'],
+  budgetCents: 20,
+  planName: 'my-custom-plan', // Explicit selection
+});
+```
+
+## 🛠️ Troubleshooting
+
+### Provider Not Found
+
+Ensure it's imported in `tools/providers/registry.ts`
+
+### Plan Not Selected
+
+Check `canHandle()` logic and priority value
+
+### Budget Exceeded
+
+Increase `budgetCents` or use cheaper providers
+
+## 📝 Contributing
+
+1. Add new tools in `tools/providers/`
+2. Add new plans in `plans/`
+3. Update tests
+4. Document your changes
+
+## 📄 License
+
+See root LICENSE file.
 
 ---
 
-**Status**: Active development
-**Last Updated**: January 2026
-**Framework**: Trigger.dev v3
+**For detailed documentation, see [docs/WORKFLOW_ARCHITECTURE.md](../../docs/WORKFLOW_ARCHITECTURE.md)**

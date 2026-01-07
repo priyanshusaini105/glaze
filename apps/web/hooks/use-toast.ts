@@ -3,7 +3,7 @@ import * as React from "react";
 type ToastProps = {
   title?: string;
   description?: string;
-  variant?: "default" | "destructive";
+  variant?: "default" | "success" | "destructive";
 };
 
 type ToastActionElement = React.ReactElement;

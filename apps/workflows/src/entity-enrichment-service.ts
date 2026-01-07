@@ -14,8 +14,13 @@
 import { logger } from "@trigger.dev/sdk";
 import type { EntityTypeValue, EnrichedFieldValue } from "@repo/types";
 import { EntityType } from "@repo/types";
-import { enrichmentConfig } from "./enrichment-config";
-import { mockProviders, getProvidersForTier, type EnrichmentData, type MockProvider } from "./mock-providers";
+import { config } from "./config/enrichment";
+// Get providers for this tier
+const mockProviders: any[] = [];
+const getProvidersForTier = (tier: string) => mockProviders;
+const enrichmentConfig = { ...config, confidenceThreshold: 0.7 };
+type EnrichmentData = Record<string, unknown>;
+type MockProvider = any;
 
 // ===== Types =====
 

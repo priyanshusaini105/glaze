@@ -75,11 +75,9 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
       <SidebarFooter className="border-t border-slate-200 bg-white p-3 space-y-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:bg-slate-50 rounded-lg px-3 py-1.5">
-              <Link href="/tables/new" className="flex items-center gap-2.5">
-                <Plus size={20} className="text-slate-600" />
-                <span className="text-sm font-medium text-slate-600">New Table</span>
-              </Link>
+            <SidebarMenuButton onClick={() => window.location.href = '/tables'} className="hover:bg-slate-50 rounded-lg px-3 py-1.5 cursor-pointer">
+              <Plus size={20} className="text-slate-600" />
+              <span className="text-sm font-medium text-slate-600">New Table</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

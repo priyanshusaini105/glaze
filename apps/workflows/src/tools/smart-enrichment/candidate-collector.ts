@@ -153,7 +153,21 @@ function buildSearchQueries(
 }
 
 /**
+ * Check if domain is canonical (domain name = company name)
+ * Fast-path detection to avoid unnecessary queries
+ */
+function isCanonicalDomain(domain: string, companyName: string): boolean {
+    const normalizedCompany = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const parts = domain.toLowerCase().split('.');
+    const baseDomain = parts[0]!.replace(/[^a-z0-9]/g, '');
+    return baseDomain === normalizedCompany;
+}
+
+/**
  * Collect candidate domains for a company
+ * 
+ * FAST PATH: If first query returns canonical domain (reddit.com for "Reddit"),
+ * we skip the second query and return immediately.
  * 
  * @param companyName - The company name to search for
  * @param context - Additional context (industry, location, etc.)
@@ -175,18 +189,54 @@ export async function collectCandidates(
     const queries = buildSearchQueries(companyName, context.industry, context.location);
     const candidateMap = new Map<string, SearchCandidate>();
     let totalResults = 0;
+    const usedQueries: string[] = [];
 
-    // Run queries (limit to first 2 to save API calls)
-    for (const query of queries.slice(0, 2)) {
-        const results = await performSerperSearch(query);
-        totalResults += results.length;
+    // Run FIRST query
+    const firstQuery = queries[0]!;
+    usedQueries.push(firstQuery);
+    const firstResults = await performSerperSearch(firstQuery);
+    totalResults += firstResults.length;
 
-        for (const result of results) {
+    // Process first query results
+    for (const result of firstResults) {
+        const domain = extractDomain(result.link);
+        if (!domain) continue;
+        if (isExcludedDomain(domain)) continue;
+
+        if (!candidateMap.has(domain)) {
+            candidateMap.set(domain, {
+                url: result.link,
+                domain,
+                title: result.title,
+                snippet: result.snippet,
+                position: result.position,
+                querySource: firstQuery,
+            });
+        }
+    }
+
+    // FAST PATH: Check if we found a canonical domain in first query
+    // If reddit.com appears for "Reddit", we don't need a second query
+    const firstCandidate = Array.from(candidateMap.values())[0];
+    const hasCanonicalMatch = firstCandidate && isCanonicalDomain(firstCandidate.domain, companyName);
+
+    if (hasCanonicalMatch) {
+        logger.info("⚡ CandidateCollector: Fast path - canonical domain found", {
+            companyName,
+            canonicalDomain: firstCandidate.domain,
+        });
+    } else if (queries.length > 1) {
+        // No canonical match - run second query for more candidates
+        const secondQuery = queries[1]!;
+        usedQueries.push(secondQuery);
+        const secondResults = await performSerperSearch(secondQuery);
+        totalResults += secondResults.length;
+
+        for (const result of secondResults) {
             const domain = extractDomain(result.link);
             if (!domain) continue;
             if (isExcludedDomain(domain)) continue;
 
-            // Only keep first occurrence of each domain
             if (!candidateMap.has(domain)) {
                 candidateMap.set(domain, {
                     url: result.link,
@@ -194,25 +244,26 @@ export async function collectCandidates(
                     title: result.title,
                     snippet: result.snippet,
                     position: result.position,
-                    querySource: query,
+                    querySource: secondQuery,
                 });
             }
         }
     }
 
     const candidates = Array.from(candidateMap.values())
-        .sort((a, b) => a.position - b.position) // Sort by best position
-        .slice(0, 5); // Keep top 5 candidates
+        .sort((a, b) => a.position - b.position)
+        .slice(0, hasCanonicalMatch ? 3 : 5); // Fewer candidates if canonical found
 
     logger.info("✅ CandidateCollector: Found candidates", {
         companyName,
         candidateCount: candidates.length,
         domains: candidates.map(c => c.domain),
+        fastPath: hasCanonicalMatch,
     });
 
     return {
         candidates,
-        queries: queries.slice(0, 2),
+        queries: usedQueries,
         totalResultsScanned: totalResults,
     };
 }

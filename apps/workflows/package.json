@@ -14,7 +14,6 @@
   "description": "Trigger.dev workflows for data enrichment pipeline",
   "devDependencies": {
     "@trigger.dev/build": "^4.3.1",
-    "@trigger.dev/cli": "4.3.1",
     "@types/pg": "^8.16.0",
     "prisma": "^7.2.0",
     "tsx": "^4.21.0",

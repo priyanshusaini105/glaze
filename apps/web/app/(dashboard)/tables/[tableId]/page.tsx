@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import {
   Search,
   Plus,
@@ -762,7 +763,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           {/* Left Section - Breadcrumbs & Title */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-500 font-medium">Tables</span>
+              <Link href="/tables" className="text-slate-500 font-medium hover:text-slate-700 transition-colors">
+                Tables
+              </Link>
               <ChevronDown className="w-4 h-4 text-slate-400 -rotate-90" />
               <span className="text-slate-900 font-semibold tracking-tight">{currentTable?.name || 'Table'}</span>
             </div>

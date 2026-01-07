@@ -67,14 +67,25 @@ export function makeDecision(
     }));
 
     // Check for ambiguity: if top two are too close
+    // EXCEPTION: If top candidate is canonical domain (domain = company name), 
+    // it's not ambiguous - the primary domain should win over subdomains/variants
     let isAmbiguous = false;
-    if (second && (top.score - second.score) < AMBIGUITY_GAP) {
+    const topIsCanonical = top.reasons.includes("canonical_domain");
+
+    if (second && (top.score - second.score) < AMBIGUITY_GAP && !topIsCanonical) {
         isAmbiguous = true;
         logger.warn("⚠️ CandidateScorer: Ambiguous result", {
             topDomain: top.candidate.domain,
             topScore: top.score,
             secondDomain: second.candidate.domain,
             secondScore: second.score,
+        });
+    } else if (topIsCanonical) {
+        logger.info("✅ CandidateScorer: Canonical domain wins despite close scores", {
+            topDomain: top.candidate.domain,
+            topScore: top.score,
+            secondDomain: second?.candidate.domain,
+            secondScore: second?.score,
         });
     }
 
@@ -94,8 +105,10 @@ export function makeDecision(
 
     if (top.score >= ACCEPT_THRESHOLD) {
         // Acceptable but not perfect
+        // If ambiguous, cap at 0.72 (just above the 0.7 acceptance threshold)
+        // so we still return a result but mark it appropriately
         const finalConfidence = isAmbiguous
-            ? Math.min(top.score, 0.6) // Cap at 0.6 if ambiguous
+            ? Math.min(top.score, 0.72)
             : top.score;
 
         return {

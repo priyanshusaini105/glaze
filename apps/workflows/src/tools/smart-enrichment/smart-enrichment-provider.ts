@@ -168,69 +168,50 @@ export class SmartEnrichmentProvider extends BaseProvider {
     }
 
     /**
-     * Enrich domain using 3-layer workflow
+     * Enrich domain - SIMPLIFIED: 1 Serper query, pick first result
      */
     private async enrichDomain(
         input: NormalizedInput,
         companyName: string
     ): Promise<ProviderResult | null> {
-        // Layer 1: Collect candidates
-        const { candidates } = await collectCandidates(companyName, {
-            industry: (input.raw as Record<string, string>)?.industry,
-        });
+        const industry = (input.raw as Record<string, string>)?.industry;
 
-        if (candidates.length === 0) {
-            return null;
-        }
+        // Single query, pick first valid domain
+        const result = await this.findFirstValidDomain(companyName, industry);
 
-        // Layer 2: Verify candidates
-        const verified = await verifyCandidates(
-            candidates,
-            companyName,
-            (input.raw as Record<string, string>)?.industry
-        );
-
-        // Layer 3: Make decision
-        const decision = makeDecision(verified, "domain");
-
-        if (!decision.value) {
+        if (!result) {
             return null;
         }
 
         return {
             field: "domain",
-            value: decision.value,
-            confidence: decision.confidence,
+            value: result.domain,
+            confidence: 0.8, // High confidence for first result
             source: this.name,
             timestamp: new Date().toISOString(),
-            costCents: this.costCents,
+            costCents: 1, // Single query
             raw: {
-                status: decision.status,
-                reasons: decision.reasons,
-                warnings: decision.warnings,
-                candidates: decision.candidates,
+                query: result.query,
+                position: result.position,
             },
         };
     }
 
     /**
-     * Enrich website using 3-layer workflow with context validation
-     * 
-     * Requirements:
-     * - MUST have company name (cannot enrich without context)
-     * - Uses industry if available for better query precision
-     * - Returns normalized URL (https, no www, no trailing slash)
-     * - Stores full provenance for transparency
+     * Enrich website - SIMPLIFIED: 1 Serper query, pick first result
      */
     private async enrichWebsite(
         input: NormalizedInput,
         companyName: string
     ): Promise<ProviderResult | null> {
-        // Context validation - MUST have company name
         if (!companyName || companyName.trim().length < 2) {
-            logger.warn("SmartEnrichment: Cannot enrich website without company name", {
+            logger.warn("❌ SmartEnrichment: Cannot enrich website - missing/invalid company name", {
                 rowId: input.rowId,
-                reason: "context_validation_failed",
+                companyName: companyName || '<empty>',
+                companyLength: companyName?.length || 0,
+                availableFields: Object.keys(input.raw || {}),
+                hasName: !!input.name,
+                hasCompany: !!input.company
             });
             return null;
         }
@@ -241,67 +222,144 @@ export class SmartEnrichmentProvider extends BaseProvider {
             rowId: input.rowId,
             companyName,
             hasIndustry: !!industry,
+            industry: industry || '<none>',
+            inputFields: Object.keys(input.raw || {})
         });
 
-        // Layer 1: Collect candidates (uses Serper)
-        const { candidates, queries, totalResultsScanned } = await collectCandidates(companyName, {
-            industry,
-        });
+        // Single query, pick first valid domain
+        const result = await this.findFirstValidDomain(companyName, industry);
 
-        if (candidates.length === 0) {
-            logger.warn("SmartEnrichment: No website candidates found", {
+        if (!result) {
+            logger.warn("❌ SmartEnrichment: Website enrichment failed", {
                 rowId: input.rowId,
                 companyName,
-                queries,
+                industry: industry || '<none>',
+                reason: "No valid domain found in search results"
             });
             return null;
         }
 
-        // Layer 2: Verify candidates
-        const verified = await verifyCandidates(candidates, companyName, industry);
-
-        // Layer 3: Make decision (fieldType = "website" to get URL instead of domain)
-        const decision = makeDecision(verified, "website");
-
-        if (!decision.value) {
-            logger.warn("SmartEnrichment: Website enrichment rejected", {
-                rowId: input.rowId,
-                companyName,
-                status: decision.status,
-                topScore: decision.candidates[0]?.score,
-            });
-            return null;
-        }
-
-        // Normalize the URL
-        const normalizedUrl = normalizeUrl(decision.url || decision.value);
+        const normalizedUrl = normalizeUrl(result.url);
 
         logger.info("✅ SmartEnrichment: Website enrichment succeeded", {
             rowId: input.rowId,
             companyName,
             url: normalizedUrl,
-            confidence: decision.confidence,
-            status: decision.status,
+            originalUrl: result.url,
+            domain: result.domain,
+            confidence: 0.8
         });
 
         return {
             field: "website",
             value: normalizedUrl,
-            confidence: decision.confidence,
+            confidence: 0.8,
             source: this.name,
             timestamp: new Date().toISOString(),
-            costCents: this.costCents,
+            costCents: 1,
             raw: {
-                status: decision.status,
-                reasons: decision.reasons,
-                warnings: decision.warnings,
-                candidates: decision.candidates,
-                queries,
-                totalResultsScanned,
-                originalUrl: decision.url,
+                query: result.query,
+                position: result.position,
+                originalUrl: result.url,
             },
         };
     }
+
+    /**
+     * Simple helper: 1 Serper query, return first valid domain
+     */
+    private async findFirstValidDomain(
+        companyName: string,
+        industry?: string
+    ): Promise<{ domain: string; url: string; query: string; position: number } | null> {
+        // Build single query
+        const query = industry
+            ? `"${companyName}" ${industry} official website`
+            : `"${companyName}" official website`;
+
+        logger.info("🔍 SmartEnrichment: Searching", { query });
+
+        const results = await querySerperForInfo(query);
+
+        if (!results.organic || results.organic.length === 0) {
+            logger.warn("⚠️ SmartEnrichment: No search results from Serper", {
+                query,
+                companyName,
+                hasIndustry: !!industry
+            });
+            return null;
+        }
+
+        logger.info("📊 SmartEnrichment: Search results received", {
+            query,
+            totalResults: results.organic.length,
+            results: results.organic.map(r => ({ title: r.title, link: r.link }))
+        });
+
+        // Excluded domains (social, directories, etc.)
+        const excluded = [
+            'linkedin.com', 'facebook.com', 'twitter.com', 'x.com',
+            'instagram.com', 'youtube.com', 'wikipedia.org', 'crunchbase.com',
+            'zoominfo.com', 'bloomberg.com', 'forbes.com', 'yelp.com',
+            'glassdoor.com', 'indeed.com', 'g2.com', 'capterra.com',
+        ];
+
+        const skippedDomains: string[] = [];
+        let validFound = false;
+
+        // Find first valid result
+        for (const result of results.organic) {
+            try {
+                const url = new URL(result.link);
+                const domain = url.hostname.replace(/^www\./, '').toLowerCase();
+
+                // Skip excluded domains
+                if (excluded.some(ex => domain === ex || domain.endsWith('.' + ex))) {
+                    skippedDomains.push(domain);
+                    logger.debug("⏭️ SmartEnrichment: Skipping excluded domain", {
+                        domain,
+                        title: result.title
+                    });
+                    continue;
+                }
+
+                validFound = true;
+                logger.info("✅ SmartEnrichment: Valid domain found", {
+                    domain,
+                    url: result.link,
+                    title: result.title,
+                    skippedCount: skippedDomains.length
+                });
+
+                return {
+                    domain,
+                    url: result.link,
+                    query,
+                    position: 1,
+                };
+            } catch (error) {
+                logger.warn("⚠️ SmartEnrichment: Invalid URL in search result", {
+                    link: result.link,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+                continue;
+            }
+        }
+
+        if (!validFound) {
+            logger.warn("❌ SmartEnrichment: All results excluded or invalid", {
+                query,
+                totalResults: results.organic.length,
+                skippedDomains,
+                reason: skippedDomains.length > 0 
+                    ? "All results were social media/directory sites"
+                    : "All results had invalid URLs"
+            });
+        }
+
+        return null;
+    }
+
 
     /**
      * Enrich industry using Serper + knowledge graph

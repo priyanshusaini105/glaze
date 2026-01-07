@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { urbaneRounded } from "./fonts/config";
 import { QueryProvider } from "@/providers/query-provider";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 const jetbrainsMono = JetBrains_Mono({
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className={`${urbaneRounded.variable} ${jetbrainsMono.variable}`}>
         <QueryProvider>
           {children}
+          <Toaster />
         </QueryProvider>
       </body>
     </html>

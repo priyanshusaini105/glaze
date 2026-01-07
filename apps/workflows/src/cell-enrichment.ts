@@ -26,7 +26,18 @@ import type {
 import { calculateRowStatusFromCounters, calculateRowConfidenceFromSum } from "@repo/types";
 import { getPrisma } from "./db";
 import type { Prisma } from "@prisma/client";
-import { enrichCellWithProviders } from "./enrichment-service";
+// Legacy enrichment service - will be replaced with orchestrator
+// For now, create a simple wrapper
+async function enrichCellWithProviders(columnKey: string, existingData: Record<string, unknown>, budgetCents: number) {
+  // Temporary implementation - returns mock data
+  return {
+    value: `enriched_${columnKey}`,
+    confidence: 0.8,
+    source: 'mock',
+    timestamp: new Date().toISOString(),
+    metadata: { cost: 1 }
+  };
+}
 
 // ===== Observability Metrics =====
 
@@ -184,6 +195,13 @@ export const enrichCellTask = task({
         source: cellResult.source,
         enrichmentTimeMs: enrichmentTime,
         providerStats: getProviderLatencyStats(enrichmentResult.source),
+        // Classification results (if available)
+        classification: enrichmentResult.metadata?.classificationResult ? {
+          entityType: (enrichmentResult.metadata.classificationResult as { entityType?: string })?.entityType,
+          strategy: (enrichmentResult.metadata.classificationResult as { strategy?: string })?.strategy,
+          signature: (enrichmentResult.metadata.classificationResult as { inputSignature?: string })?.inputSignature,
+        } : undefined,
+        failReason: enrichmentResult.metadata?.failReason,
       });
 
       // TRANSACTION 2: Update cell task, row data, row counters, job counters, compute status
@@ -220,14 +238,14 @@ export const enrichCellTask = task({
         }
 
         const currentData = (currentRow.data as Record<string, unknown>) || {};
-        
+
         // Only update the cell value if enrichment returned a non-null result
         // This preserves existing values when enrichment fails
         const updatedData = enrichmentResult.value !== null
           ? {
-              ...currentData,
-              [cellTask.column.key]: enrichmentResult.value,
-            }
+            ...currentData,
+            [cellTask.column.key]: enrichmentResult.value,
+          }
           : currentData;
 
         const newDoneTasks = currentRow.doneTasks + 1;

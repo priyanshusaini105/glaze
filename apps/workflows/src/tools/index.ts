@@ -5,8 +5,8 @@
 // Providers
 export * from "./providers";
 
-// Verification (legacy)
-export { verifyEmail, verifyEmailCandidates, inferEmailCandidates } from "./verification/email-verifier";
+// Classification System
+export * from "../classifier";
 
 // Utilities
 export { initCostController, canSpend, recordSpend, getRemainingBudget, getCostSummary, clearCostController } from "./utils/cost-controller";
@@ -19,19 +19,21 @@ export { normalizeInput, extractDomain, normalizeName, normalizeCompanyName } fr
 // Identity & Normalization Tools
 export { resolveIdentity, hasMinimumIdentity, getRecommendedTools } from "./identity-resolver";
 
-export { 
-    normalizeDomain, 
-    extractDomainFromEmail, 
-    extractDomainFromUrl, 
-    isFreeEmailDomain, 
-    getRootDomain, 
-    domainsMatch, 
-    normalizeDomainsArray 
+export {
+    normalizeDomain,
+    extractDomainFromEmail,
+    extractDomainFromUrl,
+    isFreeEmailDomain,
+    getRootDomain,
+    domainsMatch,
+    normalizeDomainsArray
 } from "./domain-normalizer";
 
 // Company Resolution Tools
-export { resolveCompanyFromDomain } from "./company/company-resolver";
-export type { CompanyResolutionResult } from "./company/company-resolver";
+export { resolveCompanyIdentityFromDomain } from "./company/resolve-company-identity-from-domain";
+export type { CompanyResolutionResult } from "./company/resolve-company-identity-from-domain";
+export { resolveCompanyIdentityFromName } from "./company/resolve-company-identity-from-name";
+export type { CompanyNameResolutionResult } from "./company/resolve-company-identity-from-name";
 
 // Provenance Tools
 export {

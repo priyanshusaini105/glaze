@@ -1,7 +1,7 @@
 /**
- * Company Resolver Tool
+ * Company Identity Tool (Domain)
  * 
- * Resolves company information from a domain.
+ * Resolves company identity from a domain.
  * Provides canonical company data including name, domain, and website URL.
  * 
  * Input: domain
@@ -151,28 +151,28 @@ function scrapeCompanyData(html: string): ScrapedData {
 function generateCompanyNameFromDomain(domain: string): string {
     // Remove TLD
     const withoutTld = domain.replace(/\.[a-z]{2,}$/i, "");
-    
+
     // Split by dots, hyphens, underscores
     const parts = withoutTld.split(/[.\-_]/);
-    
+
     // Capitalize each part
     const capitalized = parts.map(part => {
         if (part.length === 0) return "";
         return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
     });
-    
+
     return capitalized.join(" ");
 }
 
 /**
- * Resolve company information from a domain
+ * Resolve company identity from a domain
  * 
  * @param domain - The domain to resolve (e.g., "example.com" or "https://example.com")
  * @returns Company resolution result with name, canonical domain, website URL, and status
  * 
  * @example
  * ```typescript
- * const result = await resolveCompanyFromDomain("stripe.com");
+ * const result = await resolveCompanyIdentityFromDomain("stripe.com");
  * // {
  * //   companyName: "Stripe",
  * //   canonicalDomain: "stripe.com",
@@ -181,13 +181,13 @@ function generateCompanyNameFromDomain(domain: string): string {
  * // }
  * ```
  */
-export async function resolveCompanyFromDomain(
+export async function resolveCompanyIdentityFromDomain(
     domain: string
 ): Promise<CompanyResolutionResult> {
     try {
         // Normalize and validate the domain
         const normalized = normalizeDomain(domain);
-        
+
         if (!normalized) {
             logger.debug("🏢 CompanyResolver: Invalid domain", { domain });
             return {
@@ -214,23 +214,23 @@ export async function resolveCompanyFromDomain(
         const canonicalDomain = rootDomain || normalized;
         const websiteUrl = `https://${canonicalDomain}`;
 
-        logger.info("🏢 CompanyResolver: Resolving company", { 
+        logger.info("🏢 CompanyResolver: Resolving company", {
             originalDomain: domain,
             canonicalDomain,
         });
 
         // Try to fetch the company website
         const html = await fetchPage(websiteUrl);
-        
+
         let companyName: string | null = null;
 
         if (html) {
             // Scrape company data
             const scraped = scrapeCompanyData(html);
-            
+
             // Use scraped name or title, with some cleanup
             companyName = scraped.name || scraped.title || null;
-            
+
             // Clean up common suffixes in titles
             if (companyName) {
                 companyName = companyName
@@ -241,7 +241,7 @@ export async function resolveCompanyFromDomain(
                     .trim();
             }
 
-            logger.info("🏢 CompanyResolver: Scraped company name", { 
+            logger.info("🏢 CompanyResolver: Scraped company name", {
                 canonicalDomain,
                 companyName,
             });
@@ -250,7 +250,7 @@ export async function resolveCompanyFromDomain(
         // If no name found from scraping, generate from domain
         if (!companyName) {
             companyName = generateCompanyNameFromDomain(canonicalDomain);
-            logger.info("🏢 CompanyResolver: Generated company name from domain", { 
+            logger.info("🏢 CompanyResolver: Generated company name from domain", {
                 canonicalDomain,
                 companyName,
             });
@@ -268,7 +268,7 @@ export async function resolveCompanyFromDomain(
             domain,
             error: error instanceof Error ? error.message : "Unknown error",
         });
-        
+
         return {
             companyName: null,
             canonicalDomain: null,

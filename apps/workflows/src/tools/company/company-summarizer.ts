@@ -14,7 +14,7 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { logger } from "@trigger.dev/sdk";
-import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../types/enrichment";
+import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
 
 // Initialize Groq via OpenAI-compatible API
 const groq = createOpenAI({
@@ -41,22 +41,22 @@ interface CompanySourceData {
  */
 function extractCompanyData(results: ProviderResult[]): CompanySourceData[] {
     const sourceDataMap = new Map<string, CompanySourceData>();
-    
+
     for (const result of results) {
         const source = result.source;
-        
+
         if (!sourceDataMap.has(source)) {
             sourceDataMap.set(source, {
                 source,
                 confidence: result.confidence,
             });
         }
-        
+
         const data = sourceDataMap.get(source)!;
-        
+
         // Update confidence to max
         data.confidence = Math.max(data.confidence, result.confidence);
-        
+
         // Map fields
         switch (result.field) {
             case 'company':
@@ -76,8 +76,8 @@ function extractCompanyData(results: ProviderResult[]): CompanySourceData[] {
                 break;
         }
     }
-    
-    return Array.from(sourceDataMap.values()).filter(d => 
+
+    return Array.from(sourceDataMap.values()).filter(d =>
         d.name || d.description || d.size || d.location || d.founded
     );
 }
@@ -87,21 +87,21 @@ function extractCompanyData(results: ProviderResult[]): CompanySourceData[] {
  */
 function findConflicts(sources: CompanySourceData[]): string[] {
     const conflicts: string[] = [];
-    
+
     // Check company name conflicts
     const names = sources.map(s => s.name).filter(Boolean);
     const uniqueNames = new Set(names.map(n => n?.toLowerCase().trim()));
     if (uniqueNames.size > 1) {
         conflicts.push(`Company name varies: ${[...uniqueNames].join(' vs ')}`);
     }
-    
+
     // Check size conflicts
     const sizes = sources.map(s => s.size).filter(Boolean);
     const uniqueSizes = new Set(sizes);
     if (uniqueSizes.size > 1) {
         conflicts.push(`Company size varies: ${[...uniqueSizes].join(' vs ')}`);
     }
-    
+
     return conflicts;
 }
 
@@ -116,22 +116,22 @@ export async function synthesizeCompanySummary(
         rowId: input.rowId,
         resultsCount: results.length,
     });
-    
+
     // Extract company data from results
     const sourcesData = extractCompanyData(results);
-    
+
     if (sourcesData.length === 0) {
         logger.debug("🏢 CompanySummarizer: No company data to synthesize", { rowId: input.rowId });
         return null;
     }
-    
+
     // Check for conflicts
     const conflicts = findConflicts(sourcesData);
-    
+
     // Build context for LLM
     const contextParts: string[] = [];
     const sources: string[] = [];
-    
+
     for (const data of sourcesData) {
         const parts: string[] = [];
         if (data.name) parts.push(`Name: ${data.name}`);
@@ -139,18 +139,18 @@ export async function synthesizeCompanySummary(
         if (data.size) parts.push(`Size: ${data.size}`);
         if (data.location) parts.push(`Location: ${data.location}`);
         if (data.founded) parts.push(`Founded: ${data.founded}`);
-        
+
         if (parts.length > 0) {
             contextParts.push(`[${data.source}]:\n${parts.join('\n')}`);
             sources.push(data.source);
         }
     }
-    
+
     // Add domain if available
     if (input.domain) {
         contextParts.unshift(`Domain: ${input.domain}`);
     }
-    
+
     // Add conflict notes
     let conflictNote = '';
     if (conflicts.length > 0) {
@@ -181,36 +181,36 @@ Write a 2-3 sentence company summary. Only include facts from the sources above.
             temperature: 0.3,
             maxTokens: 200,
         });
-        
+
         const summary = result.text.trim();
-        
+
         if (!summary || summary.length < 20) {
             logger.debug("🏢 CompanySummarizer: Generated summary too short", { rowId: input.rowId, summary });
             return null;
         }
-        
+
         // Calculate confidence based on sources and conflicts
         let confidence = 0.4; // Base confidence for LLM output
-        
+
         if (sources.length >= 2) {
             confidence = 0.6;
         }
         if (sources.length >= 3) {
             confidence = 0.7;
         }
-        
+
         // Penalize for conflicts
         if (conflicts.length > 0) {
             confidence -= 0.1 * conflicts.length;
         }
-        
+
         // Add average source confidence
         const avgSourceConfidence = sourcesData.reduce((sum, s) => sum + s.confidence, 0) / sourcesData.length;
         confidence = (confidence + avgSourceConfidence) / 2;
-        
+
         // Ensure within bounds
         confidence = Math.max(0.2, Math.min(0.8, confidence));
-        
+
         logger.info("✅ CompanySummarizer: Summary generated", {
             rowId: input.rowId,
             summaryLength: summary.length,
@@ -218,7 +218,7 @@ Write a 2-3 sentence company summary. Only include facts from the sources above.
             conflicts: conflicts.length,
             confidence,
         });
-        
+
         return {
             field: 'companySummary',
             value: summary,
@@ -248,11 +248,11 @@ export class CompanySummarizerProvider {
     name = "llm_summarizer";
     tier = "cheap" as const;
     costCents = 0.5; // Groq is very cheap
-    
+
     canEnrich(field: EnrichmentFieldKey): boolean {
         return field === 'companySummary';
     }
-    
+
     async enrich(
         input: NormalizedInput,
         _field: EnrichmentFieldKey,

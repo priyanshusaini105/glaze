@@ -4,7 +4,7 @@
  * Tests the DNS-like resolution with different company names
  */
 
-import { resolveCompanyFromName } from "./company-name-resolver";
+import { resolveCompanyIdentityFromName } from "./resolve-company-identity-from-name";
 
 async function testResolver() {
     console.log("🧪 Testing Company Name Resolver\n");
@@ -40,7 +40,7 @@ async function testResolver() {
         console.log("-".repeat(60));
 
         try {
-            const result = await resolveCompanyFromName(testCase.name);
+            const result = await resolveCompanyIdentityFromName(testCase.name);
 
             console.log(`   ✅ Result:`);
             console.log(`      Canonical Name: ${result.canonicalCompanyName ?? "null"}`);
@@ -72,9 +72,6 @@ async function testResolver() {
     console.log("✅ Tests complete\n");
 }
 
-// Run if executed directly
-if (require.main === module) {
-    testResolver().catch(console.error);
-}
 
 export { testResolver };
+
