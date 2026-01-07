@@ -30,7 +30,7 @@ export function HowItWorksIridescent() {
   ];
 
   return (
-    <section className="py-24 bg-surface-light border-t border-border-light">
+    <section id="how-it-works" className="py-24 bg-surface-light border-t border-border-light">
       <div className="max-w-[1280px] mx-auto px-6">
         {/* Title - No subtitle */}
         <div className="text-center mb-16">

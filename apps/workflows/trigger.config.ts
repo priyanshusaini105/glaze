@@ -86,7 +86,7 @@ export default defineConfig({
                     envVarsToSync.push({ name: "DATABASE_URL", value: dbUrl });
                 }
 
-                // Sync RAPIDAPI_KEY
+                // Sync RAPIDAPI_KEY (LinkedIn provider)
                 const rapidApiKey = process.env.RAPIDAPI_KEY ||
                     fileEnvVars.find(e => e.name === "RAPIDAPI_KEY")?.value;
 
@@ -100,6 +100,30 @@ export default defineConfig({
 
                 if (groqApiKey) {
                     envVarsToSync.push({ name: "GROQ_API_KEY", value: groqApiKey });
+                }
+
+                // Sync SERPER_API_KEY (Serper search provider)
+                const serperApiKey = process.env.SERPER_API_KEY ||
+                    fileEnvVars.find(e => e.name === "SERPER_API_KEY")?.value;
+
+                if (serperApiKey) {
+                    envVarsToSync.push({ name: "SERPER_API_KEY", value: serperApiKey });
+                }
+
+                // Sync PROSPEO_API_KEY (Prospeo email finder provider)
+                const prospeoApiKey = process.env.PROSPEO_API_KEY ||
+                    fileEnvVars.find(e => e.name === "PROSPEO_API_KEY")?.value;
+
+                if (prospeoApiKey) {
+                    envVarsToSync.push({ name: "PROSPEO_API_KEY", value: prospeoApiKey });
+                }
+
+                // Sync GITHUB_TOKEN (GitHub API provider)
+                const githubToken = process.env.GITHUB_TOKEN ||
+                    fileEnvVars.find(e => e.name === "GITHUB_TOKEN")?.value;
+
+                if (githubToken) {
+                    envVarsToSync.push({ name: "GITHUB_TOKEN", value: githubToken });
                 }
 
                 console.log(`Found ${envVarsToSync.length} env vars to sync:`,

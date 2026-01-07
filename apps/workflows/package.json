@@ -1,16 +1,4 @@
 {
-  "name": "workflows",
-  "version": "1.0.0",
-  "description": "Trigger.dev workflows for data enrichment pipeline",
-  "type": "module",
-  "scripts": {
-    "dev": "trigger.dev dev --skip-update-check",
-    "deploy": "trigger.dev deploy",
-    "postinstall": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:hello": "tsx src/test-hello-world.ts",
-    "check-types": "tsc --noEmit"
-  },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.0",
     "@prisma/adapter-pg": "^7.2.0",
@@ -23,12 +11,24 @@
     "pg": "^8.16.3",
     "zod": "^3.23.0"
   },
+  "description": "Trigger.dev workflows for data enrichment pipeline",
   "devDependencies": {
     "@trigger.dev/build": "^4.3.1",
-    "@trigger.dev/cli": "^3.3.12",
+    "@trigger.dev/cli": "4.3.1",
     "@types/pg": "^8.16.0",
     "prisma": "^7.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "name": "workflows",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "deploy": "trigger.dev deploy",
+    "dev": "trigger.dev dev --skip-update-check",
+    "postinstall": "prisma generate",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:hello": "tsx src/test-hello-world.ts"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

@@ -1,8 +1,21 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 export function NavigationIridescent() {
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('#')) {
+      e.preventDefault();
+      const id = href.substring(1);
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
     <header className="sticky top-0 left-0 right-0 z-50 border-b border-border-light backdrop-blur-[6px] bg-white/80">
       <div className="max-w-[1280px] mx-auto px-8">
@@ -26,13 +39,13 @@ export function NavigationIridescent() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm font-medium text-text-muted hover:text-primary transition-colors">
+            <Link href="#features" onClick={(e) => handleNavClick(e, '#features')} className="text-sm font-medium text-text-muted hover:text-primary transition-colors cursor-pointer">
               Features
             </Link>
-            <Link href="#how-it-works" className="text-sm font-medium text-text-muted hover:text-primary transition-colors">
+            <Link href="#how-it-works" onClick={(e) => handleNavClick(e, '#how-it-works')} className="text-sm font-medium text-text-muted hover:text-primary transition-colors cursor-pointer">
               How it Works
             </Link>
-            <Link href="#open-source" className="text-sm font-medium text-text-muted hover:text-primary transition-colors">
+            <Link href="#open-source" onClick={(e) => handleNavClick(e, '#open-source')} className="text-sm font-medium text-text-muted hover:text-primary transition-colors cursor-pointer">
               Open Source
             </Link>
           </nav>

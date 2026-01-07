@@ -3,7 +3,7 @@ import { Table2, Loader2, Lock } from 'lucide-react';
 
 export function WhyItFailsIridescent() {
   return (
-    <section className="py-20 md:py-32 bg-surface-light backdrop-blur-md">
+    <section id="features" className="py-20 md:py-32 bg-surface-light backdrop-blur-md">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-text-main mb-4 tracking-tight">

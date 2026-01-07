@@ -19,12 +19,12 @@
 import { logger } from '@trigger.dev/sdk';
 import { enrichmentConfig } from './enrichment-config';
 import {
-    mockProviders,
-    getProvidersForTier,
+    getUnifiedProviders,
+    getUnifiedProvidersForTier,
+    type UnifiedProvider,
     type EnrichmentData,
     type EnrichedValue,
-    type MockProvider,
-} from './mock-providers';
+} from './provider-adapter';
 import {
     getCellEnrichmentCache,
     getProviderResponseCache,
@@ -156,8 +156,8 @@ function mapColumnKeyToField(columnKey: string): string {
 /**
  * Get available providers for a tier, filtered by circuit breaker status
  */
-function getAvailableProviders(tier: 'free' | 'cheap' | 'premium'): MockProvider[] {
-    return getProvidersForTier(tier).filter(p => {
+function getAvailableProviders(tier: 'free' | 'cheap' | 'premium'): UnifiedProvider[] {
+    return getUnifiedProvidersForTier(tier).filter(p => {
         if (!isProviderAvailable(p.name)) {
             logger.info('🔴 Provider blocked by circuit breaker', { provider: p.name, tier });
             metrics.circuitBreakerRejects++;
@@ -170,7 +170,7 @@ function getAvailableProviders(tier: 'free' | 'cheap' | 'premium'): MockProvider
 /**
  * Sort providers by health score (prefer faster, more reliable providers)
  */
-function sortByHealth(providers: MockProvider[]): MockProvider[] {
+function sortByHealth(providers: UnifiedProvider[]): UnifiedProvider[] {
     return [...providers].sort((a, b) => {
         const aMetrics = circuitBreakers.get(a.name).getMetrics();
         const bMetrics = circuitBreakers.get(b.name).getMetrics();
@@ -256,9 +256,11 @@ async function setRowProviderCache(
 // ============ Singleflight Provider Calls ============
 
 async function fetchFromProviderWithSingleflight(
-    provider: MockProvider,
+    provider: UnifiedProvider,
     field: string,
-    rowId: string
+    rowId: string,
+    existingData?: Record<string, unknown>,
+    tableId?: string
 ): Promise<EnrichmentData> {
     const flightKey = buildProviderFlightKey(rowId, provider.name);
 
@@ -272,7 +274,12 @@ async function fetchFromProviderWithSingleflight(
         // Fetch from provider with circuit breaker protection
         const providerResult = await withCircuitBreaker(
             provider.name,
-            () => provider.enrich({ field, rowId }),
+            () => provider.enrich({
+                field,
+                rowId,
+                existingData,
+                context: { tableId },
+            }),
             provider.costCents
         );
 
@@ -295,7 +302,9 @@ async function runParallelProbes(
     field: string,
     rowId: string,
     budgetCents: number,
-    tiers: Array<'free' | 'cheap'>
+    tiers: Array<'free' | 'cheap'>,
+    existingData?: Record<string, unknown>,
+    tableId?: string
 ): Promise<ProbeResult[]> {
     const probes: Array<Promise<ProbeResult>> = [];
 
@@ -313,7 +322,9 @@ async function runParallelProbes(
                         const enriched = await fetchFromProviderWithSingleflight(
                             provider,
                             field,
-                            rowId
+                            rowId,
+                            existingData,
+                            tableId
                         );
                         const latencyMs = Date.now() - startTime;
 
@@ -393,7 +404,9 @@ function ensembleFusion(
 async function tryPremiumProviders(
     field: string,
     rowId: string,
-    budgetCents: number
+    budgetCents: number,
+    existingData?: Record<string, unknown>,
+    tableId?: string
 ): Promise<ProbeResult | null> {
     metrics.premiumFallbacks++;
 
@@ -414,7 +427,9 @@ async function tryPremiumProviders(
             const enriched = await fetchFromProviderWithSingleflight(
                 provider,
                 field,
-                rowId
+                rowId,
+                existingData,
+                tableId
             );
             const latencyMs = Date.now() - startTime;
 
@@ -444,7 +459,12 @@ async function runSmartWaterfall(
     field: string,
     rowId: string,
     budgetCents: number,
-    options: { enableParallelProbes?: boolean; useEnsembleFusion?: boolean }
+    options: {
+        enableParallelProbes?: boolean;
+        useEnsembleFusion?: boolean;
+        existingData?: Record<string, unknown>;
+        tableId?: string;
+    }
 ): Promise<WaterfallResult> {
     const result: WaterfallResult = {
         data: {},
@@ -481,7 +501,14 @@ async function runSmartWaterfall(
     let bestResult: ProbeResult | null = null;
 
     if (options.enableParallelProbes !== false) {
-        const probeResults = await runParallelProbes(field, rowId, budgetCents, ['free', 'cheap']);
+        const probeResults = await runParallelProbes(
+            field,
+            rowId,
+            budgetCents,
+            ['free', 'cheap'],
+            options.existingData,
+            options.tableId
+        );
 
         if (options.useEnsembleFusion) {
             bestResult = ensembleFusion(probeResults, enrichmentConfig.confidenceThreshold);
@@ -502,7 +529,13 @@ async function runSmartWaterfall(
 
     // Stage 3: Premium Fallback (if needed)
     if (!bestResult) {
-        bestResult = await tryPremiumProviders(field, rowId, budgetCents);
+        bestResult = await tryPremiumProviders(
+            field,
+            rowId,
+            budgetCents,
+            options.existingData,
+            options.tableId
+        );
     }
 
     // Build final result
@@ -562,6 +595,7 @@ export async function enrichCellWithProvidersV2(
         budget: budgetCents,
         enableParallelProbes: context.enableParallelProbes ?? true,
         useEnsembleFusion: context.useEnsembleFusion ?? false,
+        providerMode: enrichmentConfig.useMockProviders ? 'MOCK' : 'REAL',
     });
 
     // Use singleflight for the entire cell enrichment
@@ -573,6 +607,8 @@ export async function enrichCellWithProvidersV2(
         const waterfallResult = await runSmartWaterfall(field, rowId, budgetCents, {
             enableParallelProbes: context.enableParallelProbes ?? true,
             useEnsembleFusion: context.useEnsembleFusion ?? false,
+            existingData: context.existingData,
+            tableId: context.tableId,
         });
 
         return { field, waterfallResult };
