@@ -1,51 +1,89 @@
 # Agentic Enrichment Environment Variables
 
-This document lists all environment variables required for the agentic enrichment system.
+This document lists all environment variables for the enrichment system, organized by cost tier.
 
-## Required API Keys
+## API Cost Tiers
 
-### Groq (LLM)
+| Rating | Description | Examples |
+|--------|-------------|----------|
+| **0x** | Completely free/unlimited | GitHub, Wikipedia, SMTP |
+| **0.5x** | Very generous free tier | Groq, OpenCorporates |
+| **1x** | Good free tier | Serper (2500/mo) |
+| **1.5x** | Moderate free tier | Prospeo (75/mo) |
+| **2x** | Limited free tier | Hunter (50/mo) |
+| **3x** | No free plan | Firecrawl, LinkedIn API |
+
+---
+
+## FREE APIs (0x - No API key needed)
+
+### GitHub API
 ```bash
-# Groq API key for LLM synthesis (bio generation, company summaries)
-GROQ_API_KEY=gsk_xxxxxxxxxxxxx
-```
-
-### Serper.dev (SERP Discovery)
-```bash
-# Serper API key for Google Search
-# Cost: ~$0.01 per search
-SERPER_API_KEY=xxxxxxxxxxxxx
-```
-
-### RapidAPI (LinkedIn Data)
-```bash
-# RapidAPI key for LinkedIn Data API
-# Cost: ~$0.02-0.05 per call
-RAPIDAPI_KEY=xxxxxxxxxxxxx
-```
-
-## Optional API Keys
-
-### GitHub (Free but Rate Limited)
-```bash
-# GitHub token for higher rate limits (optional)
-# Without token: 60 requests/hour
-# With token: 5000 requests/hour
+# Optional: Provides 5000 req/hr instead of 60 req/hr
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 ```
 
-### Email Verification
+### Wikipedia/Wikidata
+No API key needed - completely free and unlimited.
 
+### OpenCorporates
+No API key needed for basic usage - generous rate limits.
+
+---
+
+## RECOMMENDED APIs (0.5x - 1x cost)
+
+### Groq (LLM - 0.5x)
 ```bash
-# Hunter.io API key (email verification)
-# Cost: ~$0.01-0.02 per verification
-HUNTER_API_KEY=xxxxxxxxxxxxx
+# AI inference for data processing and synthesis
+# Very generous free tier
+GROQ_API_KEY=gsk_xxxxxxxxxxxxx
+```
 
-# OR ZeroBounce API key (alternative email verifier)
+### Serper.dev (SERP - 1x)
+```bash
+# Google Search API
+# 2,500 searches/month free
+SERPER_API_KEY=xxxxxxxxxxxxx
+```
+
+---
+
+## OPTIONAL APIs (1.5x - 2x cost)
+
+### Prospeo (Email - 1.5x)
+```bash
+# Email finding - 75 credits/month free
+# Better free tier than Hunter
+PROSPEO_API_KEY=xxxxxxxxxxxxx
+```
+
+### Hunter.io (Email - 2x)
+```bash
+# Email finding - 50 credits/month free
+HUNTER_API_KEY=xxxxxxxxxxxxx
+```
+
+### ZeroBounce (Email Verification)
+```bash
+# Alternative email verifier
 ZEROBOUNCE_API_KEY=xxxxxxxxxxxxx
 ```
 
-## Database & Redis
+---
+
+## PREMIUM APIs (3x cost - Use Sparingly)
+
+### RapidAPI LinkedIn (3x)
+```bash
+# LinkedIn Data API - paid only
+# ~$0.02-0.05 per call
+RAPIDAPI_KEY=xxxxxxxxxxxxx
+```
+
+---
+
+## Infrastructure
 
 ```bash
 # PostgreSQL database URL
@@ -53,75 +91,63 @@ DATABASE_URL=postgresql://user:password@localhost:5432/glaze
 
 # Redis URL (for caching)
 REDIS_URL=redis://localhost:6379
-```
 
-## Trigger.dev
-
-```bash
 # Trigger.dev secret key
 TRIGGER_SECRET_KEY=tr_dev_xxxxxxxxxxxxx
 ```
 
-## Example .env.local
+---
+
+## Recommended Minimal Setup (.env.local)
+
+For testing with maximum free tier usage:
 
 ```bash
 # ============================================================
-# GLAZE - Agentic Enrichment Configuration
+# GLAZE - Cost-Effective Enrichment Setup
 # ============================================================
 
-# Database
+# Database & Cache
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/glaze
-
-# Redis Cache
 REDIS_URL=redis://localhost:6379
 
 # Trigger.dev
 TRIGGER_SECRET_KEY=tr_dev_xxxxxxxxxxxxx
 
 # ============================================================
-# ENRICHMENT API KEYS
+# FREE APIs (0x cost)
 # ============================================================
 
-# LLM - Groq (Required for synthesis)
-GROQ_API_KEY=gsk_xxxxxxxxxxxxx
-
-# SERP Discovery - Serper.dev (Required for web search)
-SERPER_API_KEY=xxxxxxxxxxxxx
-
-# LinkedIn Data - RapidAPI (Required for LinkedIn enrichment)
-RAPIDAPI_KEY=xxxxxxxxxxxxx
-
-# ============================================================
-# OPTIONAL API KEYS
-# ============================================================
-
-# GitHub - Higher rate limits (optional)
+# GitHub - Optional, but gives 5000 req/hr vs 60 req/hr
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 
-# Email Verification - Hunter.io (optional)
-HUNTER_API_KEY=xxxxxxxxxxxxx
+# ============================================================
+# CHEAP APIs (0.5x - 1x cost)
+# ============================================================
 
-# Email Verification - ZeroBounce (alternative)
-# ZEROBOUNCE_API_KEY=xxxxxxxxxxxxx
+# Groq LLM - For AI synthesis (very generous free tier)
+GROQ_API_KEY=gsk_xxxxxxxxxxxxx
+
+# Serper - For SERP searches (2500/month free)
+SERPER_API_KEY=xxxxxxxxxxxxx
+
+# ============================================================
+# OPTIONAL APIs (use if you have credits)
+# ============================================================
+
+# Prospeo - Email finding (75/month free)
+# PROSPEO_API_KEY=xxxxxxxxxxxxx
+
+# Hunter - Email finding (50/month free)
+# HUNTER_API_KEY=xxxxxxxxxxxxx
 ```
 
-## Cost Estimates
+---
 
-| Provider | Cost per Call | Notes |
-|----------|--------------|-------|
-| GitHub | Free | 60 req/hr without token |
-| Company Scraper | Free | Uses fetch() |
-| Serper.dev | ~$0.01 | Google SERP results |
-| LinkedIn API | ~$0.02-0.05 | RapidAPI LinkedIn Data |
-| Hunter.io | ~$0.01 | Email verification |
-| ZeroBounce | ~$0.008 | Email verification |
-| Groq LLM | ~$0.0001 | Token-based pricing |
+## Provider Priority by Cost
 
-## Budget Defaults
+The system uses providers in this order:
 
-The system defaults are:
-- **Per-row budget**: 100 cents ($1.00)
-- **Per-cell limit**: 50 cents ($0.50)
-- **Warning threshold**: 80% of budget
-
-These can be configured in `apps/workflows/src/enrichment-config.ts` or passed per-request.
+1. **Free (0x)**: GitHub, Wikipedia, OpenCorporates, Company Scraper
+2. **Cheap (1x)**: Serper, Prospeo, Email Pattern Inference
+3. **Premium (3x)**: LinkedIn API (only if `usePremium: true`)

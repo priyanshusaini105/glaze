@@ -351,20 +351,23 @@ export const agenticEnrichmentTask = task({
             }
             
             // Update row in database
+            const enrichmentData = {
+                ...rawData,
+                ...Object.fromEntries(
+                    Object.entries(canonical).map(([k, v]) => [k, v.value])
+                ),
+                _enrichment: {
+                    canonical: JSON.parse(JSON.stringify(canonical)),
+                    provenance: JSON.parse(JSON.stringify(exportProvenanceRecords())),
+                    timestamp: new Date().toISOString(),
+                },
+            };
+            
             await db.row.update({
                 where: { id: rowId },
                 data: {
-                    data: {
-                        ...rawData,
-                        ...Object.fromEntries(
-                            Object.entries(canonical).map(([k, v]) => [k, v.value])
-                        ),
-                        _enrichment: {
-                            canonical,
-                            provenance: exportProvenanceRecords(),
-                            timestamp: new Date().toISOString(),
-                        },
-                    },
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    data: enrichmentData as any,
                     status: fieldsFailed.length === 0 ? 'done' : 'ambiguous',
                     confidence: fieldsEnriched.length > 0
                         ? Object.values(canonical).reduce((sum, v) => sum + v.confidence, 0) / fieldsEnriched.length
