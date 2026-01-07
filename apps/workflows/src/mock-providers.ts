@@ -35,6 +35,7 @@ export interface EnrichParams {
     field: string;
     rowId: string;
     context?: Record<string, unknown>;
+    existingData?: Record<string, unknown>;
 }
 
 export interface MockProvider {

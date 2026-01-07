@@ -90,11 +90,13 @@ export interface GetRowsParams {
 }
 
 export interface PaginatedRowsResponse {
-  rows: Row[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  data: Row[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 // ============= Enrichment =============

@@ -1,8 +1,10 @@
 // Re-export all workflow tasks from this file
+// NOTE: With dynamic imports in db.ts, hello-world won't load Prisma unnecessarily
 export * from "./enrichment";
 export * from "./cell-enrichment";
 export * from "./entity-enrichment";
 export * from "./hello-world";
+export * from "./workflows/multi-agent-enrichment";
 
 /**
  * Trigger.dev workflows entry point

@@ -64,7 +64,7 @@ export const processEntityEnrichmentTask = task({
       budgetPerEntity: budgetPerEntityCents,
     });
 
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const entities = deserializeEntities(serializedEntities);
 
     // Track results
@@ -110,9 +110,9 @@ export const processEntityEnrichmentTask = task({
         // Process in batches for memory efficiency
         for (let i = 0; i < uncached.length; i += CONFIG.CONCURRENCY) {
           const batch = uncached.slice(i, i + CONFIG.CONCURRENCY);
-          
+
           const batchResults = await Promise.allSettled(
-            batch.map(entity => 
+            batch.map(entity =>
               enrichSingleEntity(entity, budgetPerEntityCents, skipCache)
             )
           );
@@ -122,11 +122,13 @@ export const processEntityEnrichmentTask = task({
             const result = batchResults[j];
             const entity = batch[j];
 
-            if (result.status === "fulfilled" && result.value) {
+            if (!entity) continue;
+
+            if (result && result.status === "fulfilled" && result.value) {
               results.set(entity.entityId, result.value);
               totalCost += result.value.costCents;
             } else {
-              const errorMsg = result.status === "rejected" 
+              const errorMsg = result && result.status === "rejected"
                 ? result.reason?.message || "Unknown error"
                 : "No result returned";
               errors.push({ entityId: entity.entityId, error: errorMsg });
@@ -212,7 +214,7 @@ export const processEntityEnrichmentTask = task({
         errors: errors.length > 0 ? errors : undefined,
       };
 
-      logger.info("Enrichment workflow completed", result);
+      logger.info("Enrichment workflow completed", result as any);
 
       return result;
     } catch (error) {
@@ -354,7 +356,7 @@ function buildRowUpdates(
  * Bulk update rows in batches
  */
 async function bulkUpdateRows(
-  prisma: ReturnType<typeof getPrisma>,
+  prisma: import("@prisma/client").PrismaClient,
   updates: RowUpdateBatch[]
 ): Promise<number> {
   let updated = 0;
@@ -368,7 +370,7 @@ async function bulkUpdateRows(
         prisma.row.update({
           where: { id: update.rowId },
           data: {
-            data: update.updates,
+            data: update.updates as any,
             lastRunAt: new Date(),
             // Store metadata in a way that preserves existing data
             // In production, merge with existing JSONB
@@ -387,7 +389,7 @@ async function bulkUpdateRows(
  * Update job progress for realtime subscription
  */
 async function updateProgress(
-  prisma: ReturnType<typeof getPrisma>,
+  prisma: import("@prisma/client").PrismaClient,
   jobId: string,
   progress: Partial<EntityEnrichmentProgress>
 ) {

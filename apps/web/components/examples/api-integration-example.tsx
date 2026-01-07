@@ -244,14 +244,14 @@ export function ApiIntegrationExample() {
             </div>
           )}
 
-          {selectedTableId && rowsData && rowsData.rows.length === 0 && (
+          {selectedTableId && rowsData && rowsData.data.length === 0 && (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <p className="text-gray-600">No rows yet. Add some data!</p>
             </div>
           )}
 
           <div className="space-y-2">
-            {rowsData?.rows.map((row) => (
+            {rowsData?.data.map((row) => (
               <div
                 key={row.id}
                 className="p-4 rounded-lg border border-gray-200 bg-white"

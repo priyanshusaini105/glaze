@@ -348,11 +348,12 @@ describe('Tables API Routes', () => {
             expect(response.status).toBe(200);
 
             const result = await response.json();
-            expect(result).toHaveProperty('rows');
-            expect(result).toHaveProperty('total');
-            expect(result).toHaveProperty('page');
-            expect(result).toHaveProperty('limit');
-            expect(result.rows.length).toBe(3);
+            expect(result).toHaveProperty('data');
+            expect(result).toHaveProperty('meta');
+            expect(result.meta).toHaveProperty('total');
+            expect(result.meta).toHaveProperty('page');
+            expect(result.meta).toHaveProperty('limit');
+            expect(result.data.length).toBe(3);
         });
 
         it('should support pagination parameters', async () => {
@@ -378,8 +379,8 @@ describe('Tables API Routes', () => {
             expect(response.status).toBe(200);
 
             const result = await response.json();
-            expect(result.rows.length).toBe(2);
-            expect(result.limit).toBe(2);
+            expect(result.data.length).toBe(2);
+            expect(result.meta.limit).toBe(2);
         });
     });
 

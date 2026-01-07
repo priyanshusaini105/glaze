@@ -98,15 +98,15 @@ export async function enrichEntityWithProviders(
 
   // Run waterfall stages
   await runCacheStage(ctx);
-  
+
   if (ctx.remainingFields.length > 0) {
     await runFreeStage(ctx);
   }
-  
+
   if (ctx.remainingFields.length > 0) {
     await runCheapStage(ctx);
   }
-  
+
   if (ctx.remainingFields.length > 0 && ctx.entity.budgetCents >= 10) {
     await runPremiumStage(ctx);
   }
@@ -165,7 +165,7 @@ async function runCacheStage(ctx: WaterfallContext): Promise<void> {
  */
 async function runFreeStage(ctx: WaterfallContext): Promise<void> {
   const providers = getProvidersForTier("free");
-  
+
   for (const provider of providers) {
     if (ctx.remainingFields.length === 0) break;
 
@@ -181,7 +181,7 @@ async function runFreeStage(ctx: WaterfallContext): Promise<void> {
 
         if (enriched[field] && enriched[field].value !== null) {
           const value = enriched[field];
-          
+
           if (value.confidence >= enrichmentConfig.confidenceThreshold) {
             ctx.fields[field] = {
               value: value.value as string,
@@ -213,7 +213,7 @@ async function runFreeStage(ctx: WaterfallContext): Promise<void> {
  */
 async function runCheapStage(ctx: WaterfallContext): Promise<void> {
   const providers = getProvidersForTier("cheap");
-  
+
   for (const provider of providers) {
     if (ctx.remainingFields.length === 0) break;
     if (ctx.costCents + provider.costCents > ctx.entity.budgetCents) {
@@ -234,7 +234,7 @@ async function runCheapStage(ctx: WaterfallContext): Promise<void> {
         if (enriched[field] && enriched[field].value !== null) {
           const value = enriched[field];
           ctx.costCents += provider.costCents;
-          
+
           if (value.confidence >= enrichmentConfig.confidenceThreshold) {
             ctx.fields[field] = {
               value: value.value as string,
@@ -266,7 +266,7 @@ async function runCheapStage(ctx: WaterfallContext): Promise<void> {
  */
 async function runPremiumStage(ctx: WaterfallContext): Promise<void> {
   const providers = getProvidersForTier("premium");
-  
+
   for (const provider of providers) {
     if (ctx.remainingFields.length === 0) break;
     if (ctx.costCents + provider.costCents > ctx.entity.budgetCents) {
@@ -276,7 +276,7 @@ async function runPremiumStage(ctx: WaterfallContext): Promise<void> {
 
     // For premium, we enrich all remaining fields at once
     const fieldsToEnrich = ctx.remainingFields.filter(f => provider.canEnrich(f));
-    
+
     if (fieldsToEnrich.length === 0) continue;
 
     try {
@@ -290,7 +290,7 @@ async function runPremiumStage(ctx: WaterfallContext): Promise<void> {
 
         if (enriched[field] && enriched[field].value !== null) {
           const value = enriched[field];
-          
+
           ctx.fields[field] = {
             value: value.value as string,
             confidence: value.confidence,
@@ -305,7 +305,7 @@ async function runPremiumStage(ctx: WaterfallContext): Promise<void> {
           ctx.remainingFields = ctx.remainingFields.filter(f => f !== field);
         }
       }
-      
+
       // Charge once for premium provider
       ctx.costCents += provider.costCents;
     } catch (error) {
@@ -332,7 +332,7 @@ export async function enrichEntitiesBatch(
   // Process in batches
   for (let i = 0; i < entities.length; i += concurrency) {
     const batch = entities.slice(i, i + concurrency);
-    
+
     const batchResults = await Promise.allSettled(
       batch.map(entity => enrichEntityWithProviders(entity))
     );
@@ -341,9 +341,11 @@ export async function enrichEntitiesBatch(
       const result = batchResults[j];
       const entity = batch[j];
 
-      if (result.status === "fulfilled") {
+      if (!entity) continue;
+
+      if (result && result.status === "fulfilled") {
         results.set(entity.entityId, result.value);
-      } else {
+      } else if (result && result.status === "rejected") {
         logger.error("Batch enrichment failed for entity", {
           entityId: entity.entityId,
           error: result.reason?.message || "Unknown error",

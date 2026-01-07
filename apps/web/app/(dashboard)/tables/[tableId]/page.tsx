@@ -155,12 +155,12 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       }
       
       console.log('[loadData] Successfully loaded data:', {
-        rowCount: rowsData.rows.length,
+        rowCount: rowsData.data.length,
         columnCount: tableDetails.columns?.length || 0,
-        sampleRow: rowsData.rows[0],
+        sampleRow: rowsData.data[0],
       });
       
-      setRowData(rowsData.rows);
+      setRowData(rowsData.data);
     } catch (error) {
       console.error('[loadData] Critical error loading table data:', error);
       // Set empty states to prevent showing stale data

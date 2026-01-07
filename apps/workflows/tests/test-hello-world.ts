@@ -20,31 +20,27 @@ async function testHelloWorld() {
   const startTime = Date.now();
 
   try {
-    const handle = await tasks.trigger("hello-world", {
+    const handle = await tasks.triggerAndWait("hello-world", {
       message: "Testing Trigger.dev performance",
       delay,
     });
 
-    console.log(`✅ Task triggered successfully!`);
-    console.log(`📋 Run ID: ${handle.id}`);
-    console.log(`🔗 View in dashboard: https://cloud.trigger.dev/runs/${handle.id}\n`);
-
-    console.log('⏳ Waiting for task to complete...\n');
-
-    const result = await handle.poll();
-
     const endTime = Date.now();
     const totalWallTime = endTime - startTime;
 
+    console.log(`✅ Task completed!`);
+    console.log(`📋 Run ID: ${handle.id}`);
+    console.log(`🔗 View in dashboard: https://cloud.trigger.dev/runs/${handle.id}\n`);
+
     console.log('📊 Results:');
-    console.log(`   Status: ${result.ok ? '✅ Success' : '❌ Failed'}`);
-    if (result.ok) {
-      console.log(`   Task execution time: ${result.output.executionTimeMs}ms`);
+    console.log(`   Status: ${handle.ok ? '✅ Success' : '❌ Failed'}`);
+    if (handle.ok) {
+      console.log(`   Task execution time: ${handle.output.executionTimeMs}ms`);
       console.log(`   Total wall time: ${totalWallTime}ms`);
-      console.log(`   Trigger.dev overhead: ${totalWallTime - result.output.executionTimeMs}ms`);
-      console.log(`   Message: ${result.output.message}`);
+      console.log(`   Trigger.dev overhead: ${totalWallTime - handle.output.executionTimeMs}ms`);
+      console.log(`   Message: ${handle.output.message}`);
     } else {
-      console.log(`   Error: ${result.error}`);
+      console.log(`   Error: ${handle.error}`);
     }
   } catch (error) {
     console.error('❌ Test failed:', error);

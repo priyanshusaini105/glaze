@@ -187,11 +187,13 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
     ]);
 
     return {
-      rows: rows,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+      data: rows,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
     };
   }, {
     query: t.Object({

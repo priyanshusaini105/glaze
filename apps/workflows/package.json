@@ -6,19 +6,28 @@
   "scripts": {
     "dev": "trigger.dev dev --skip-update-check",
     "deploy": "trigger.dev deploy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "prisma generate",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:hello": "tsx src/test-hello-world.ts",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^1.0.0",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@repo/types": "workspace:*",
     "@trigger.dev/sdk": "^4.3.1",
-    "pg": "^8.16.3"
+    "ai": "^4.0.0",
+    "dotenv": "^17.2.3",
+    "ioredis": "^5.4.1",
+    "pg": "^8.16.3",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@trigger.dev/build": "^4.3.1",
     "@trigger.dev/cli": "^3.3.12",
     "@types/pg": "^8.16.0",
+    "prisma": "^7.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   }

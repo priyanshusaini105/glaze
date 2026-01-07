@@ -180,12 +180,27 @@ export const cellEnrichmentRoutes = new Elysia()
             select: { id: true },
           });
 
-          // Mark affected rows as queued
-          const uniqueRowIds = [...new Set(cellSelections.map((c) => c.rowId))];
-          await tx.row.updateMany({
-            where: { id: { in: uniqueRowIds } },
-            data: { status: "queued" },
-          });
+          // OPTIMIZATION: Initialize row counters for incremental aggregation
+          // Group tasks by row to calculate totalTasks per row
+          const rowTaskCounts = new Map<string, number>();
+          for (const cell of cellSelections) {
+            rowTaskCounts.set(cell.rowId, (rowTaskCounts.get(cell.rowId) || 0) + 1);
+          }
+
+          // Update each row with its task count and mark as queued
+          await Promise.all(
+            Array.from(rowTaskCounts.entries()).map(([rowId, taskCount]) =>
+              tx.row.update({
+                where: { id: rowId },
+                data: {
+                  status: "queued",
+                  totalTasks: { increment: taskCount },
+                  // Reset other counters if this is a new enrichment
+                  // (or keep incrementing if re-enriching same cells)
+                },
+              })
+            )
+          );
 
           return {
             job,

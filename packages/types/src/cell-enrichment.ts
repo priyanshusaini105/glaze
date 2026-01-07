@@ -216,3 +216,67 @@ export function aggregateRowConfidence(
     validConfidences.reduce((sum, c) => sum + c, 0) / validConfidences.length
   );
 }
+// ===== OPTIMIZED: O(1) Counter-Based Row Status Calculation =====
+
+/**
+ * Calculate row status from counters (O(1) - no database query needed)
+ * 
+ * This replaces aggregateRowStatus which required fetching all tasks.
+ * Now we just look at the counters stored on the row itself.
+ */
+export function calculateRowStatusFromCounters(
+  totalTasks: number,
+  doneTasks: number,
+  failedTasks: number,
+  runningTasks: number
+): RowStatusType {
+  if (totalTasks === 0) {
+    return RowStatus.IDLE;
+  }
+
+  // Any running → running
+  if (runningTasks > 0) {
+    return RowStatus.RUNNING;
+  }
+
+  // All done → done
+  if (doneTasks === totalTasks) {
+    return RowStatus.DONE;
+  }
+
+  // All failed → failed
+  if (failedTasks === totalTasks) {
+    return RowStatus.FAILED;
+  }
+
+  const queuedTasks = totalTasks - doneTasks - failedTasks - runningTasks;
+
+  // Any queued (none running) → queued
+  if (queuedTasks > 0) {
+    return RowStatus.QUEUED;
+  }
+
+  // Some done, some failed → ambiguous
+  if (doneTasks > 0 && failedTasks > 0) {
+    return RowStatus.AMBIGUOUS;
+  }
+
+  // Default fallback
+  return RowStatus.IDLE;
+}
+
+/**
+ * Calculate average confidence from sum (O(1) - no database query needed)
+ * 
+ * This replaces aggregateRowConfidence which required fetching all task confidences.
+ */
+export function calculateRowConfidenceFromSum(
+  confidenceSum: number,
+  doneTasks: number
+): number | null {
+  if (doneTasks === 0) {
+    return null;
+  }
+
+  return confidenceSum / doneTasks;
+}
