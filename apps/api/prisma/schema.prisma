@@ -190,3 +190,58 @@ model CellEnrichmentTask {
   @@index([columnId])
   @@map("cell_enrichment_tasks")
 }
+
+// ============================================================
+// PROVENANCE TRACKING (Agentic Enrichment)
+// ============================================================
+
+/**
+ * ProvenanceLog - Tracks the source of each enriched value
+ * 
+ * Essential for:
+ * - Audit trails
+ * - Debug and troubleshooting
+ * - Understanding data lineage
+ * - Citation generation
+ */
+model ProvenanceLog {
+  id          String   @id @default(uuid())
+  
+  // References
+  rowId       String
+  tableId     String
+  field       String   // The enrichment field (e.g., "email", "linkedinUrl")
+  
+  // Source information
+  provider    String   // Provider name (e.g., "linkedin_api", "serper")
+  tier        String   // free, cheap, premium
+  
+  // Value data
+  rawValue    String?  // The raw value from the provider
+  normalizedValue String? // The normalized/cleaned value
+  confidence  Float    // 0.0 – 1.0
+  
+  // Cost tracking
+  costCents   Int      @default(0)
+  
+  // Source URL/proof
+  sourceUrl   String?  // URL to the source (LinkedIn profile, website, etc.)
+  sourceTitle String?  // Title/description of the source
+  
+  // Status
+  accepted    Boolean  @default(false) // Was this value used as the canonical value?
+  conflict    Boolean  @default(false) // Did this conflict with other sources?
+  
+  // Timestamps
+  fetchedAt   DateTime @default(now())
+  expiresAt   DateTime? // TTL for the value
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([rowId])
+  @@index([tableId])
+  @@index([field])
+  @@index([provider])
+  @@map("provenance_logs")
+}

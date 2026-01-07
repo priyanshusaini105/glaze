@@ -7,18 +7,29 @@
 
 export const enrichmentConfig = {
     // ============ Provider Mode ============
-    // Mock mode - set to false when ready for real providers
-    useMockProviders: true,
+    // Mock mode - set to false for real providers, true for development/testing
+    useMockProviders: false,
 
     // ============ Budget Controls ============
     maxCostPerCellCents: 50,
+    defaultBudgetCentsPerRow: 100,
 
     // ============ Provider Enablement ============
-    // (for when we switch to real providers)
+    // Real providers (requires API keys in environment)
     enableWebsiteScraper: true,
-    enableSearch: false,      // Will be true when API key is added
-    enableLinkedIn: false,    // Will be true when API key is added
-    enableAIAgent: false,     // Will be true when AI SDK + Groq is integrated
+    enableSearch: true,       // Serper.dev - requires SERPER_API_KEY
+    enableLinkedIn: true,     // RapidAPI LinkedIn - requires RAPIDAPI_KEY
+    enableAIAgent: true,      // Groq LLM - requires GROQ_API_KEY
+    enableGitHub: true,       // GitHub API - optional GITHUB_TOKEN
+    enableEmailVerifier: true, // Hunter/ZeroBounce - requires HUNTER_API_KEY or ZEROBOUNCE_API_KEY
+
+    // ============ Agentic Mode ============
+    enableAgenticMode: true,  // Use multi-agent orchestration
+    agenticConfig: {
+        maxIterations: 3,
+        escalationThreshold: 0.3,
+        synthesisMinSources: 2,
+    },
 
     // ============ Quality Thresholds ============
     confidenceThreshold: 0.7, // Minimum confidence to accept
