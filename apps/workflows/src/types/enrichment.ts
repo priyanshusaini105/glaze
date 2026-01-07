@@ -12,7 +12,8 @@
 export type EnrichmentFieldKey =
     | "name"
     | "company"
-    | "emailCandidates"
+    | "email"           // Primary verified email
+    | "emailCandidates" // List of candidate emails
     | "title"
     | "shortBio"
     | "socialLinks"
@@ -22,7 +23,10 @@ export type EnrichmentFieldKey =
     | "whois"
     | "techStack"
     | "funding"
-    | "foundedDate";
+    | "foundedDate"
+    | "industry"        // Company industry/sector
+    | "linkedinUrl"     // LinkedIn profile URL
+    | "domain";         // Company domain
 
 /**
  * Tier classification for providers.

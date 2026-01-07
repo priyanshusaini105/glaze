@@ -20,11 +20,21 @@ import { linkedInProvider } from "./linkedin-provider";
 import { githubProvider } from "./github-provider";
 import { companyScraperProvider } from "./company-scraper";
 
+// Free Providers (0x cost)
+import { wikipediaProvider } from "./wikipedia-provider";
+import { openCorporatesProvider } from "./opencorporates-provider";
+
+// Cheap Providers (1-2x cost)
+import { prospeoProvider } from "./prospeo-provider";
+
 // Re-export real providers
 export { serperProvider, SerperProvider } from "./serper-provider";
 export { linkedInProvider, LinkedInProvider } from "./linkedin-provider";
 export { githubProvider, GitHubProvider } from "./github-provider";
 export { companyScraperProvider, CompanyScraperProvider } from "./company-scraper";
+export { wikipediaProvider, WikipediaProvider } from "./wikipedia-provider";
+export { openCorporatesProvider, OpenCorporatesProvider } from "./opencorporates-provider";
+export { prospeoProvider, ProspeoProvider } from "./prospeo-provider";
 
 /**
  * Mock providers (for development/testing)
@@ -41,15 +51,18 @@ export const mockProviders: ProviderToolInterface[] = [
  * Ordered by tier: free → cheap → premium
  */
 export const realProviders: ProviderToolInterface[] = [
-    // Free tier
-    githubProvider,        // 0¢ - Free GitHub API
-    companyScraperProvider, // 0¢ - Website scraping
+    // Free tier (0x cost)
+    githubProvider,           // 0¢ - Free GitHub API (5000 req/hr with token)
+    wikipediaProvider,        // 0¢ - Wikipedia/Wikidata (unlimited)
+    openCorporatesProvider,   // 0¢ - Corporate registry (generous limits)
+    companyScraperProvider,   // 0¢ - Website scraping
     
-    // Cheap tier
-    serperProvider,        // 1¢ - SERP discovery
+    // Cheap tier (1-2x cost)
+    serperProvider,           // 1¢ - SERP discovery (2500/mo free)
+    prospeoProvider,          // 1¢ - Email finder (75/mo free)
     
-    // Premium tier
-    linkedInProvider,      // 2-5¢ - LinkedIn API
+    // Premium tier (3x+ cost)
+    linkedInProvider,         // 2-5¢ - LinkedIn API (RapidAPI)
 ];
 
 /**

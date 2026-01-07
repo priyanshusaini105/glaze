@@ -13,7 +13,7 @@
 import { logger } from "@trigger.dev/sdk";
 import type { NormalizedInput, EnrichmentFieldKey } from "../types/enrichment";
 import { normalizeDomain, extractDomainFromEmail, extractDomainFromUrl } from "./domain-normalizer";
-import type { EntityIdentity } from "@glaze/types/field-value";
+import type { EntityIdentity } from "@repo/types";
 
 /**
  * Signals that indicate a person-centric row

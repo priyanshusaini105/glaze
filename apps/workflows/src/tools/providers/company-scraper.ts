@@ -15,7 +15,7 @@
 import { logger } from "@trigger.dev/sdk";
 import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import { SOURCE_TRUST_WEIGHTS } from "@glaze/types/field-value";
+import { SOURCE_TRUST_WEIGHTS } from "@repo/types";
 import { normalizeDomain } from "../domain-normalizer";
 
 /**
@@ -183,13 +183,15 @@ async function scrapeCompanyData(domain: string): Promise<ScrapedCompanyData | n
         data.name =
             extractMetaContent(html, "og:site_name") ||
             extractMetaContent(html, "application-name") ||
-            extractTitle(html);
+            extractTitle(html) ||
+            undefined;
 
         // Extract description
         data.description =
             extractMetaContent(html, "og:description") ||
             extractMetaContent(html, "description") ||
-            extractMetaContent(html, "twitter:description");
+            extractMetaContent(html, "twitter:description") ||
+            undefined;
 
         // Clean description
         if (data.description) {

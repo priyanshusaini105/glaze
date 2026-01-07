@@ -11,8 +11,8 @@
  */
 
 import { logger } from "@trigger.dev/sdk";
-import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import type { EmailCandidate } from "@glaze/types/field-value";
+import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../types/enrichment";
+import type { EmailCandidate } from "@repo/types";
 
 // API keys
 const HUNTER_API_KEY = process.env.HUNTER_API_KEY;

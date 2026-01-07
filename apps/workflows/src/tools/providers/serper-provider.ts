@@ -15,7 +15,7 @@
 import { logger } from "@trigger.dev/sdk";
 import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import { createFieldValue, SOURCE_TRUST_WEIGHTS } from "@glaze/types/field-value";
+import { createFieldValue, SOURCE_TRUST_WEIGHTS } from "@repo/types";
 
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const SERPER_API_URL = "https://google.serper.dev/search";

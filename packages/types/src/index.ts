@@ -4,6 +4,9 @@
  * Centralized export of all shared types used across the monorepo
  */
 
+// FieldValue types (agentic enrichment)
+export * from "./field-value.js";
+
 // Enrichment types
 export * from "./enrichment.js";
 

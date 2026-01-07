@@ -17,7 +17,7 @@
 import { logger } from "@trigger.dev/sdk";
 import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import { SOURCE_TRUST_WEIGHTS } from "@glaze/types/field-value";
+import { SOURCE_TRUST_WEIGHTS } from "@repo/types";
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const RAPIDAPI_HOST = process.env.RAPIDAPI_LINKEDIN_HOST || "linkedin-data-api.p.rapidapi.com";

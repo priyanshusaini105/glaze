@@ -15,9 +15,9 @@
  */
 
 import { logger } from "@trigger.dev/sdk";
-import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import { normalizeDomain, isFreeEmailDomain } from "../domain-normalizer";
-import type { EmailCandidate } from "@glaze/types/field-value";
+import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../types/enrichment";
+import { normalizeDomain, isFreeEmailDomain } from "./domain-normalizer";
+import type { EmailCandidate } from "@repo/types";
 
 /**
  * Common email patterns by priority (most common first)

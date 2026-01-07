@@ -17,7 +17,7 @@
 import { logger } from "@trigger.dev/sdk";
 import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
-import { SOURCE_TRUST_WEIGHTS } from "@glaze/types/field-value";
+import { SOURCE_TRUST_WEIGHTS } from "@repo/types";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;

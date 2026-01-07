@@ -10,7 +10,7 @@
 
 import { logger } from "@trigger.dev/sdk";
 import type { ProviderResult, EnrichmentFieldKey, Confidence } from "../types/enrichment";
-import { SOURCE_TRUST_WEIGHTS } from "@glaze/types/field-value";
+import { SOURCE_TRUST_WEIGHTS } from "@repo/types";
 
 /**
  * Aggregated result for a field

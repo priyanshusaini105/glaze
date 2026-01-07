@@ -11,7 +11,7 @@
 
 import { logger } from "@trigger.dev/sdk";
 import type { ProviderResult, Provenance, EnrichmentFieldKey } from "../types/enrichment";
-import type { ProvenanceRecord } from "@glaze/types/field-value";
+import type { ProvenanceRecord } from "@repo/types";
 
 /**
  * In-memory provenance store for the current workflow run

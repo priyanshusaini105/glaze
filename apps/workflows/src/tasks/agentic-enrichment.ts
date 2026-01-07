@@ -12,7 +12,7 @@
  */
 
 import { task, logger } from "@trigger.dev/sdk";
-import { db } from "../db";
+import { getPrisma } from "../db";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult, CanonicalData } from "../types/enrichment";
 
 // Tools
@@ -213,6 +213,7 @@ export const agenticEnrichmentTask = task({
             // ==========================================
             // PHASE 1: Load row and build input
             // ==========================================
+            const db = await getPrisma();
             const row = await db.row.findUnique({
                 where: { id: rowId },
                 include: { table: true },
@@ -410,6 +411,7 @@ export const agenticEnrichmentTask = task({
             });
             
             // Update row status to failed
+            const db = await getPrisma();
             await db.row.update({
                 where: { id: rowId },
                 data: {

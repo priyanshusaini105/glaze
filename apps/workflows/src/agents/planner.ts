@@ -19,7 +19,8 @@ import type {
     NormalizedInput,
     ProviderTier,
 } from "../types/enrichment";
-import { resolveIdentity, getRecommendedTools, type EntityIdentity } from "../tools/identity-resolver";
+import type { EntityIdentity } from "@repo/types";
+import { resolveIdentity, getRecommendedTools } from "../tools/identity-resolver";
 import { providers } from "../tools/providers";
 
 /**
