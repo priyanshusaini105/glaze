@@ -29,6 +29,10 @@ export {
     normalizeDomainsArray 
 } from "./domain-normalizer";
 
+// Company Resolution Tools
+export { resolveCompanyFromDomain } from "./company/company-resolver";
+export type { CompanyResolutionResult } from "./company/company-resolver";
+
 // Provenance Tools
 export {
     recordProvenance,
@@ -56,7 +60,7 @@ export { emailVerifierProvider, EmailVerifierProvider, verifyEmail as verifyEmai
 
 // LLM Synthesis Tools
 export { bioSynthesizerProvider, BioSynthesizerProvider } from "./bio-synthesizer";
-export { companySummarizerProvider, CompanySummarizerProvider } from "./company-summarizer";
+export { companySummarizerProvider, CompanySummarizerProvider } from "./company/company-summarizer";
 
 // Simple Enrichment
 export { runEnrichment, runTestCases } from "./simple-enrichment";

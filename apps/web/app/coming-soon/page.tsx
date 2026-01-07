@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Sparkles } from 'lucide-react';
+import Image from 'next/image';
 
 export default function ComingSoon() {
   return (
@@ -16,12 +17,16 @@ export default function ComingSoon() {
           <div className="max-w-[1280px] mx-auto px-8">
             <div className="flex items-center justify-between h-16">
               <Link href="/" className="flex items-center gap-1 group cursor-pointer">
-                <img
+                <Image
+                  width={68}
+                  height={68}
                   src="/img/glaze-abs3.png"
                   alt="Glaze Logo"
                   className="rounded-lg group-hover:scale-105 transition-transform w-12"
                 />
-                <img
+                <Image
+                  width={240}
+                  height={52}
                   src="/img/glaze-text.png"
                   alt="Glaze Logo"
                   className="rounded-lg group-hover:scale-105 transition-transform h-8 w-auto"
