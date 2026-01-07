@@ -33,7 +33,7 @@ import { emailVerifierProvider } from "../tools/email-verifier";
 
 // LLM Synthesizers
 import { bioSynthesizerProvider } from "../tools/bio-synthesizer";
-import { companySummarizerProvider } from "../tools/company-summarizer";
+import { companySummarizerProvider } from "../tools/company/company-summarizer";
 
 // Services
 import { CostGovernor, createCostGovernor } from "../services/cost-governor";

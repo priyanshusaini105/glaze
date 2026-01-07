@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, Loader2, Trash2, Search, MoreVertical, FileSpreadsheet, Database, Webhook, Table as TableIcon, ChevronDown } from 'lucide-react';
 import { useTables, useDeleteTable } from '@/hooks/use-query-api';
 import { CreateTableModal } from '@/components/tables/create-table-modal';
+import { TableSidebar } from '@/components/tables/table-sidebar';
 
 export default function TablesPage() {
   const { data: tables, isLoading, error } = useTables();
@@ -36,41 +37,50 @@ export default function TablesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="flex w-full">
+      <TableSidebar 
+        tables={tables?.map(t => ({ id: t.id, name: t.name, active: false })) || []}
+      />
+      <div className="min-h-screen w-full bg-gray-50/50">
+      <div className="w-full py-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-            <TableIcon className="w-6 h-6" />
-            Tables
-          </h1>
+        <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <TableIcon className="w-7 h-7" />
+              Tables
+            </h1>
+            <p className="text-gray-600 mt-1">Manage and organize all your data tables</p>
+          </div>
         </div>
 
         {/* Quick Actions - New table from... */}
-        <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-2xl p-6 border border-purple-100">
-          <h2 className="text-base font-semibold text-gray-700 mb-4">New table from...</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {quickActions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-white rounded-xl p-4 hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-gray-300 group"
-              >
-                <div className={`w-12 h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br ${action.color} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
-                  {typeof action.icon === 'string' ? (
-                    <span className="text-2xl">{action.icon}</span>
-                  ) : (
-                    action.icon
-                  )}
-                </div>
-                <p className="text-sm font-medium text-gray-700 text-center">{action.label}</p>
-              </button>
-            ))}
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-2xl p-6 border border-purple-100">
+            <h2 className="text-base font-semibold text-gray-700 mb-4">New table from...</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {quickActions.map((action, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-white rounded-xl p-4 hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-gray-300 group"
+                >
+                  <div className={`w-12 h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br ${action.color} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
+                    {typeof action.icon === 'string' ? (
+                      <span className="text-2xl">{action.icon}</span>
+                    ) : (
+                      action.icon
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 text-center">{action.label}</p>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Search and New Table Button */}
-        <div className="flex items-center gap-3">
+        <div className="px-4 sm:px-6 lg:px-8 flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
@@ -81,13 +91,13 @@ export default function TablesPage() {
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all bg-white"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors bg-white">
-            <span className="text-sm font-medium text-gray-700">Active</span>
-            <ChevronDown size={16} className="text-gray-500" />
-          </button>
+          {/* <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#0ea5e9]/30 hover:bg-[#0ea5e9]/5 transition-colors bg-white">
+            <span className="text-sm font-medium text-[#0ea5e9]">Active</span>
+            <ChevronDown size={16} className="text-[#0ea5e9]" />
+          </button> */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0ea5e9]/90 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
           >
             <Plus size={18} />
             New table
@@ -95,60 +105,62 @@ export default function TablesPage() {
         </div>
 
         {/* Tables List */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {/* Table Header */}
-          <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
-            <div className="col-span-6 flex items-center gap-2">
-              <input type="checkbox" className="rounded border-gray-300" />
-              <span>Name</span>
-            </div>
-            <div className="col-span-3">Owner</div>
-            <div className="col-span-3 flex items-center gap-1">
-              Last modified
-              <ChevronDown size={14} />
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <div className="p-8 text-center">
-              <p className="text-red-600 font-semibold">Failed to load tables</p>
-              <p className="text-red-500 text-sm mt-2">{error.message}</p>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && !error && tables && tables.length === 0 && (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                <TableIcon size={32} className="text-gray-400" />
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Table Header */}
+            <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
+              <div className="col-span-6 flex items-center gap-2">
+                <input type="checkbox" className="rounded border-gray-300" />
+                <span>Name</span>
               </div>
-              <p className="text-gray-600 mb-6 text-lg font-medium">No tables yet</p>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-all"
-              >
-                <Plus size={20} />
-                Create Table
-              </button>
+              <div className="col-span-3">Owner</div>
+              <div className="col-span-3 flex items-center gap-1">
+                Last modified
+                <ChevronDown size={14} />
+              </div>
             </div>
-          )}
 
-          {/* Table Rows */}
-          {!isLoading && !error && filteredTables.length > 0 && (
-            <div className="divide-y divide-gray-200">
-              {filteredTables.map((table) => (
-                <div
-                  key={table.id}
-                  className="p-4 md:p-6 hover:bg-gray-50 transition-colors group"
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="p-8 text-center">
+                <p className="text-red-600 font-semibold">Failed to load tables</p>
+                <p className="text-red-500 text-sm mt-2">{error.message}</p>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && tables && tables.length === 0 && (
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                  <TableIcon size={32} className="text-gray-400" />
+                </div>
+                <p className="text-gray-600 mb-2 text-lg font-semibold">No tables yet</p>
+                <p className="text-gray-500 text-sm mb-6">Create your first table to get started</p>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="inline-flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0ea5e9]/90 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-sm hover:shadow-md"
                 >
+                  <Plus size={20} />
+                  Create Table
+                </button>
+              </div>
+            )}
+
+            {/* Table Rows */}
+            {!isLoading && !error && filteredTables.length > 0 && (
+              <div className="divide-y divide-gray-200">
+                {filteredTables.map((table) => (
+                  <div
+                    key={table.id}
+                    className="p-4 md:p-6 hover:bg-gray-50 transition-colors group"
+                  >
                   {/* Mobile Layout */}
                   <div className="md:hidden space-y-3">
                     <div className="flex items-center gap-3">
@@ -222,10 +234,11 @@ export default function TablesPage() {
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -238,31 +251,26 @@ export default function TablesPage() {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="glass-card rounded-2xl p-6 max-w-md w-full border border-gray-200/60 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 className="text-red-600" size={24} />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Delete Table</h3>
-                <p className="text-sm text-gray-500">This action cannot be undone</p>
-              </div>
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full border border-gray-200 shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Delete Table</h3>
+              <p className="text-sm text-gray-500 mt-1">This action cannot be undone</p>
             </div>
-            <p className="text-gray-700 mb-6">
+            <p className="text-gray-600 mb-8 text-base">
               Are you sure you want to delete this table? All data will be permanently removed.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 disabled={deleteTable.isPending}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors font-medium text-gray-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors font-medium text-gray-700 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteTable(deleteConfirm)}
                 disabled={deleteTable.isPending}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {deleteTable.isPending ? (
                   <>
@@ -277,6 +285,7 @@ export default function TablesPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

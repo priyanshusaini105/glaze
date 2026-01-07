@@ -37,8 +37,6 @@ async function testCompanyResolver() {
 }
 
 // Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-    testCompanyResolver().catch(console.error);
-}
+testCompanyResolver().catch(console.error);
 
 export { testCompanyResolver };

@@ -29,9 +29,9 @@ export interface CompanyResolutionResult {
  * Scraped company data from webpage
  */
 interface ScrapedData {
-    name?: string;
-    description?: string;
-    title?: string;
+    name?: string | null;
+    description?: string | null;
+    title?: string | null;
 }
 
 /**

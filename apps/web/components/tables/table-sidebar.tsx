@@ -70,24 +70,6 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">
-            Team
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="hover:bg-slate-50 rounded-lg px-3 py-1.5">
-                  <Link href="/dashboard/team/sales" className="flex items-center gap-2.5">
-                    <span className="text-base">👥</span>
-                    <span className="text-sm">Sales Team Q2</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-slate-200 bg-white p-3 space-y-2">
