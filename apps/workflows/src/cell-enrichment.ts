@@ -24,19 +24,226 @@ import type {
   RowStatusType,
 } from "@repo/types";
 import { calculateRowStatusFromCounters, calculateRowConfidenceFromSum } from "@repo/types";
-import { getPrisma } from "./db";
+import { getPrisma } from "@/db";
 import type { Prisma } from "@prisma/client";
-// Legacy enrichment service - will be replaced with orchestrator
-// For now, create a simple wrapper
-async function enrichCellWithProviders(columnKey: string, existingData: Record<string, unknown>, budgetCents: number) {
-  // Temporary implementation - returns mock data
-  return {
-    value: `enriched_${columnKey}`,
-    confidence: 0.8,
-    source: 'mock',
-    timestamp: new Date().toISOString(),
-    metadata: { cost: 1 }
+import { classifyInput } from "@/classifier/input-classifier";
+import { generateWorkflow } from "@/classifier/super-agent";
+import { getExecutableToolById } from "@/classifier/tool-executor";
+import type { NormalizedInput } from "@/types/enrichment";
+
+/**
+ * Map column keys to enrichment field keys
+ */
+function mapColumnKeyToFieldMapping(columnKey: string): string {
+  const mapping: Record<string, string> = {
+    company_name: 'company',
+    company_domain: 'domain',
+    company_website: 'website',
+    person_name: 'name',
+    person_email: 'email',
+    linkedin_url: 'linkedinUrl',
+    // Add more mappings as needed
   };
+  
+  return mapping[columnKey] || columnKey;
+}
+
+/**
+ * Enrich a single cell using the classification system and tools
+ */
+async function enrichCellWithProviders(payload: {
+  columnKey: string;
+  rowId: string;
+  tableId: string;
+  existingData: Record<string, unknown>;
+}) {
+  const { columnKey, rowId, tableId, existingData } = payload;
+  const budgetCents = 100; // Default budget per cell
+  
+  try {
+    // 1. Create normalized input from existing data
+    const normalizedInput: NormalizedInput = {
+      rowId,
+      tableId,
+      name: existingData.name as string | undefined,
+      domain: existingData.domain as string | undefined,
+      linkedinUrl: existingData.linkedinUrl as string | undefined,
+      email: existingData.email as string | undefined,
+      company: existingData.company as string | undefined,
+      raw: existingData,
+    };
+
+    // 2. Classify the input to determine strategy
+    const classification = classifyInput(normalizedInput);
+    
+    logger.info("🎯 Input classified", {
+      columnKey,
+      entityType: classification.entityType,
+      strategy: classification.strategy,
+      signature: classification.inputSignature,
+    });
+
+    // 3. Generate workflow plan
+    const workflowPlan = generateWorkflow(classification, existingData);
+    
+    if ('error' in workflowPlan) {
+      logger.warn("❌ Workflow generation failed", {
+        columnKey,
+        error: workflowPlan.error,
+        reason: workflowPlan.reason,
+      });
+      
+      return {
+        value: null,
+        confidence: 0,
+        source: 'none',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          cost: 0,
+          failReason: workflowPlan.reason,
+          classificationResult: classification,
+        },
+      };
+    }
+
+    // 4. Map the column key to the field we're looking for
+    const targetField = mapColumnKeyToFieldMapping(columnKey);
+    
+    logger.info("🔧 Executing workflow", {
+      columnKey,
+      targetField,
+      steps: workflowPlan.steps.length,
+      maxCostCents: workflowPlan.maxCostCents,
+    });
+
+    // 5. Execute workflow steps
+    let enrichedData = { ...existingData };
+    let lastSource = 'none';
+    let totalCost = 0;
+    
+    for (const step of workflowPlan.steps) {
+      // Check budget
+      if (totalCost >= budgetCents) {
+        logger.warn("💰 Budget exceeded, stopping execution", {
+          columnKey,
+          totalCost,
+          budgetCents,
+        });
+        break;
+      }
+      
+      // Get the tool
+      const tool = getExecutableToolById(step.toolId);
+      if (!tool) {
+        logger.warn(`⚠️ Tool not found: ${step.toolId}`);
+        continue;
+      }
+      
+      logger.info(`▶️ Executing step ${step.stepNumber}: ${step.toolName}`, {
+        columnKey,
+        toolId: step.toolId,
+        expectedOutputs: step.expectedOutputs,
+      });
+      
+      try {
+        // Execute the tool
+        const toolResult = await tool.execute(normalizedInput, enrichedData);
+        
+        // Update enriched data with results
+        enrichedData = { ...enrichedData, ...toolResult };
+        lastSource = step.toolName;
+        totalCost += step.costCents;
+        
+        logger.info(`✅ Step ${step.stepNumber} completed`, {
+          columnKey,
+          toolId: step.toolId,
+          outputs: Object.keys(toolResult),
+        });
+        
+        // If we got the target field, we can potentially stop
+        if (toolResult[targetField]) {
+          logger.info(`🎯 Target field '${targetField}' found`, {
+            columnKey,
+            value: toolResult[targetField],
+            source: step.toolName,
+          });
+          break;
+        }
+      } catch (error) {
+        logger.error(`❌ Step ${step.stepNumber} failed`, {
+          columnKey,
+          toolId: step.toolId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        
+        // If this step cannot fail, try fallback
+        if (!step.canFail) {
+          if (step.fallbackToolId) {
+            const fallbackTool = getToolById(step.fallbackToolId);
+            if (fallbackTool) {
+              try {
+                logger.info(`🔄 Trying fallback tool`, {
+                  columnKey,
+                  fallbackToolId: step.fallbackToolId,
+                });
+                
+                const fallbackResult = await fallbackTool.execute(normalizedInput, enrichedData);
+                enrichedData = { ...enrichedData, ...fallbackResult };
+                lastSource = fallbackTool.name;
+              } catch (fallbackError) {
+                logger.error(`❌ Fallback also failed`, {
+                  columnKey,
+                  fallbackToolId: step.fallbackToolId,
+                  error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 6. Extract the final value for the target field
+    const finalValue = enrichedData[targetField];
+    const confidence = finalValue ? workflowPlan.expectedConfidence : 0;
+    
+    logger.info("🏁 Enrichment complete", {
+      columnKey,
+      targetField,
+      hasValue: !!finalValue,
+      confidence,
+      source: lastSource,
+      totalCost,
+    });
+    
+    return {
+      value: finalValue as string | number | boolean | null,
+      confidence,
+      source: lastSource,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        cost: totalCost,
+        classificationResult: classification,
+        workflowSteps: workflowPlan.steps.length,
+      },
+    };
+  } catch (error) {
+    logger.error("❌ Cell enrichment failed", {
+      columnKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    
+    return {
+      value: null,
+      confidence: 0,
+      source: 'error',
+      timestamp: new Date().toISOString(),
+      metadata: {
+        cost: 0,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
 }
 
 // ===== Observability Metrics =====

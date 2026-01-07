@@ -10,4 +10,4 @@ export * from './plan-registry';
 export * from './orchestrator';
 
 // Re-export types for convenience
-export type { EnrichmentFieldKey, NormalizedInput } from '../types/enrichment';
+export type { EnrichmentFieldKey, NormalizedInput } from '@/types/enrichment';

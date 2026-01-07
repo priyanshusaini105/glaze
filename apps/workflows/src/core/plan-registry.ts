@@ -26,7 +26,7 @@
  * ```
  */
 
-import type { EnrichmentFieldKey, NormalizedInput } from '../types/enrichment';
+import type { EnrichmentFieldKey, NormalizedInput } from '@/types/enrichment';
 
 export interface PlanStep {
   /** Tool/provider name to use */

@@ -6,12 +6,12 @@
  */
 
 import { task, logger } from "@trigger.dev/sdk";
-import { orchestrator } from "../core/orchestrator";
-import type { EnrichmentFieldKey, NormalizedInput } from "../types/enrichment";
+import { orchestrator } from "@/core/orchestrator";
+import type { EnrichmentFieldKey, NormalizedInput } from "@/types/enrichment";
 
 // Import providers and plans to auto-register them
-import '../tools/providers/registry';
-import '../plans';
+import '@/tools/providers/registry';
+import '@/plans';
 
 export interface UnifiedEnrichmentPayload {
   /** Normalized input data */

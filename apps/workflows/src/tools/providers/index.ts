@@ -117,7 +117,7 @@ export function getAllProviderDescriptions() {
 /**
  * Provider lookup map (for quick access)
  */
-export const PROVIDER_MAP = enrichmentConfig.useMockProviders
+export const PROVIDER_MAP = config.useMockProviders
     ? {
         mock_hunter: mockHunterProvider,
         mock_linkedin: mockLinkedInProvider,

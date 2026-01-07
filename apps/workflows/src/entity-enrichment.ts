@@ -22,8 +22,8 @@ import type {
   EntityEnrichmentProgress,
 } from "@repo/types";
 import { deserializeEntities, OptimizedJobStatus } from "@repo/types";
-import { getPrisma } from "./db";
-import { enrichEntityWithProviders } from "./entity-enrichment-service";
+import { getPrisma } from "@/db";
+import { enrichEntityWithProviders } from "@/entity-enrichment-service";
 
 // ===== Configuration =====
 

@@ -3,7 +3,19 @@
   "compilerOptions": {
     "outDir": "./dist",
     "module": "ESNext",
-    "target": "ES2022"
+    "target": "ES2022",
+    "baseUrl": ".",
+    "paths": {
+      "@/core/*": ["src/core/*"],
+      "@/plans/*": ["src/plans/*"],
+      "@/tools/*": ["src/tools/*"],
+      "@/tasks/*": ["src/tasks/*"],
+      "@/config/*": ["src/config/*"],
+      "@/types/*": ["src/types/*"],
+      "@/agents/*": ["src/agents/*"],
+      "@/services/*": ["src/services/*"],
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

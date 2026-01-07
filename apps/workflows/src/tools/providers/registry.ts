@@ -6,7 +6,7 @@
  * and import it here.
  */
 
-import '../../../plans'; // Register plans first
+import '@/plans'; // Register plans first
 
 // Free providers (0x cost)
 import './github-provider';
@@ -42,7 +42,7 @@ export { openCorporatesProvider } from './opencorporates-provider';
 export { prospeoProvider } from './prospeo-provider';
 
 // Legacy helper functions
-import { getRegistry } from '../../core/registry';
+import { getRegistry } from '@/core/registry';
 
 /**
  * @deprecated Use getRegistry().get(name) instead

@@ -5,8 +5,8 @@
  * Higher priority when LinkedIn URL is available.
  */
 
-import { definePlan } from '../core/plan-registry';
-import type { EnrichmentFieldKey } from '../types/enrichment';
+import { definePlan } from '@/core/plan-registry';
+import type { EnrichmentFieldKey } from '@/types/enrichment';
 
 export const linkedinPlan = definePlan({
   name: 'linkedin-focused',

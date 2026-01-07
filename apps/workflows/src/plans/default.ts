@@ -4,9 +4,9 @@
  * Simple cost-optimized strategy that prefers free/cheap providers.
  */
 
-import { definePlan } from '../core/plan-registry';
-import { getRegistry } from '../core/registry';
-import type { EnrichmentFieldKey, NormalizedInput } from '../types/enrichment';
+import { definePlan } from '@/core/plan-registry';
+import { getRegistry } from '@/core/registry';
+import type { EnrichmentFieldKey, NormalizedInput } from '@/types/enrichment';
 
 export const defaultPlan = definePlan({
   name: 'default',

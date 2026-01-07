@@ -4,8 +4,8 @@
  * Specialized plan for company/domain enrichment.
  */
 
-import { definePlan } from '../core/plan-registry';
-import type { EnrichmentFieldKey } from '../types/enrichment';
+import { definePlan } from '@/core/plan-registry';
+import type { EnrichmentFieldKey } from '@/types/enrichment';
 
 export const companyPlan = definePlan({
   name: 'company-focused',

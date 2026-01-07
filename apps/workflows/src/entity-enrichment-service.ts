@@ -14,7 +14,7 @@
 import { logger } from "@trigger.dev/sdk";
 import type { EntityTypeValue, EnrichedFieldValue } from "@repo/types";
 import { EntityType } from "@repo/types";
-import { config } from "./config/enrichment";
+import { config } from "@/config/enrichment";
 // Get providers for this tier
 const mockProviders: any[] = [];
 const getProvidersForTier = (tier: string) => mockProviders;

@@ -3,21 +3,21 @@
  */
 
 // Providers
-export * from "./providers";
+export * from "@/tools/providers";
 
 // Classification System
-export * from "../classifier";
+export * from "@/classifier";
 
 // Utilities
-export { initCostController, canSpend, recordSpend, getRemainingBudget, getCostSummary, clearCostController } from "./utils/cost-controller";
-export { normalizeInput, extractDomain, normalizeName, normalizeCompanyName } from "./utils/normalizer";
+export { initCostController, canSpend, recordSpend, getRemainingBudget, getCostSummary, clearCostController } from "@/tools/utils/cost-controller";
+export { normalizeInput, extractDomain, normalizeName, normalizeCompanyName } from "@/tools/utils/normalizer";
 
 // ============================================================
 // AGENTIC TOOLS (NEW)
 // ============================================================
 
 // Identity & Normalization Tools
-export { resolveIdentity, hasMinimumIdentity, getRecommendedTools } from "./identity-resolver";
+export { resolveIdentity, hasMinimumIdentity, getRecommendedTools } from "@/tools/identity-resolver";
 
 export {
     normalizeDomain,

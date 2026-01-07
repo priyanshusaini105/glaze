@@ -23,7 +23,7 @@
  * ```
  */
 
-import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from '../types/enrichment';
+import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from '@/types/enrichment';
 
 export interface ProviderDefinition {
   /** Unique provider name */

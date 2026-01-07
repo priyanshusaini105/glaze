@@ -6,9 +6,9 @@
  */
 
 import { logger } from '@trigger.dev/sdk';
-import { getRegistry } from './registry';
-import { getPlanRegistry } from './plan-registry';
-import type { EnrichmentFieldKey, NormalizedInput } from '../types/enrichment';
+import { getRegistry } from '@/core/registry';
+import { getPlanRegistry } from '@/core/plan-registry';
+import type { EnrichmentFieldKey, NormalizedInput } from '@/types/enrichment';
 
 export interface EnrichmentOptions {
   /** Fields to enrich */

@@ -23,13 +23,13 @@
  */
 
 // Production tasks (actively used)
-export * from "./cell-enrichment";
-export * from "./entity-enrichment";
-export * from "./hello-world";
+export * from "@/cell-enrichment";
+export * from "@/entity-enrichment";
+export * from "@/hello-world";
 
 // New unified task (RECOMMENDED for new integrations)
-export * from "./tasks/enrich";
+export * from "@/tasks/enrich";
 
 // Legacy tasks (kept for backward compatibility)
-export * from "./enrichment";
-export * from "./workflows/multi-agent-enrichment";
+export * from "@/enrichment";
+export * from "@/workflows/multi-agent-enrichment";
