@@ -14,25 +14,23 @@ export { synthesizeMissingFields } from "./synthesizer";
 // Planner Agent
 export { 
     generatePlan, 
-    PlannerAgent,
-    selectProvidersForField,
-} from "./planner";
-export type {
-    PlannerInput,
-    PlannerOutput,
-    EnrichmentStep,
+    getFieldDiff,
+    estimatePlanCost,
+    isBudgetSufficient,
 } from "./planner";
 
 // Verifier Agent
 export {
     verifyResults,
-    VerifierAgent,
     getVerificationSummary,
+    getEscalationTargets,
+    hasUnresolvedConflicts,
+    getConflictDetails,
+    mergeCanonicalData,
 } from "./verifier";
 export type {
-    VerifierInput,
-    VerificationResult,
+    VerificationDecision,
     FieldVerification,
-    VerificationOptions,
+    VerificationResult,
 } from "./verifier";
 
