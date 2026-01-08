@@ -2,11 +2,18 @@
  * AI-powered column analysis and categorization
  */
 import Elysia, { t } from 'elysia';
-import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 
+// Initialize Groq via OpenAI-compatible API
+const groq = createOpenAI({
+  baseURL: 'https://api.groq.com/openai/v1',
+  apiKey: process.env.GROQ_API_KEY,
+});
+
 const columnCategorySchema = z.object({
+  suggestedLabel: z.string().describe('A good column name based on the description'),
   suggestedType: z.enum(['text', 'number', 'boolean', 'date', 'url', 'email']).describe('The most appropriate data type for this column'),
   category: z.string().describe('A semantic category like "contact", "company", "financial", "location", "identifier", etc.'),
   confidence: z.number().min(0).max(1).describe('Confidence score between 0 and 1'),
@@ -17,45 +24,68 @@ export const columnsAIRoutes = new Elysia({ prefix: '/ai/columns' })
   /**
    * Analyze column and suggest type and category using LLM
    */
-  .post('/analyze', async ({ body, error }) => {
+  .post('/analyze', async ({ body, set }) => {
     const { label, description, context } = body;
 
-    if (!label || label.trim().length === 0) {
-      return error(400, 'Column label is required');
+    // Either label or description is required
+    if ((!label || label.trim().length === 0) && (!description || description.trim().length === 0)) {
+      set.status = 400;
+      return { error: 'Either column label or description is required' };
     }
 
     try {
-      const prompt = `Analyze this column and suggest the most appropriate data type and semantic category.
+      const prompt = `Analyze this column and suggest the most appropriate data type, semantic category, and a good column name.
 
-Column Label: ${label}
-${description ? `Description: ${description}` : ''}
+Column Description: ${description || 'Not provided'}
+${label ? `Current Label: ${label}` : 'No label yet - please suggest one'}
 ${context ? `Additional Context: ${context}` : ''}
 
-Consider:
-- Data Type: text, number, boolean, date, url, email
-- Category: semantic meaning like "contact", "company", "financial", "location", "identifier", "metadata", etc.
+Generate:
+1. A concise, descriptive column name (2-4 words max)
+2. Data Type: text, number, boolean, date, url, email
+3. Category: semantic meaning like "contact", "company", "financial", "location", "identifier", "metadata", etc.
+4. Confidence score (0-1)
+5. Brief reasoning
 
-Be concise and specific. Use your best judgment based on common data patterns.`;
+Respond with ONLY valid JSON in this exact format:
+{
+  "suggestedLabel": "HR Phone Number",
+  "suggestedType": "text",
+  "category": "contact",
+  "confidence": 0.95,
+  "reasoning": "Phone number indicates contact type, should use text for flexibility"
+}
 
-      const result = await generateObject({
-        model: openai('gpt-4o-mini'),
-        schema: columnCategorySchema,
+Use clear, professional naming. Examples: "HR Phone", "Employee Count", "LinkedIn URL", "Company Website"`;
+
+      const result = await generateText({
+        model: groq('llama-3.3-70b-versatile'),
         prompt,
-        temperature: 0.3, // Lower temperature for more consistent categorization
+        temperature: 0.3,
       });
+
+      // Parse the JSON response
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse AI response');
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]);
+      const validated = columnCategorySchema.parse(parsed);
 
       return {
         success: true,
-        analysis: result.object,
+        analysis: validated,
       };
     } catch (err) {
       console.error('[AI Column Analysis] Error:', err);
-      return error(500, 'Failed to analyze column. Please try again.');
+      set.status = 500;
+      return { error: 'Failed to analyze column. Please try again.' };
     }
   }, {
     body: t.Object({
-      label: t.String({ minLength: 1 }),
+      label: t.Optional(t.String()),
       description: t.Optional(t.String()),
-      context: t.Optional(t.String()), // e.g., table name or existing columns
+      context: t.Optional(t.String()),
     })
   });

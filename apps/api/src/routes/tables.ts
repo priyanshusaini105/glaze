@@ -96,13 +96,14 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
     try {
       const createdColumns = [];
       for (const col of columnsToCreate) {
-        const { key, label, dataType = 'text', config } = col;
+        const { key, label, dataType = 'text', category, config } = col;
         const created = await prisma.column.create({
           data: {
             tableId: id,
             key,
             label,
             dataType,
+            category,
             order,
             config
           }
@@ -121,6 +122,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
         key: t.String(),
         label: t.String(),
         dataType: t.Optional(t.String({ default: 'text' })),
+        category: t.Optional(t.String()),
         config: t.Optional(t.Any())
       }),
       // Bulk columns (array)
@@ -129,6 +131,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
           key: t.String(),
           label: t.String(),
           dataType: t.Optional(t.String({ default: 'text' })),
+          category: t.Optional(t.String()),
           order: t.Optional(t.Number()),
           config: t.Optional(t.Any())
         })

@@ -197,23 +197,41 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     }
   }, [showColumnPopover, showColumnSidebar]);
 
-  // AI title generation from description
+  // AI title generation from description using real backend API
   const generateTitleFromDescription = useCallback(async (description: string) => {
-    if (!description.trim() || description.length < 10) return;
+    if (!description.trim() || description.length < 5) return;
     
     setIsGeneratingTitle(true);
     try {
-      // Simulate AI call - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const response = await fetch('http://localhost:3001/ai/columns/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: newColumnLabel || undefined,
+          description: description,
+          context: currentTable?.name ? `Table: ${currentTable.name}` : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze column');
+      }
+
+      const result = await response.json();
+      if (result.success && result.analysis) {
+        // Use the AI-suggested label directly
+        setNewColumnLabel(result.analysis.suggestedLabel);
+      }
+    } catch (error) {
+      console.error('Failed to generate title:', error);
+      // Fallback to simple word extraction
       const words = description.trim().split(' ').slice(0, 3);
       const title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       setNewColumnLabel(title);
-    } catch (error) {
-      console.error('Failed to generate title:', error);
     } finally {
       setIsGeneratingTitle(false);
     }
-  }, []);
+  }, [newColumnLabel, currentTable?.name]);
 
   const handleDescriptionChange = useCallback((value: string) => {
     setNewColumnDescription(value);
@@ -285,6 +303,30 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setColumnSaving(false);
     }
   }, [generateColumnKey, tableId]);
+
+  // Simple wrapper for popover (quick column creation)
+  const handleCreateColumnSimple = useCallback(async () => {
+    if (!newColumnLabel.trim()) {
+      setColumnError('Please enter a column name.');
+      return;
+    }
+    setColumnError(null);
+
+    try {
+      await handleCreateColumn({
+        label: newColumnLabel.trim(),
+        dataType: 'text' as DataType,
+        description: newColumnDescription.trim() || undefined,
+      });
+      
+      // Reset form
+      setNewColumnLabel('');
+      setNewColumnDescription('');
+      setShowColumnPopover(false);
+    } catch (error) {
+      setColumnError(error instanceof Error ? error.message : 'Unable to add column');
+    }
+  }, [newColumnLabel, newColumnDescription, handleCreateColumn]);
 
   const handleDeleteColumn = useCallback(async (columnId: string) => {
     const colToRemove = columns.find((c) => c.id === columnId);
@@ -1030,7 +1072,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
-                              handleCreateColumn();
+                              handleCreateColumnSimple();
                             }
                           }}
                         />
@@ -1455,6 +1497,15 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         )}
 
       </div>
+      
+      {/* New Column Creation Sidebar */}
+      <ColumnCreationSidebar
+        isOpen={showColumnSidebar}
+        onClose={() => setShowColumnSidebar(false)}
+        onSave={handleCreateColumn}
+        isSaving={columnSaving}
+        tableName={currentTable?.name}
+      />
     </>
   );
 }
