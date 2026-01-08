@@ -93,6 +93,8 @@ export interface NormalizedInput {
     linkedinUrl?: string;
     email?: string;
     company?: string;
+    /** Optional: the specific field the caller is trying to enrich (used by ultimate fallback tools) */
+    targetField?: string;
     raw: Record<string, unknown>;
 }
 

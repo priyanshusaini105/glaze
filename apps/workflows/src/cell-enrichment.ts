@@ -84,6 +84,9 @@ async function enrichCellWithProviders(payload: {
     const targetField = mapColumnKeyToFieldMapping(columnKey);
     console.log("🔗 Target field mapping:", { columnKey, targetField });
 
+    // Make targetField available to tools that require per-run context
+    normalizedInput.targetField = targetField;
+
     // 4. Generate workflow plan with target field awareness
     console.log("\n🎯 STEP 2: Generating workflow...");
     const workflowPlan = generateWorkflow(classification, existingData, targetField);

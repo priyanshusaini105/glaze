@@ -272,10 +272,8 @@ export class SmartEnrichmentProvider extends BaseProvider {
         companyName: string,
         industry?: string
     ): Promise<{ domain: string; url: string; query: string; position: number } | null> {
-        // Build single query
-        const query = industry
-            ? `"${companyName}" ${industry} official website`
-            : `"${companyName}" official website`;
+        // Single query: company name + "official website - landing page"
+        const query = `${companyName} official website - landing page`;
 
         logger.info("🔍 SmartEnrichment: Searching", { query });
 

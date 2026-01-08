@@ -192,9 +192,12 @@ async function extractFromSnippets(
 
 RULES - VERY IMPORTANT:
 1. Using ONLY the provided titles and snippets, extract:
-   - A short professional bio (1-2 sentences max, ≤300 chars)
+   - A concise professional bio (1-2 sentences max, ≤200 chars)
+   - Bio should be in a professional, third-person summary format focusing on role and expertise
+   - Example: "Full-stack engineer at Rutics specializing in web development and cloud infrastructure"
+   - Do NOT use person's name in the bio - start with role/title
    - Any explicitly mentioned social links (Twitter, GitHub, personal site)
-2. Do NOT infer achievements
+2. Do NOT infer achievements beyond what's stated
 3. Do NOT invent links
 4. If not clearly stated, return null
 5. Social links must be valid URLs
@@ -208,7 +211,7 @@ For personal website, accept any non-social domain`;
 
 ${snippetContext}
 
-Return bio (1-2 sentences) and any social links found.`;
+Return a concise professional bio (without using the person's name) and any social links found.`;
 
     try {
         const result = await generateObject({

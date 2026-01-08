@@ -172,11 +172,24 @@ export function generateWorkflow(
     fallbackPlan = filterRunnableSteps(fallbackPlan, availableFields);
 
     if (steps.length === 0) {
-        return {
-            error: "No runnable tools with available data",
-            resultState: "NOT_FOUND",
-            reason: `Available fields [${availableFields.join(", ")}] do not satisfy any tool requirements`,
-        };
+        // If no specialized tools can run, attempt the ultimate fallback.
+        // The fallback itself is conservative and will return null for low confidence.
+        if (targetField) {
+            const generic = getToolById("generic_web_search");
+            if (generic) {
+                const step = createStep(1, generic);
+                step.expectedOutputs = [normalizeFieldName(targetField)];
+                steps = [step];
+            }
+        }
+
+        if (steps.length === 0) {
+            return {
+                error: "No runnable tools with available data",
+                resultState: "NOT_FOUND",
+                reason: `Available fields [${availableFields.join(", ")}] do not satisfy any tool requirements`,
+            };
+        }
     }
 
     // ============================================================
@@ -258,6 +271,11 @@ export function generateWorkflow(
             const producer = compatibleProducers[0]!;
             const nextStepNumber = steps.length + 1;
             const producerStep = createStep(nextStepNumber, producer);
+
+            // Generic fallback can produce whatever the caller requested
+            if (producer.id === "generic_web_search") {
+                producerStep.expectedOutputs = [normalizedTargetField];
+            }
 
             steps.push(producerStep);
 

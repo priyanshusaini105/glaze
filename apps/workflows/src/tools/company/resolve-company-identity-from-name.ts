@@ -146,13 +146,12 @@ function normalizeCompanyName(name: string): string {
 /**
  * Step 2: Generate search queries
  * 
- * Very specific questions, not generic "who is X"
+ * Single query: company name + "official website - landing page"
+ * This is the most specific and effective query for finding company websites
  */
 function generateSearchQueries(companyName: string): string[] {
     return [
-        `${companyName} official website`,
-        `${companyName} company`,
-        `${companyName} about us`,
+        `${companyName} official website - landing page`,
     ];
 }
 

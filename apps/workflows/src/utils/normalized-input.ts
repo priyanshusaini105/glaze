@@ -8,6 +8,7 @@ export function mapColumnKeyToFieldMapping(columnKey: string): string {
     person_name: "name",
     person_email: "email",
     linkedin_url: "linkedinUrl",
+    linkedin: "linkedinUrl",  // Map 'linkedin' column to 'linkedinUrl' field
   };
 
   return mapping[columnKey] || columnKey;

@@ -19,6 +19,7 @@ import { findLinkedInProfile } from "../tools/person/find-linkedin-profile";
 import { resolvePersonFromNameCompany } from "../tools/person/resolve-person-from-name-company";
 import { guessWorkEmail } from "../tools/person/guess-work-email";
 import { fetchPersonPublicProfile } from "../tools/person/fetch-person-public-profile";
+import { genericWebSearch } from "../tools/generic/generic-web-search";
 
 // ============================================================
 // TOOL DEFINITION
@@ -82,6 +83,8 @@ export interface ToolDefinition {
     /** Execute function - actually runs the tool */
     execute?: ToolExecuteFunction;
 }
+
+const GENERIC_FALLBACK_TOOL_ID = "generic_web_search";
 
 // ============================================================
 // TOOL EXECUTORS
@@ -241,6 +244,54 @@ async function executeFetchCompanySocials(
     output._linksValidated = result.linksValidated;
 
     return output;
+}
+
+/**
+ * Execute generic_web_search tool (ultimate fallback)
+ *
+ * Uses Serper + LLM extraction to populate the requested target field.
+ * Returns an empty object if confidence is below threshold.
+ */
+async function executeGenericWebSearch(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const targetField = input.targetField;
+    if (!targetField) {
+        return {};
+    }
+
+    const context: Record<string, unknown> = {
+        ...existingData,
+        name: input.name ?? (existingData.name as string | undefined),
+        company: input.company ?? (existingData.company as string | undefined),
+        domain: input.domain ?? (existingData.domain as string | undefined),
+        linkedinUrl: input.linkedinUrl ?? (existingData.linkedinUrl as string | undefined),
+        email: input.email ?? (existingData.email as string | undefined),
+    };
+
+    const result = await genericWebSearch(targetField, context);
+
+    if (!result.value) {
+        return {
+            _genericWebSearch: {
+                confidence: result.confidence,
+                query: result.searchQuery,
+                reason: result.reason,
+            },
+        };
+    }
+
+    return {
+        [targetField]: result.value,
+        _confidence: result.confidence,
+        _source: result.source,
+        _genericWebSearch: {
+            query: result.searchQuery,
+            snippetsUsed: result.snippetsUsed,
+            reason: result.reason,
+        },
+    };
 }
 
 /**
@@ -764,6 +815,27 @@ const PERSON_TOOLS: ToolDefinition[] = [
 ];
 
 // ============================================================
+// GENERIC FALLBACK TOOLS
+// ============================================================
+
+const GENERIC_TOOLS: ToolDefinition[] = [
+    {
+        id: GENERIC_FALLBACK_TOOL_ID,
+        name: "Generic Web Search (Fallback)",
+        strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE", "HYPOTHESIS_AND_SCORE"],
+        entityTypes: ["PERSON", "COMPANY", "UNKNOWN"],
+        requiredInputs: [],
+        optionalInputs: ["name", "company", "domain", "linkedinUrl", "email"],
+        outputs: [],
+        costCents: 2,
+        tier: "cheap",
+        priority: 999,
+        canFail: true,
+        execute: executeGenericWebSearch,
+    },
+];
+
+// ============================================================
 // REGISTRY
 // ============================================================
 
@@ -773,6 +845,7 @@ const PERSON_TOOLS: ToolDefinition[] = [
 export const TOOL_REGISTRY: ToolDefinition[] = [
     ...COMPANY_TOOLS,
     ...PERSON_TOOLS,
+    ...GENERIC_TOOLS,
 ];
 
 /**
@@ -812,7 +885,12 @@ export function getMatchingTools(
  * Get tools that can provide a specific output field.
  */
 export function getToolsForOutput(field: string): ToolDefinition[] {
-    return TOOL_REGISTRY.filter(t => t.outputs.includes(field));
+    const matches = TOOL_REGISTRY.filter(t => t.outputs.includes(field));
+    if (matches.length > 0) return matches;
+
+    // Ultimate fallback only when no specialized tool exists for the field.
+    const fallback = getToolById(GENERIC_FALLBACK_TOOL_ID);
+    return fallback ? [fallback] : [];
 }
 
 /**

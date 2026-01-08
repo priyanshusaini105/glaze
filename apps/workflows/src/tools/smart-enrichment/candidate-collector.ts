@@ -126,10 +126,9 @@ async function performSerperSearch(query: string): Promise<Array<{
 /**
  * Build search queries for a company
  * 
- * Query strategy:
- * 1. Primary: company name + industry + "official website" (most precise)
- * 2. Secondary: company name + "official website" (fallback)
- * 3. Tertiary: company name (broader search)
+ * Query strategy: Only one query for company website
+ * "<company name> official website - landing page"
+ * This is the most specific and effective query for finding company websites
  */
 function buildSearchQueries(
     companyName: string,
@@ -138,16 +137,8 @@ function buildSearchQueries(
 ): string[] {
     const queries: string[] = [];
 
-    // Primary query: company name + industry + "official website" (most precise)
-    if (industry) {
-        queries.push(`"${companyName}" ${industry} official website`);
-    }
-
-    // Secondary query: company name + "official website"
-    queries.push(`"${companyName}" official website`);
-
-    // Tertiary: just company name (broader)
-    queries.push(`${companyName} company`);
+    // Single query: company name + "official website - landing page"
+    queries.push(`${companyName} official website - landing page`);
 
     return queries;
 }

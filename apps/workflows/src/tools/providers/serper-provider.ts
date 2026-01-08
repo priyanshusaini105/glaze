@@ -251,10 +251,11 @@ export class SerperProvider extends BaseProvider {
             if (input.domain) {
                 query = `site:${input.domain} OR "${input.domain}" about`;
             } else if (input.company) {
-                query = `"${input.company}" company about`;
+                // Single query for company website
+                query = `${input.company} official website - landing page`;
             } else if (input.name) {
                 // Search for company by name
-                query = `"${input.name}" official website`;
+                query = `${input.name} official website - landing page`;
             } else if ((input as any).bio) {
                 // Extract key terms from bio and search
                 const bio = (input as any).bio as string;
