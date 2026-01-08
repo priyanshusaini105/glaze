@@ -166,12 +166,12 @@ class ApiClient {
 
     // Transform backend response format to match frontend expectations
     return {
-      rows: response.data,
+      data: response.data,
       total: response.meta.total,
       page: response.meta.page,
       limit: response.meta.limit,
       totalPages: response.meta.totalPages,
-    };
+    } as unknown as PaginatedRowsResponse;
   }
 
   async createRow(tableId: string, data: CreateRowRequest): Promise<Row> {

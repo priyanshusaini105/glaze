@@ -137,6 +137,24 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         return updated;
       });
     },
+    onRowInsert: (row) => {
+      console.log('[Realtime] Row insert received:', row);
+      setRowData((prev) => [
+        {
+          ...row,
+          id: row.id,
+          data: row.data,
+          tableId: row.tableId,
+          enrichingColumns: row.enrichingColumns || [],
+          updatedAt: row.updatedAt,
+        } as unknown as Row,
+        ...prev,
+      ]);
+    },
+    onRowDelete: (row) => {
+      console.log('[Realtime] Row delete received:', row);
+      setRowData((prev) => prev.filter((r) => r.id !== row.id));
+    },
   });
 
   // Delete rows state
@@ -151,15 +169,15 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     params.then((p) => setTableId(p.tableId));
   }, [params]);
 
-  const loadData = useCallback(async (force = false) => {
+  const loadData = useCallback(async (force = false, silent = false) => {
     if (!tableId) {
       console.log('[loadData] No tableId provided, skipping load');
       return;
     }
 
-    console.log('[loadData] Starting data load for table:', { tableId, force });
-    setLoading(true);
-    
+    console.log('[loadData] Starting data load for table:', { tableId, force, silent });
+    if (!silent) setLoading(true);
+
     try {
       // Load all tables for sidebar
       const { data: allTables, error: tablesError } = await typedApi.getTables();
@@ -197,13 +215,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         console.error('[loadData] Failed to load rows:', rowsError);
         throw new Error(rowsError || 'Failed to load rows');
       }
-      
+
       console.log('[loadData] Successfully loaded data:', {
         rowCount: rowsData.data.length,
         columnCount: tableDetails.columns?.length || 0,
         sampleRow: rowsData.data[0],
       });
-      
+
       setRowData(rowsData.data);
     } catch (error) {
       console.error('[loadData] Critical error loading table data:', error);
@@ -212,7 +230,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       setColumns([]);
     } finally {
       console.log('[loadData] Load complete, clearing loading state');
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tableId]);
 
@@ -236,7 +254,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   // AI title generation from description using real backend API
   const generateTitleFromDescription = useCallback(async (description: string) => {
     if (!description.trim() || description.length < 5) return;
-    
+
     setIsGeneratingTitle(true);
     try {
       const response = await fetch('http://localhost:3001/ai/columns/analyze', {
@@ -278,12 +296,12 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
   const handleDescriptionChange = useCallback((value: string) => {
     setNewColumnDescription(value);
-    
+
     // Debounce AI title generation
     if (descriptionDebounceRef.current) {
       clearTimeout(descriptionDebounceRef.current);
     }
-    
+
     descriptionDebounceRef.current = setTimeout(() => {
       generateTitleFromDescription(value);
     }, 800);
@@ -320,9 +338,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       description: newColumnDescription || undefined,
     };
 
-    console.log('[handleCreateColumn] Column data:', { 
-      label: columnData.label, 
-      hasLabel: !!columnData.label 
+    console.log('[handleCreateColumn] Column data:', {
+      label: columnData.label,
+      hasLabel: !!columnData.label
     });
 
     if (!columnData.label || !columnData.label.trim()) {
@@ -355,7 +373,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       if (error || !newColumn) {
         throw new Error(error || 'Failed to create column');
       }
-      
+
       setColumns((prev) => [...prev, newColumn]);
       setRowData((prev) =>
         (prev || []).map((row) => ({
@@ -363,7 +381,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           data: { ...row.data, [newColumn.key]: row.data?.[newColumn.key] ?? '' },
         }))
       );
-      
+
       setShowColumnSidebar(false);
       setShowColumnPopover(false);
       setNewColumnLabel('');
@@ -585,7 +603,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         await pollForCompletion();
 
         // Refresh the data to get enriched values
-        await loadData();
+        await loadData(true, true);
 
         // Clear enriching cells
         setEnrichingCells(new Set());
@@ -616,7 +634,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     // Refresh the data to get enriched values - use ref to get latest loadData
     console.log('[handleEnrichmentComplete] Refreshing table data...');
     try {
-      await loadDataRef.current(true); // Force reload
+      // Force reload but silently (no loading spinner) to avoid bad UX
+      await loadDataRef.current(true, true);
       console.log('[handleEnrichmentComplete] Table data refreshed successfully');
     } catch (error) {
       console.error('[handleEnrichmentComplete] Failed to refresh data:', error);
@@ -731,7 +750,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
   const handleDeleteSelectedRows = async () => {
     if (selectedRowIds.size === 0) return;
-    
+
     // Confirm deletion
     const count = selectedRowIds.size;
     if (!confirm(`Are you sure you want to delete ${count} row${count === 1 ? '' : 's'}? This action cannot be undone.`)) {
@@ -743,18 +762,18 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
     try {
       // Delete all selected rows
-      const deletePromises = Array.from(selectedRowIds).map(rowId => 
+      const deletePromises = Array.from(selectedRowIds).map(rowId =>
         typedApi.deleteRow(tableId, rowId)
       );
-      
+
       const results = await Promise.all(deletePromises);
-      
+
       // Check for errors in results
       const hasError = results.some(result => result.error);
       if (hasError) {
         throw new Error('Failed to delete one or more rows');
       }
-      
+
       // Remove from local state
       setRowData(prevData => prevData.filter(row => !selectedRowIds.has(row.id)));
       setSelectedRowIds(new Set());
@@ -872,7 +891,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       <>
         <TableSidebar tables={tables} currentTableId={tableId} />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-slate-500">Loading table data...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
       </>
     );
@@ -901,8 +920,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
               <div className={cn(
                 "flex items-center gap-2 px-2.5 py-1 rounded-full",
-                isRealtimeConnected 
-                  ? "bg-green-50 border border-green-200/50" 
+                isRealtimeConnected
+                  ? "bg-green-50 border border-green-200/50"
                   : "bg-yellow-50 border border-yellow-200/50"
               )}>
                 <div className="relative">
@@ -1100,7 +1119,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                         <h4 className="font-semibold text-slate-900">New Column</h4>
                       </div>
                     </div>
-                    
+
                     {/* Content */}
                     <div className="px-6 py-5 space-y-4">
                       {/* Description First */}
@@ -1241,7 +1260,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                       const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
                       const value = row.data?.[col.key];
                       const cellKey = `${row.id}:${col.key}`;
-                      
+
                       // Check if this cell is enriching from Supabase realtime OR local state
                       const isCellEnriching = (row.enrichingColumns && row.enrichingColumns.includes(col.key)) || enrichingCells.has(cellKey);
 
@@ -1549,7 +1568,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
             {/* Sidebar Footer */}
             <div className="backdrop-blur-sm bg-white border-t border-slate-200 px-6 py-5 shrink-0 space-y-3">
               <Button
-                onClick={handleCreateColumn}
+                onClick={() => handleCreateColumn()}
                 disabled={columnSaving || !newColumnLabel.trim()}
                 className="w-full h-12 bg-cyan-gradient hover:opacity-90 text-white shadow-lg shadow-cyan-500/20 gap-2 text-base font-medium"
               >
@@ -1581,7 +1600,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         )}
 
       </div>
-      
+
       {/* New Column Creation Sidebar */}
       <ColumnCreationSidebar
         isOpen={showColumnSidebar}

@@ -5,6 +5,7 @@
  */
 
 import type { Table, Column, Row, CreateRowRequest, UpdateRowRequest, GetRowsParams, PaginatedRowsResponse } from './api-types';
+import { getAccessToken } from './supabase-auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -28,11 +29,21 @@ class TypedApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Get auth token from Supabase session
+      const token = await getAccessToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options.headers as Record<string, string>,
+      };
+
+      // Add Authorization header if user is authenticated
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
         ...options,
       });
 
@@ -65,7 +76,7 @@ class TypedApiClient {
   }
 
   // ============= Columns =============
-  async createColumn(tableId: string, data: { key: string; label: string; dataType: string }) {
+  async createColumn(tableId: string, data: { key: string; label: string; dataType: string; category?: string; config?: any }) {
     return this.request<Column>(`/tables/${tableId}/columns`, {
       method: 'POST',
       body: JSON.stringify(data),

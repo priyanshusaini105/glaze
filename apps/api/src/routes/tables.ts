@@ -1,11 +1,20 @@
 import { Elysia, t } from 'elysia';
 import { prisma } from '../db';
 import { parseCSV, generateCSV, inferDataType } from '../utils/csv';
+import { authMiddleware } from '../middleware/auth';
 
 export const tablesRoutes = new Elysia({ prefix: '/tables' })
-  // List all tables
-  .get('/', async () => {
+  // Apply auth middleware to all routes
+  .use(authMiddleware)
+
+  // List all tables (filtered by userId if authenticated)
+  .get('/', async ({ userId }) => {
+    // If authenticated, only show user's tables
+    // If not authenticated (development mode), show all tables
+    const where = userId ? { userId } : {};
+
     return await prisma.table.findMany({
+      where,
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: {
@@ -16,12 +25,13 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Create a new table
-  .post('/', async ({ body }) => {
+  .post('/', async ({ body, userId }) => {
     const { name, description } = body;
     return await prisma.table.create({
       data: {
         name,
-        description
+        description,
+        userId: userId ?? undefined, // Associate table with user if authenticated
       }
     });
   }, {
@@ -32,7 +42,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Get table details (with columns)
-  .get('/:id', async ({ params: { id }, error }) => {
+  .get('/:id', async ({ params: { id }, userId, error }) => {
     const table = await prisma.table.findUnique({
       where: { id },
       include: {
@@ -41,13 +51,29 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
         }
       }
     });
+
     if (!table) return error(404, 'Table not found');
+
+    // Check ownership (skip for tables without userId - legacy tables)
+    if (userId && table.userId && table.userId !== userId) {
+      return error(404, 'Table not found');
+    }
+
     return table;
   })
 
   // Update table metadata
-  .patch('/:id', async ({ params: { id }, body, error }) => {
+  .patch('/:id', async ({ params: { id }, body, userId, error }) => {
     try {
+      // Check ownership first
+      const table = await prisma.table.findUnique({ where: { id } });
+      if (!table) return error(404, 'Table not found');
+
+      // Check ownership (skip for tables without userId - legacy tables)
+      if (userId && table.userId && table.userId !== userId) {
+        return error(404, 'Table not found');
+      }
+
       return await prisma.table.update({
         where: { id },
         data: body
@@ -63,8 +89,17 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Delete table
-  .delete('/:id', async ({ params: { id }, error }) => {
+  .delete('/:id', async ({ params: { id }, userId, error }) => {
     try {
+      // Check ownership first
+      const table = await prisma.table.findUnique({ where: { id } });
+      if (!table) return error(404, 'Table not found');
+
+      // Check ownership (skip for tables without userId - legacy tables)
+      if (userId && table.userId && table.userId !== userId) {
+        return error(404, 'Table not found');
+      }
+
       await prisma.table.delete({
         where: { id }
       });

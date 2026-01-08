@@ -15,9 +15,13 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { apiClient } from '../../lib/api-client';
 import { Column, Row } from '../../lib/api-types';
 import { Plus, Trash2, RefreshCw, Sparkles } from 'lucide-react';
+import { PopoverCellEditor } from './popover-cell-editor';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Threshold for cell content length to trigger popover editor
+const CELL_LENGTH_THRESHOLD = 50;
 
 interface AgGridTableProps {
   tableId: string;
@@ -36,10 +40,11 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
     setLoading(true);
     try {
       const response = await apiClient.getRows(tableId, { page: 1, limit: 1000 });
-      const transformedData = response.rows.map((row: Row) => ({
+      const transformedData = response.data.map((row: Row) => ({
         id: row.id,
         data: row.data,
         tableId: row.tableId,
+        enrichingColumns: row.enrichingColumns || [],
         ...row.data,
       }));
       setRowData(transformedData);
@@ -209,6 +214,30 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
           break;
         default:
           colDef.filter = 'agTextColumnFilter';
+          // Use popover editor for long text content
+          colDef.cellEditorSelector = (params) => {
+            const value = params.value?.toString() || '';
+            if (value.length > CELL_LENGTH_THRESHOLD) {
+              return {
+                component: PopoverCellEditor,
+                params: {
+                  maxLength: CELL_LENGTH_THRESHOLD,
+                },
+              };
+            }
+            return undefined; // Use default editor for short content
+          };
+          // Add renderer to show truncated text with indicator for long content
+          colDef.cellRenderer = (params: ICellRendererParams) => {
+            const value = params.value?.toString() || '';
+            if (value.length > CELL_LENGTH_THRESHOLD) {
+              return `<div class="flex items-center gap-1" title="${value}">
+                <span class="truncate">${value}</span>
+                <span class="text-xs text-gray-400 shrink-0">📝</span>
+              </div>`;
+            }
+            return value;
+          };
       }
 
       cols.push(colDef);
@@ -263,6 +292,7 @@ export function AgGridTable({ tableId, columns, onRefresh }: AgGridTableProps) {
           id: createdRow.id,
           data: createdRow.data,
           tableId: createdRow.tableId,
+          enrichingColumns: [],
           ...createdRow.data,
         },
         ...prev,

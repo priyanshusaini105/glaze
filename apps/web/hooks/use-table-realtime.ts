@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSupabaseRealtime } from '@/providers/supabase-realtime-provider';
 
 export interface TableRow {
@@ -41,60 +41,59 @@ export function useTableRealtime({
   const { isConnected, subscribe, unsubscribe } = useSupabaseRealtime();
   const [updatedRows, setUpdatedRows] = useState<Map<string, TableRow>>(new Map());
 
-  const handleUpdate = useCallback(
-    (payload: any) => {
-      const row = payload.new as TableRow;
-      console.log('[useTableRealtime] Row UPDATE event received:', { 
-        rowId: row.id, 
-        enrichingColumns: row.enrichingColumns, 
-        dataKeys: Object.keys(row.data || {}),
-        timestamp: new Date().toISOString() 
-      });
-      
-      // Update local state
-      setUpdatedRows((prev) => new Map(prev).set(row.id, row));
-      
-      // Call custom callback
-      if (onRowUpdate) {
-        onRowUpdate(row);
-      }
-    },
-    [onRowUpdate]
-  );
+  // Refs for props to avoid stale closures
+  const onRowUpdatePropRef = useRef(onRowUpdate);
+  const onRowInsertPropRef = useRef(onRowInsert);
+  const onRowDeletePropRef = useRef(onRowDelete);
 
-  const handleInsert = useCallback(
-    (payload: any) => {
-      const row = payload.new as TableRow;
-      
-      // Update local state
-      setUpdatedRows((prev) => new Map(prev).set(row.id, row));
-      
-      // Call custom callback
-      if (onRowInsert) {
-        onRowInsert(row);
-      }
-    },
-    [onRowInsert]
-  );
+  useEffect(() => {
+    onRowUpdatePropRef.current = onRowUpdate;
+    onRowInsertPropRef.current = onRowInsert;
+    onRowDeletePropRef.current = onRowDelete;
+  }, [onRowUpdate, onRowInsert, onRowDelete]);
 
-  const handleDelete = useCallback(
-    (payload: any) => {
-      const row = payload.old as { id: string };
-      
-      // Remove from local state
-      setUpdatedRows((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(row.id);
-        return newMap;
-      });
-      
-      // Call custom callback
-      if (onRowDelete) {
-        onRowDelete(row);
-      }
-    },
-    [onRowDelete]
-  );
+  // Store callbacks in refs to avoid recreating them on every render
+  // We use refs to keep the latest callbacks without causing re-renders
+  const onRowUpdateCallback = useCallback((row: TableRow) => {
+    console.log('[useTableRealtime] Row UPDATE event received:', {
+      rowId: row.id,
+      enrichingColumns: row.enrichingColumns,
+      dataKeys: Object.keys(row.data || {}),
+      timestamp: new Date().toISOString()
+    });
+
+    // Update local state
+    setUpdatedRows((prev) => new Map(prev).set(row.id, row));
+
+    // Call custom callback if provided
+    if (onRowUpdatePropRef.current) {
+      onRowUpdatePropRef.current(row);
+    }
+  }, []); // Empty deps - callback reference stays stable
+
+  const onRowInsertCallback = useCallback((row: TableRow) => {
+    // Update local state
+    setUpdatedRows((prev) => new Map(prev).set(row.id, row));
+
+    // Call custom callback if provided
+    if (onRowInsertPropRef.current) {
+      onRowInsertPropRef.current(row);
+    }
+  }, []); // Empty deps - callback reference stays stable
+
+  const onRowDeleteCallback = useCallback((row: { id: string }) => {
+    // Remove from local state
+    setUpdatedRows((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(row.id);
+      return newMap;
+    });
+
+    // Call custom callback if provided
+    if (onRowDeletePropRef.current) {
+      onRowDeletePropRef.current(row);
+    }
+  }, []); // Empty deps - callback reference stays stable
 
   useEffect(() => {
     if (!enabled || !tableId) {
@@ -109,17 +108,17 @@ export function useTableRealtime({
     subscribe(channelName, {
       table: 'rows',
       schema: 'public',
-      filter: `tableId=eq.${tableId}`,
-      onUpdate: handleUpdate,
-      onInsert: handleInsert,
-      onDelete: handleDelete,
+      filter: `"tableId"=eq.${tableId}`,
+      onUpdate: (payload: any) => onRowUpdateCallback(payload.new as TableRow),
+      onInsert: (payload: any) => onRowInsertCallback(payload.new as TableRow),
+      onDelete: (payload: any) => onRowDeleteCallback(payload.old as { id: string }),
     });
 
     return () => {
       console.log('[useTableRealtime] Cleaning up subscription:', channelName);
       unsubscribe(channelName);
     };
-  }, [tableId, enabled, subscribe, unsubscribe, handleUpdate, handleInsert, handleDelete]);
+  }, [tableId, enabled, subscribe, unsubscribe, onRowUpdateCallback, onRowInsertCallback, onRowDeleteCallback]);
 
   const clearUpdates = useCallback(() => {
     setUpdatedRows(new Map());
@@ -153,7 +152,7 @@ export function useCellEnrichmentStatus(
       if (row.id === rowId) {
         // Check if this column is being enriched
         setIsEnriching(row.enrichingColumns.includes(columnKey));
-        
+
         // Update cell data if available
         if (row.data && row.data[columnKey]) {
           setCellData(row.data[columnKey]);

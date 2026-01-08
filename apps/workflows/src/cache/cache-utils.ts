@@ -72,67 +72,79 @@ export function normalizeLinkedInUrl(url: string): string {
 }
 
 // ============ Cache Key Builders ============
+// NOTE: These functions return ONLY the unique identifier (hash).
+// The RedisCache class adds the prefix and version via buildKey().
+// Do NOT add prefixes here to avoid double-prefixing.
 
 /**
  * Build cache key for Serper search results
+ * Returns only the hash - RedisCache adds the 'serper:v1:' prefix
  */
 export function buildSerperCacheKey(query: string): string {
-    return `serper:v1:${hashKey(query.toLowerCase().trim())}`;
+    return hashKey(query.toLowerCase().trim());
 }
 
 /**
  * Build cache key for LLM extraction results
+ * Returns only the hash - RedisCache adds the 'llm:v1:' prefix
  */
 export function buildLLMCacheKey(promptHash: string): string {
-    return `llm:v1:${promptHash}`;
+    return promptHash;
 }
 
 /**
  * Build cache key for page scrape results
+ * Returns only the hash - RedisCache adds the 'scrape:v1:' prefix
  */
 export function buildScrapeCacheKey(url: string): string {
     const normalized = normalizeDomainForCache(url);
-    return `scrape:v1:${hashKey(normalized)}`;
+    return hashKey(normalized);
 }
 
 /**
  * Build cache key for company profile
+ * Returns normalized domain - caller adds prefix
  */
 export function buildCompanyProfileCacheKey(domain: string): string {
-    return `company:profile:${normalizeDomainForCache(domain)}`;
+    return `profile:${normalizeDomainForCache(domain)}`;
 }
 
 /**
  * Build cache key for company socials
+ * Returns normalized domain - caller adds prefix
  */
 export function buildCompanySocialsCacheKey(domain: string): string {
-    return `company:socials:${normalizeDomainForCache(domain)}`;
+    return `socials:${normalizeDomainForCache(domain)}`;
 }
 
 /**
  * Build cache key for company size
+ * Returns normalized domain - caller adds prefix
  */
 export function buildCompanySizeCacheKey(domain: string): string {
-    return `company:size:${normalizeDomainForCache(domain)}`;
+    return `size:${normalizeDomainForCache(domain)}`;
 }
 
 /**
  * Build cache key for person LinkedIn resolution
+ * Returns normalized LinkedIn slug
  */
 export function buildPersonLinkedInCacheKey(linkedinUrl: string): string {
-    return `person:linkedin:${normalizeLinkedInUrl(linkedinUrl)}`;
+    return `linkedin:${normalizeLinkedInUrl(linkedinUrl)}`;
 }
 
 /**
  * Build cache key for LinkedIn profile search
+ * Returns hash of name+company
  */
 export function buildLinkedInSearchCacheKey(name: string, company?: string): string {
     const hash = hashParams(name, company);
-    return `person:linkedin_search:${hash}`;
+    return `linkedin_search:${hash}`;
 }
 
 /**
  * Build cache key for generic web search
+ * Returns hash of field+context
  */
 export function buildGenericSearchCacheKey(targetField: string, context: Record<string, unknown>): string {
     const contextStr = Object.entries(context)
@@ -140,26 +152,29 @@ export function buildGenericSearchCacheKey(targetField: string, context: Record<
         .map(([k, v]) => `${k}:${v}`)
         .sort()
         .join('|');
-    return `generic:search:${hashParams(targetField, contextStr)}`;
+    return `search:${hashParams(targetField, contextStr)}`;
 }
 
 /**
  * Build cache key for email verification
+ * Returns hash of email
  */
 export function buildEmailVerificationCacheKey(email: string): string {
-    return `email:verify:${hashKey(email.toLowerCase().trim())}`;
+    return `verify:${hashKey(email.toLowerCase().trim())}`;
 }
 
 /**
  * Build cache key for person public profile
+ * Returns normalized LinkedIn slug
  */
 export function buildPersonPublicProfileCacheKey(linkedinUrl: string): string {
-    return `person:public:${normalizeLinkedInUrl(linkedinUrl)}`;
+    return `public:${normalizeLinkedInUrl(linkedinUrl)}`;
 }
 
 /**
  * Build cache key for work email guess
+ * Returns hash of name+domain
  */
 export function buildWorkEmailCacheKey(name: string, domain: string): string {
-    return `person:work_email:${hashParams(name, domain)}`;
+    return `work_email:${hashParams(name, domain)}`;
 }
