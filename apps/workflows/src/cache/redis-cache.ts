@@ -44,13 +44,44 @@ export interface CacheStats {
 
 // ============ Configuration ============
 
+/**
+ * Tiered TTL constants for different data types.
+ * Use these for consistent caching across all tools.
+ * 20 days = 1728000 seconds
+ */
+export const CACHE_TTL = {
+    // Stable data (rarely changes) - 20 days
+    COMPANY_PROFILE: 1728000,     // 20 days
+    COMPANY_SOCIALS: 1728000,     // 20 days
+    COMPANY_SIZE: 1728000,        // 20 days
+    PERSON_PROFILE: 1728000,      // 20 days
+    LINKEDIN_PROFILE: 1728000,    // 20 days
+    LINKEDIN_SEARCH: 1728000,     // 20 days
+
+    // Semi-stable - 20 days (all aligned for maximum caching)
+    SEARCH_RESULTS: 1728000,      // 20 days
+    LLM_EXTRACTION: 1728000,      // 20 days
+    PAGE_SCRAPE: 1728000,         // 20 days
+
+    // Dynamic data - 7 days
+    EMAIL_VERIFICATION: 604800,   // 7 days
+
+    // Negative cache (not found) - 1 day
+    NEGATIVE_SHORT: 86400,        // 24 hours
+    NEGATIVE_LONG: 604800,        // 7 days
+
+    // Default fallback - 20 days
+    DEFAULT: 1728000,             // 20 days
+} as const;
+
 const DEFAULT_CONFIG: CacheConfig = {
-    defaultTtlSeconds: 3600,       // 1 hour
-    negativeTtlSeconds: 30,        // 30 seconds for "not found" entries (reduced from 5 min to handle transient failures)
-    keyPrefix: 'enrich:v1',
+    defaultTtlSeconds: 1728000,    // 20 days (maximum caching)
+    negativeTtlSeconds: 86400,     // 24 hours
+    keyPrefix: 'enrich:v3',        // Version bump
     version: 1,
     maxMemoryEntries: 10000,
 };
+
 
 // ============ Redis Client ============
 

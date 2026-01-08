@@ -5,6 +5,7 @@
  * - Redis cache with TTL, negative caching, versioned keys
  * - Singleflight for request coalescing
  * - Circuit breakers for provider reliability
+ * - Cache utilities for key generation
  */
 
 // Redis Cache
@@ -15,10 +16,31 @@ export {
     buildCellCacheKey,
     buildProviderCacheKey,
     closeRedisConnection,
+    CACHE_TTL,
     type CacheEntry,
     type CacheConfig,
     type CacheStats,
 } from './redis-cache';
+
+// Cache Utilities
+export {
+    hashKey,
+    hashParams,
+    normalizeDomainForCache,
+    normalizeLinkedInUrl,
+    buildSerperCacheKey,
+    buildLLMCacheKey,
+    buildScrapeCacheKey,
+    buildCompanyProfileCacheKey,
+    buildCompanySocialsCacheKey,
+    buildCompanySizeCacheKey,
+    buildPersonLinkedInCacheKey,
+    buildLinkedInSearchCacheKey,
+    buildGenericSearchCacheKey,
+    buildEmailVerificationCacheKey,
+    buildPersonPublicProfileCacheKey,
+    buildWorkEmailCacheKey,
+} from './cache-utils';
 
 // Singleflight
 export {
@@ -42,3 +64,15 @@ export {
     type CircuitBreakerStatus,
     type ProviderMetrics,
 } from './circuit-breaker';
+
+// Cached Providers
+export {
+    cachedSerperSearch,
+    cachedLLMExtraction,
+    cachedPageScrape,
+    withCache,
+    getCachedProviderStats,
+    type SerperSearchResult,
+    type SerperResponse,
+    type CacheStatsReport,
+} from './cached-providers';

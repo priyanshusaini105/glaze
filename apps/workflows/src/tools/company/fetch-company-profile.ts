@@ -19,6 +19,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { logger } from "@trigger.dev/sdk";
 import { z } from "zod";
 import * as cheerio from "cheerio";
+import { withCache, CACHE_TTL, buildCompanyProfileCacheKey, cachedSerperSearch, cachedPageScrape } from "@/cache";
 
 // Initialize Groq via OpenAI-compatible API
 const groq = createOpenAI({
@@ -385,16 +386,9 @@ Analyze the content carefully to determine these fields.`;
 }
 
 /**
- * Main FetchCompanyProfile function
- * 
- * Executes waterfall strategy:
- * 1. Tier 1 (lightweight) - if confidence >= 0.75, return
- * 2. Tier 2 (serper) - if confidence >= 0.6, return
- * 3. Tier 3 (deep scrape) - return regardless (last resort)
+ * Internal uncached fetchCompanyProfile implementation
  */
-export async function fetchCompanyProfile(websiteUrl: string): Promise<CompanyProfile> {
-    logger.info("🏢 FetchCompanyProfile: Starting", { websiteUrl });
-
+async function fetchCompanyProfileInternal(websiteUrl: string): Promise<CompanyProfile> {
     // Normalize and extract domain
     let normalizedUrl = websiteUrl.trim();
     if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
@@ -474,6 +468,50 @@ export async function fetchCompanyProfile(websiteUrl: string): Promise<CompanyPr
         tier: 'deep_scrape',
         reason: 'All enrichment tiers failed - unable to extract company data',
     };
+}
+
+/**
+ * Main FetchCompanyProfile function (CACHED - 7 days)
+ * 
+ * Wraps the internal implementation with Redis caching.
+ * Results are cached by normalized domain for 7 days.
+ */
+export async function fetchCompanyProfile(websiteUrl: string): Promise<CompanyProfile> {
+    logger.info("🏢 FetchCompanyProfile: Starting", { websiteUrl });
+
+    // Build cache key from normalized domain
+    let normalizedUrl = websiteUrl.trim();
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`;
+    }
+    const domain = new URL(normalizedUrl).hostname;
+    const cacheKey = buildCompanyProfileCacheKey(domain);
+
+    // Use withCache for 7-day caching
+    const result = await withCache<CompanyProfile>(
+        cacheKey,
+        async () => fetchCompanyProfileInternal(websiteUrl),
+        {
+            ttl: CACHE_TTL.COMPANY_PROFILE,
+            keyPrefix: 'company',
+            logLabel: 'CompanyProfile',
+        }
+    );
+
+    // withCache returns null on cache miss with null result
+    if (!result) {
+        return {
+            description: null,
+            industry: null,
+            founded: null,
+            location: null,
+            confidence: 0,
+            tier: 'deep_scrape',
+            reason: 'Unable to fetch or cache company profile',
+        };
+    }
+
+    return result;
 }
 
 /**

@@ -20,6 +20,7 @@ import { logger } from "@trigger.dev/sdk";
 import { generateObject } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
+import { cachedSerperSearch, cachedLLMExtraction, CACHE_TTL, buildGenericSearchCacheKey, hashKey } from "@/cache";
 
 // Initialize Groq via OpenAI-compatible API
 const groq = createOpenAI({
@@ -52,9 +53,9 @@ interface SearchResult {
 // ============================================================
 
 /**
- * Perform Serper search
+ * Raw Serper search (internal)
  */
-async function serperSearch(query: string): Promise<{
+async function rawSerperSearch(query: string): Promise<{
     organic: SearchResult[];
     knowledgeGraph?: {
         title?: string;
@@ -113,6 +114,32 @@ async function serperSearch(query: string): Promise<{
     }
 }
 
+/**
+ * Cached Serper search (24-hour cache)
+ */
+async function serperSearch(query: string): Promise<{
+    organic: SearchResult[];
+    knowledgeGraph?: {
+        title?: string;
+        type?: string;
+        description?: string;
+        attributes?: Record<string, string>;
+    };
+}> {
+    const result = await cachedSerperSearch(query, rawSerperSearch);
+
+    // Convert SerperSearchResult (uses 'link') to local SearchResult (uses 'url')
+    return {
+        organic: result.organic.map(r => ({
+            title: r.title || '',
+            snippet: r.snippet || '',
+            url: r.link || '',
+            position: r.position || 0,
+        })),
+        knowledgeGraph: result.knowledgeGraph,
+    };
+}
+
 // ============================================================
 // BUILD SEARCH QUERY
 // ============================================================
@@ -156,7 +183,7 @@ function buildSearchQuery(
     const parts: string[] = [];
 
     if (name) {
-        parts.push(`"${name}"`);
+        parts.push(name);
     }
 
     if (domain && !name) {
@@ -165,7 +192,7 @@ function buildSearchQuery(
     }
 
     if (company && company !== name) {
-        parts.push(`"${company}"`);
+        parts.push(company);
     }
 
     parts.push(fieldQuery);

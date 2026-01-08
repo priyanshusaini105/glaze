@@ -16,6 +16,7 @@ import { logger } from "@trigger.dev/sdk";
 import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
 import { createFieldValue, SOURCE_TRUST_WEIGHTS } from "@repo/types";
+import { cachedSerperSearch, CACHE_TTL, buildSerperCacheKey } from "@/cache";
 
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const SERPER_API_URL = "https://google.serper.dev/search";
@@ -55,9 +56,9 @@ interface SerperSearchResponse {
 }
 
 /**
- * Perform a Serper search
+ * Raw Serper search (internal, not cached)
  */
-async function performSerperSearch(query: string): Promise<SerperSearchResponse | null> {
+async function rawSerperSearch(query: string): Promise<SerperSearchResponse | null> {
     if (!SERPER_API_KEY) {
         logger.warn("⚠️ SerperProvider: No API key configured");
         return null;
@@ -90,6 +91,29 @@ async function performSerperSearch(query: string): Promise<SerperSearchResponse 
             error: error instanceof Error ? error.message : "Unknown error",
         });
         return null;
+    }
+}
+
+/**
+ * Perform a cached Serper search (24-hour cache)
+ */
+async function performSerperSearch(query: string): Promise<SerperSearchResponse | null> {
+    try {
+        const result = await cachedSerperSearch(query, async (q) => {
+            const response = await rawSerperSearch(q);
+            return response ?? { organic: [] };
+        });
+
+        if (!result || result.organic.length === 0) {
+            return null;
+        }
+
+        return result as SerperSearchResponse;
+    } catch (error) {
+        logger.error("❌ SerperProvider: Cache error, falling back to direct", {
+            error: error instanceof Error ? error.message : "Unknown",
+        });
+        return rawSerperSearch(query);
     }
 }
 
@@ -237,13 +261,13 @@ export class SerperProvider extends BaseProvider {
                 return null;
             }
             if (input.name && input.company) {
-                query = `"${input.name}" "${input.company}" LinkedIn`;
+                query = `${input.name} ${input.company} LinkedIn`;
             } else if (input.name) {
-                query = `"${input.name}" LinkedIn`;
+                query = `${input.name} LinkedIn`;
             } else if (input.email) {
                 const namePart = input.email.split("@")[0]?.replace(/[._]/g, " ");
                 if (namePart) {
-                    query = `"${namePart}" LinkedIn`;
+                    query = `${namePart} LinkedIn`;
                 }
             }
         } else if (field === "company" || field === "socialLinks" || field === "website") {

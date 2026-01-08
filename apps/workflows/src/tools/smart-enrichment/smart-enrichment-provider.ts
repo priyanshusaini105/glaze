@@ -349,7 +349,7 @@ export class SmartEnrichmentProvider extends BaseProvider {
                 query,
                 totalResults: results.organic.length,
                 skippedDomains,
-                reason: skippedDomains.length > 0 
+                reason: skippedDomains.length > 0
                     ? "All results were social media/directory sites"
                     : "All results had invalid URLs"
             });
@@ -366,7 +366,7 @@ export class SmartEnrichmentProvider extends BaseProvider {
         input: NormalizedInput,
         companyName: string
     ): Promise<ProviderResult | null> {
-        const query = `"${companyName}" company industry`;
+        const query = `${companyName} company industry`;
         const results = await querySerperForInfo(query);
 
         const { value, confidence, source } = extractIndustry(
@@ -396,7 +396,7 @@ export class SmartEnrichmentProvider extends BaseProvider {
         input: NormalizedInput,
         companyName: string
     ): Promise<ProviderResult | null> {
-        const query = `"${companyName}" company about`;
+        const query = `${companyName} company about`;
         const results = await querySerperForInfo(query);
 
         // Try knowledge graph description first
@@ -439,7 +439,7 @@ export class SmartEnrichmentProvider extends BaseProvider {
         companyName: string
     ): Promise<ProviderResult | null> {
         // If we already have a company name, verify it
-        const query = `"${companyName}" official company`;
+        const query = `${companyName} official company`;
         const results = await querySerperForInfo(query);
 
         if (results.knowledgeGraph?.title) {

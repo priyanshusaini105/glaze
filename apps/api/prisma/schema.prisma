@@ -61,6 +61,7 @@ model Column {
   key       String   // stable identifier, e.g. "company_name"
   label     String   // display name, e.g. "Company Name"
   dataType  String   @default("text") // text, number, boolean, url, json
+  category  String?  // semantic category: "contact", "company", "financial", etc.
   order     Int      @default(0)
   config    Json?    // UI hints, validation rules, select options
   createdAt DateTime @default(now())

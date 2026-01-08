@@ -20,6 +20,7 @@ import {
   Download,
 } from 'lucide-react';
 import { TableSidebar } from '../../../../components/tables/table-sidebar';
+import { ColumnCreationSidebar } from '../../../../components/tables/column-creation-sidebar';
 import { typedApi } from '../../../../lib/typed-api-client';
 import { Table, Column, Row, DataType } from '../../../../lib/api-types';
 import { Button } from '../../../../components/ui/button';
@@ -246,26 +247,28 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     return candidate;
   }, [columns]);
 
-  const handleCreateColumn = useCallback(async () => {
-    if (!newColumnLabel.trim()) {
-      setColumnError('Please enter a column name.');
-      return;
-    }
-    setColumnError(null);
+  const handleCreateColumn = useCallback(async (data: {
+    label: string;
+    dataType: DataType;
+    category?: string;
+    description?: string;
+  }) => {
     setColumnSaving(true);
 
     try {
-      const key = generateColumnKey(newColumnLabel);
+      const key = generateColumnKey(data.label);
 
       const { data: newColumn, error } = await typedApi.createColumn(tableId, {
         key,
-        label: newColumnLabel.trim(),
-        dataType: 'text' as DataType,
+        label: data.label,
+        dataType: data.dataType,
+        category: data.category,
       });
 
       if (error || !newColumn) {
         throw new Error(error || 'Failed to create column');
       }
+      
       setColumns((prev) => [...prev, newColumn]);
       setRowData((prev) =>
         (prev || []).map((row) => ({
@@ -273,17 +276,15 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           data: { ...row.data, [newColumn.key]: row.data?.[newColumn.key] ?? '' },
         }))
       );
-      setNewColumnLabel('');
-      setNewColumnDescription('');
-      setShowColumnPopover(false);
+      
       setShowColumnSidebar(false);
     } catch (error) {
       console.error('Failed to create column:', error);
-      setColumnError(error instanceof Error ? error.message : 'Unable to add column');
+      throw error; // Re-throw to let sidebar handle the error display
     } finally {
       setColumnSaving(false);
     }
-  }, [generateColumnKey, newColumnLabel, tableId]);
+  }, [generateColumnKey, tableId]);
 
   const handleDeleteColumn = useCallback(async (columnId: string) => {
     const colToRemove = columns.find((c) => c.id === columnId);

@@ -30,6 +30,7 @@ export interface Column {
   key: string;
   label: string;
   dataType: DataType;
+  category?: string; // semantic category like "contact", "company", etc.
   order?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config?: Record<string, any>;
@@ -42,6 +43,7 @@ export interface CreateColumnRequest {
   key: string;
   label: string;
   dataType?: DataType;
+  category?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   config?: Record<string, any>;
 }

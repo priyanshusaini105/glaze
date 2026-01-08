@@ -21,6 +21,7 @@ import { logger } from "@trigger.dev/sdk";
 import { generateObject } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
+import { cachedSerperSearch, CACHE_TTL } from "@/cache";
 
 // Initialize Groq via OpenAI-compatible API
 const groq = createOpenAI({
@@ -51,9 +52,9 @@ interface SearchResult {
 // ============================================================
 
 /**
- * Perform Serper search
+ * Raw Serper search (internal)
  */
-async function serperSearch(query: string): Promise<SearchResult[]> {
+async function rawSerperSearch(query: string): Promise<SearchResult[]> {
     const apiKey = process.env.SERPER_API_KEY;
     if (!apiKey) {
         logger.warn("⚠️ FindLinkedInProfile: SERPER_API_KEY not configured");
@@ -99,6 +100,23 @@ async function serperSearch(query: string): Promise<SearchResult[]> {
         });
         return [];
     }
+}
+
+/**
+ * Cached Serper search (7-day cache)
+ */
+async function serperSearch(query: string): Promise<SearchResult[]> {
+    const result = await cachedSerperSearch(query, async (q) => {
+        const results = await rawSerperSearch(q);
+        return { organic: results.map(r => ({ ...r, link: r.url })) };
+    });
+
+    return result.organic.map(r => ({
+        title: r.title || '',
+        snippet: r.snippet || '',
+        url: r.link || '',
+        position: r.position || 0,
+    }));
 }
 
 /**
@@ -247,7 +265,7 @@ export async function findLinkedInProfile(
     }
 
     // STEP 1: Google search for LinkedIn profiles
-    const query = `"${name}" "${company}" site:linkedin.com/in`;
+    const query = `${name} ${company} site:linkedin.com/in`;
     logger.info("🔍 FindLinkedInProfile: Searching", { query });
 
     const allResults = await serperSearch(query);
@@ -260,7 +278,7 @@ export async function findLinkedInProfile(
 
     if (linkedInResults.length === 0) {
         // Try alternative query
-        const altQuery = `"${name}" "${company}" LinkedIn`;
+        const altQuery = `${name} ${company} LinkedIn`;
         const altResults = await serperSearch(altQuery);
         const altLinkedIn = filterLinkedInProfiles(altResults);
 

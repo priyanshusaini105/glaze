@@ -50,6 +50,11 @@ export async function getPrisma(): Promise<import("@prisma/client").PrismaClient
         prismaInstance = new PrismaClient({
             log: ['error'],  // Minimal logging for performance
             adapter,
+            // Increase transaction timeouts for remote databases (Upstash/Neon)
+            transactionOptions: {
+                maxWait: 10000,  // 10s max wait for transaction to start
+                timeout: 30000,  // 30s max transaction duration
+            },
         });
     }
     return prismaInstance;
