@@ -15,17 +15,19 @@
   "devDependencies": {
     "@trigger.dev/build": "^4.3.1",
     "@types/pg": "^8.16.0",
+    "@types/node": "^22.0.0",
     "prisma": "^7.2.0",
+    "vitest": "^4.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   },
   "name": "workflows",
   "scripts": {
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --no Emit",
     "deploy": "trigger.dev deploy",
     "dev": "trigger.dev dev --skip-update-check",
     "postinstall": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "test:hello": "tsx src/test-hello-world.ts"
   },
   "type": "module",

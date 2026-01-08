@@ -28,25 +28,13 @@ import { getPrisma } from "@/db";
 import type { Prisma } from "@prisma/client";
 import { classifyInput } from "@/classifier/input-classifier";
 import { generateWorkflow } from "@/classifier/super-agent";
-import { getExecutableToolById } from "@/classifier/tool-executor";
+import { getToolById } from "@/classifier/tool-registry";
 import type { NormalizedInput } from "@/types/enrichment";
+import {
+  mapColumnKeyToFieldMapping,
+  normalizeExistingDataToInput,
+} from "@/utils/normalized-input";
 
-/**
- * Map column keys to enrichment field keys
- */
-function mapColumnKeyToFieldMapping(columnKey: string): string {
-  const mapping: Record<string, string> = {
-    company_name: 'company',
-    company_domain: 'domain',
-    company_website: 'website',
-    person_name: 'name',
-    person_email: 'email',
-    linkedin_url: 'linkedinUrl',
-    // Add more mappings as needed
-  };
-  
-  return mapping[columnKey] || columnKey;
-}
 
 /**
  * Enrich a single cell using the classification system and tools
@@ -62,16 +50,11 @@ async function enrichCellWithProviders(payload: {
   
   try {
     // 1. Create normalized input from existing data
-    const normalizedInput: NormalizedInput = {
+    const normalizedInput: NormalizedInput = normalizeExistingDataToInput({
       rowId,
       tableId,
-      name: existingData.name as string | undefined,
-      domain: existingData.domain as string | undefined,
-      linkedinUrl: existingData.linkedinUrl as string | undefined,
-      email: existingData.email as string | undefined,
-      company: existingData.company as string | undefined,
-      raw: existingData,
-    };
+      existingData,
+    });
 
     // 2. Classify the input to determine strategy
     const classification = classifyInput(normalizedInput);
@@ -133,8 +116,8 @@ async function enrichCellWithProviders(payload: {
       }
       
       // Get the tool
-      const tool = getExecutableToolById(step.toolId);
-      if (!tool) {
+      const toolDef = getToolById(step.toolId);
+      if (!toolDef) {
         logger.warn(`⚠️ Tool not found: ${step.toolId}`);
         continue;
       }
@@ -146,8 +129,10 @@ async function enrichCellWithProviders(payload: {
       });
       
       try {
-        // Execute the tool
-        const toolResult = await tool.execute(normalizedInput, enrichedData);
+        // TODO: Implement actual tool execution
+        // For now, skip execution as the tool executor is not implemented
+        const toolResult: Record<string, unknown> = {};
+        // const toolResult = await tool.execute(normalizedInput, enrichedData);
         
         // Update enriched data with results
         enrichedData = { ...enrichedData, ...toolResult };
@@ -187,7 +172,9 @@ async function enrichCellWithProviders(payload: {
                   fallbackToolId: step.fallbackToolId,
                 });
                 
-                const fallbackResult = await fallbackTool.execute(normalizedInput, enrichedData);
+                // TODO: Implement fallback tool execution
+                const fallbackResult: Record<string, unknown> = {};
+                // const fallbackResult = await fallbackTool.execute(normalizedInput, enrichedData);
                 enrichedData = { ...enrichedData, ...fallbackResult };
                 lastSource = fallbackTool.name;
               } catch (fallbackError) {

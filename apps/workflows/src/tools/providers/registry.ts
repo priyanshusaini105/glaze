@@ -42,10 +42,10 @@ export { openCorporatesProvider } from './opencorporates-provider';
 export { prospeoProvider } from './prospeo-provider';
 
 // Legacy helper functions
-import { getRegistry } from '@/core/registry';
+import { registry } from '@/core/registry';
 
 /**
- * @deprecated Use getRegistry().get(name) instead
+ * @deprecated Use registry.get(name) instead
  */
 export function getProviderByName(name: string) {
   return getRegistry().get(name);
