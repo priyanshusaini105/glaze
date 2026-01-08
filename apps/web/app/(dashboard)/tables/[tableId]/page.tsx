@@ -24,6 +24,7 @@ import { typedApi } from '../../../../lib/typed-api-client';
 import { Table, Column, Row, DataType } from '../../../../lib/api-types';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/ui/popover';
 import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
 import { useRealtimeEnrichment } from '../../../../hooks/use-realtime-enrichment';
 
@@ -71,14 +72,15 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [rowData, setRowData] = useState<Row[]>([]);
 
   // Column management
-  const [showAddColumnPanel, setShowAddColumnPanel] = useState(false);
+  const [showColumnPopover, setShowColumnPopover] = useState(false);
+  const [showColumnSidebar, setShowColumnSidebar] = useState(false);
   const [newColumnLabel, setNewColumnLabel] = useState('');
-  const [newColumnType, setNewColumnType] = useState<'ai-agent' | 'text' | 'url'>('ai-agent');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [browsingEnabled, setBrowsingEnabled] = useState(true);
+  const [newColumnDescription, setNewColumnDescription] = useState('');
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [columnSaving, setColumnSaving] = useState(false);
   const [columnDeletingId, setColumnDeletingId] = useState<string | null>(null);
   const [columnError, setColumnError] = useState<string | null>(null);
+  const descriptionDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Selection states
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
@@ -189,10 +191,41 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   }, [tableId, loadData]);
 
   useEffect(() => {
-    if (showAddColumnPanel) {
-      newColumnInputRef.current?.focus();
+    if (showColumnPopover || showColumnSidebar) {
+      setTimeout(() => newColumnInputRef.current?.focus(), 50);
     }
-  }, [showAddColumnPanel]);
+  }, [showColumnPopover, showColumnSidebar]);
+
+  // AI title generation from description
+  const generateTitleFromDescription = useCallback(async (description: string) => {
+    if (!description.trim() || description.length < 10) return;
+    
+    setIsGeneratingTitle(true);
+    try {
+      // Simulate AI call - replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const words = description.trim().split(' ').slice(0, 3);
+      const title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      setNewColumnLabel(title);
+    } catch (error) {
+      console.error('Failed to generate title:', error);
+    } finally {
+      setIsGeneratingTitle(false);
+    }
+  }, []);
+
+  const handleDescriptionChange = useCallback((value: string) => {
+    setNewColumnDescription(value);
+    
+    // Debounce AI title generation
+    if (descriptionDebounceRef.current) {
+      clearTimeout(descriptionDebounceRef.current);
+    }
+    
+    descriptionDebounceRef.current = setTimeout(() => {
+      generateTitleFromDescription(value);
+    }, 800);
+  }, [generateTitleFromDescription]);
 
   const generateColumnKey = useCallback((label: string) => {
     const base = label
@@ -223,12 +256,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
     try {
       const key = generateColumnKey(newColumnLabel);
-      const dataType = newColumnType === 'ai-agent' ? 'text' : newColumnType;
 
       const { data: newColumn, error } = await typedApi.createColumn(tableId, {
         key,
         label: newColumnLabel.trim(),
-        dataType: dataType as DataType,
+        dataType: 'text' as DataType,
       });
 
       if (error || !newColumn) {
@@ -242,17 +274,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         }))
       );
       setNewColumnLabel('');
-      setNewColumnType('ai-agent');
-      setAiPrompt('');
-      setBrowsingEnabled(true);
-      setShowAddColumnPanel(false);
+      setNewColumnDescription('');
+      setShowColumnPopover(false);
+      setShowColumnSidebar(false);
     } catch (error) {
       console.error('Failed to create column:', error);
       setColumnError(error instanceof Error ? error.message : 'Unable to add column');
     } finally {
       setColumnSaving(false);
     }
-  }, [generateColumnKey, newColumnLabel, newColumnType, tableId]);
+  }, [generateColumnKey, newColumnLabel, tableId]);
 
   const handleDeleteColumn = useCallback(async (columnId: string) => {
     const colToRemove = columns.find((c) => c.id === columnId);
@@ -875,7 +906,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               size="sm"
               className="gap-2 bg-cyan-gradient hover:opacity-90 text-white shadow-sm shadow-cyan-500/20"
               onClick={() => {
-                setShowAddColumnPanel(true);
+                setShowColumnSidebar(true);
                 setColumnError(null);
               }}
             >
@@ -939,16 +970,115 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
               })}
 
               {/* New Column Header */}
-              <div
-                className="px-4 flex items-center cursor-pointer hover:bg-slate-50 transition-colors h-full text-slate-500 hover:text-slate-900 gap-2 shrink-0 min-w-37.5"
-                onClick={() => {
-                  setShowAddColumnPanel(true);
-                  setColumnError(null);
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-xs font-medium">New column</span>
-              </div>
+              <Popover open={showColumnPopover} onOpenChange={setShowColumnPopover}>
+                <PopoverTrigger asChild>
+                  <div
+                    className="px-4 flex items-center cursor-pointer hover:bg-slate-50 transition-colors h-full text-slate-500 hover:text-slate-900 gap-2 shrink-0 min-w-37.5"
+                    onClick={() => setColumnError(null)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-xs font-medium">New column</span>
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 p-0 border-slate-200 shadow-xl" align="start" sideOffset={8}>
+                  <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-lg">
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-cyan-gradient flex items-center justify-center">
+                          <Plus className="w-4 h-4 text-white" />
+                        </div>
+                        <h4 className="font-semibold text-slate-900">New Column</h4>
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="px-6 py-5 space-y-4">
+                      {/* Description First */}
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                          What should this column do?
+                        </label>
+                        <textarea
+                          ref={newColumnInputRef}
+                          value={newColumnDescription}
+                          onChange={(e) => handleDescriptionChange(e.target.value)}
+                          placeholder="e.g., Extract company names from website URLs"
+                          rows={3}
+                          className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 resize-none transition-all"
+                        />
+                        <p className="text-xs text-slate-500">
+                          AI will suggest a column name based on your description
+                        </p>
+                      </div>
+
+                      {/* Column Name (Auto-generated) */}
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                          Column Name
+                          {isGeneratingTitle && (
+                            <Loader2 className="w-3 h-3 animate-spin text-cyan-500" />
+                          )}
+                        </label>
+                        <Input
+                          value={newColumnLabel}
+                          onChange={(e) => setNewColumnLabel(e.target.value)}
+                          placeholder="Auto-generated or type your own"
+                          className="bg-white border-slate-200 focus:border-cyan-400 focus:ring-cyan-100"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleCreateColumn();
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {columnError && (
+                        <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">
+                          {columnError}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowColumnPopover(false);
+                          setNewColumnLabel('');
+                          setNewColumnDescription('');
+                          setColumnError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-cyan-gradient hover:opacity-90 text-white shadow-md shadow-cyan-500/20"
+                        onClick={handleCreateColumn}
+                        disabled={columnSaving || !newColumnLabel.trim()}
+                      >
+                        {columnSaving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 mr-1.5" />
+                            Create Column
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Rows */}
@@ -1178,198 +1308,151 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           )}
         </div>
 
-        {/* New Column Side Panel */}
-        {showAddColumnPanel && (
-          <div className="fixed inset-y-0 right-0 w-90 bg-white border-l border-slate-200 shadow-2xl shadow-slate-900/10 z-50 flex flex-col">
-            {/* Panel Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
-              <h3 className="font-semibold text-slate-900">New Column</h3>
+        {/* Right Sidebar for Add Column (from navbar) */}
+        {showColumnSidebar && (
+          <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-slate-200 shadow-2xl shadow-slate-900/10 z-50 flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Sidebar Header */}
+            <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-6 py-5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white text-lg">New Column</h3>
+                  <p className="text-cyan-100 text-xs">AI-powered column creation</p>
+                </div>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 rounded-md hover:bg-slate-100"
+                className="h-8 w-8 p-0 rounded-md hover:bg-white/20 text-white"
                 onClick={() => {
-                  setShowAddColumnPanel(false);
+                  setShowColumnSidebar(false);
                   setNewColumnLabel('');
-                  setNewColumnType('ai-agent');
-                  setAiPrompt('');
-                  setBrowsingEnabled(true);
+                  setNewColumnDescription('');
                   setColumnError(null);
                 }}
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
 
-            {/* Panel Content */}
-            <div className="flex-1 overflow-auto px-6 py-6 space-y-7">
-              {/* Column Name */}
+            {/* Sidebar Content */}
+            <div className="flex-1 overflow-auto px-6 py-6 space-y-6">
+              {/* Description First */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Sparkles className="w-4 h-4 text-cyan-500" />
+                  What should this column do?
+                </label>
+                <div className="relative">
+                  <textarea
+                    ref={newColumnInputRef}
+                    value={newColumnDescription}
+                    onChange={(e) => handleDescriptionChange(e.target.value)}
+                    placeholder="Describe what you want this column to contain...&#10;&#10;Examples:&#10;• Extract company names from URLs&#10;• Find the CEO of each company&#10;• Summarize the main product offering"
+                    rows={6}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-100 resize-none transition-all"
+                  />
+                  {isGeneratingTitle && (
+                    <div className="absolute right-3 top-3 flex items-center gap-2 text-xs text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Generating title...
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+                  <p>AI will automatically suggest a column name based on your description. You can edit it below.</p>
+                </div>
+              </div>
+
+              {/* Column Name (Auto-generated) */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   Column Name
+                  {newColumnLabel && !isGeneratingTitle && (
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Auto-generated</span>
+                  )}
                 </label>
                 <Input
-                  ref={newColumnInputRef}
                   value={newColumnLabel}
                   onChange={(e) => setNewColumnLabel(e.target.value)}
-                  placeholder="AI Summary"
-                  className="bg-slate-50 border-slate-200"
+                  placeholder="Enter column name or wait for AI suggestion"
+                  className="bg-slate-50 border-slate-200 h-11 focus:border-cyan-400 focus:ring-cyan-100"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.metaKey) handleCreateColumn();
                   }}
                 />
+                <p className="text-xs text-slate-500">
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-700">⌘ + Enter</kbd> to create
+                </p>
               </div>
-
-              {/* Type Selection */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
-                  Type
-                </label>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setNewColumnType('ai-agent')}
-                    className={cn(
-                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
-                      newColumnType === 'ai-agent'
-                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    )}
-                  >
-                    <Sparkles className={cn(
-                      'w-7 h-7',
-                      newColumnType === 'ai-agent' ? 'text-cyan-primary' : 'text-slate-400'
-                    )} />
-                    <span className={cn(
-                      'text-xs font-semibold',
-                      newColumnType === 'ai-agent' ? 'text-cyan-primary' : 'text-slate-600'
-                    )}>
-                      AI Agent
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setNewColumnType('text')}
-                    className={cn(
-                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
-                      newColumnType === 'text'
-                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    )}
-                  >
-                    <svg className={cn('w-7 h-7', newColumnType === 'text' ? 'text-cyan-primary' : 'text-slate-400')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                    </svg>
-                    <span className={cn(
-                      'text-xs font-semibold',
-                      newColumnType === 'text' ? 'text-cyan-primary' : 'text-slate-600'
-                    )}>
-                      Text
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setNewColumnType('url')}
-                    className={cn(
-                      'flex-1 flex flex-col items-center gap-3 px-6 py-3 rounded-xl border-2 transition-all',
-                      newColumnType === 'url'
-                        ? 'bg-cyan-soft border-cyan-primary shadow-sm shadow-cyan-500/10'
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    )}
-                  >
-                    <LinkIcon className={cn(
-                      'w-7 h-7',
-                      newColumnType === 'url' ? 'text-cyan-primary' : 'text-slate-400'
-                    )} />
-                    <span className={cn(
-                      'text-xs font-semibold',
-                      newColumnType === 'url' ? 'text-cyan-primary' : 'text-slate-600'
-                    )}>
-                      URL
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* AI Prompt Instructions (only for AI Agent) */}
-              {newColumnType === 'ai-agent' && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest">
-                      Prompt Instructions
-                    </label>
-                    <span className="bg-cyan-primary/10 border border-cyan-primary/20 text-cyan-primary text-xs font-medium px-2.5 py-0.5 rounded-full">
-                      GPT-4o
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <textarea
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="Describe what the agent should do..."
-                      className="w-full h-40 px-3 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none font-mono"
-                    />
-                    <button className="absolute right-3 bottom-3 opacity-50 hover:opacity-100 transition-opacity p-1.5 hover:bg-white rounded-md">
-                      <Sparkles className="w-4.5 h-4.5 text-slate-400" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Use <code className="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-700 font-mono">@ColumnName</code> to reference data.
-                  </p>
-                </div>
-              )}
-
-              {/* Browsing Enabled (only for AI Agent) */}
-              {newColumnType === 'ai-agent' && (
-                <div className="border-t border-slate-200 pt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-900">Browsing Enabled</span>
-                    <button
-                      onClick={() => setBrowsingEnabled(!browsingEnabled)}
-                      className={cn(
-                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors border-2 border-transparent',
-                        browsingEnabled ? 'bg-cyan-primary' : 'bg-slate-300'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                          browsingEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                        )}
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {columnError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-lg">
-                  {columnError}
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-3 rounded-lg flex items-start gap-2">
+                  <X className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{columnError}</span>
                 </div>
               )}
+
+              {/* Help Section */}
+              <div className="mt-8 p-4 bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-xl">
+                <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-slate-400" />
+                  Tips for better results
+                </h4>
+                <ul className="space-y-1.5 text-xs text-slate-600">
+                  <li className="flex items-start gap-2">
+                    <span className="text-cyan-500 mt-0.5">•</span>
+                    <span>Be specific about what data you want to extract</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-cyan-500 mt-0.5">•</span>
+                    <span>Mention the source column if you're referencing other data</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-cyan-500 mt-0.5">•</span>
+                    <span>AI works best with clear, action-oriented descriptions</span>
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            {/* Panel Footer */}
-            <div className="backdrop-blur-sm bg-slate-50/50 border-t border-slate-200 px-6 py-6 shrink-0">
+            {/* Sidebar Footer */}
+            <div className="backdrop-blur-sm bg-white border-t border-slate-200 px-6 py-5 shrink-0 space-y-3">
               <Button
                 onClick={handleCreateColumn}
-                disabled={columnSaving}
-                className="w-full h-11 bg-cyan-gradient hover:opacity-90 text-white shadow-lg shadow-cyan-500/20 gap-2"
+                disabled={columnSaving || !newColumnLabel.trim()}
+                className="w-full h-12 bg-cyan-gradient hover:opacity-90 text-white shadow-lg shadow-cyan-500/20 gap-2 text-base font-medium"
               >
                 {columnSaving ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Creating Column...
                   </>
                 ) : (
                   <>
-                    Create & Run
-                    <ChevronDown className="w-4 h-4 -rotate-90" />
+                    <Plus className="w-5 h-5" />
+                    Create Column
                   </>
                 )}
               </Button>
+              <button
+                onClick={() => {
+                  setShowColumnSidebar(false);
+                  setNewColumnLabel('');
+                  setNewColumnDescription('');
+                  setColumnError(null);
+                }}
+                className="w-full text-sm text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
+
       </div>
     </>
   );

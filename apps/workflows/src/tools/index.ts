@@ -53,6 +53,10 @@ export type { GuessWorkEmailResult } from "./person/guess-work-email";
 export { fetchPersonPublicProfile, fetchPersonPublicProfileProvider, FetchPersonPublicProfileProvider } from "./person/fetch-person-public-profile";
 export type { FetchPersonPublicProfileResult, SocialLinks } from "./person/fetch-person-public-profile";
 
+// Generic Fallback Tools
+export { genericWebSearch, genericWebSearchProvider, GenericWebSearchProvider } from "./generic/generic-web-search";
+export type { GenericWebSearchResult } from "./generic/generic-web-search";
+
 // Provenance Tools
 export {
     recordProvenance,
