@@ -18,6 +18,11 @@
  */
 
 import { logger } from "@trigger.dev/sdk";
+import {
+    withCache,
+    CACHE_TTL,
+    buildWorkEmailCacheKey,
+} from "@/cache";
 
 // ============================================================
 // TYPES
@@ -392,9 +397,9 @@ function normalizeVerificationStatus(
 // ============================================================
 
 /**
- * Find work email using Hunter → Prospeo waterfall strategy
+ * Internal uncached implementation of email discovery
  */
-export async function guessWorkEmail(
+async function guessWorkEmailInternal(
     name: string,
     companyDomain: string
 ): Promise<GuessWorkEmailResult> {
@@ -507,6 +512,33 @@ export async function guessWorkEmail(
         lastName: lastName || undefined,
         reason: "No email found via Hunter or Prospeo",
     };
+}
+
+/**
+ * Find work email using Hunter → Prospeo waterfall strategy (CACHED)
+ */
+export async function guessWorkEmail(
+    name: string,
+    companyDomain: string
+): Promise<GuessWorkEmailResult> {
+    const cacheKey = buildWorkEmailCacheKey(name, companyDomain);
+
+    const result = await withCache<GuessWorkEmailResult>(
+        cacheKey,
+        async () => guessWorkEmailInternal(name, companyDomain),
+        {
+            ttl: CACHE_TTL.EMAIL_VERIFICATION, // 7 days
+            keyPrefix: 'person',
+            logLabel: 'GuessWorkEmail',
+        }
+    );
+
+    if (!result) {
+        logger.warn("⚠️ GuessWorkEmail: Cache returned null");
+        return guessWorkEmailInternal(name, companyDomain);
+    }
+
+    return result;
 }
 
 // ============================================================

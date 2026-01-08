@@ -27,11 +27,11 @@ model Column {
   key                 String
   label               String
   dataType            String               @default("text")
-  category            String?
   order               Int                  @default(0)
   config              Json?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  category            String?
   cellEnrichmentTasks CellEnrichmentTask[]
   table               Table                @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
@@ -54,6 +54,7 @@ model Row {
   failedTasks         Int                  @default(0)
   runningTasks        Int                  @default(0)
   totalTasks          Int                  @default(0)
+  enrichingColumns    String[]             @default([]) // Track which columns are currently enriching for realtime updates
   cellEnrichmentTasks CellEnrichmentTask[]
   table               Table                @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
@@ -64,10 +65,10 @@ model Row {
 }
 
 /// *
-///  * EnrichmentJob - Tracks a batch enrichment request
-///  * 
-///  * Created when user triggers enrichment on cells/rows/columns.
-///  * Contains metadata about the batch and links to individual cell tasks.
+/// * EnrichmentJob - Tracks a batch enrichment request
+/// * 
+/// * Created when user triggers enrichment on cells/rows/columns.
+/// * Contains metadata about the batch and links to individual cell tasks.
 model EnrichmentJob {
   id          String               @id @default(uuid())
   tableId     String
@@ -90,10 +91,10 @@ model EnrichmentJob {
 }
 
 /// *
-///  * CellEnrichmentTask - The atomic unit of enrichment
-///  * 
-///  * Each task represents one (rowId, columnId) enrichment operation.
-///  * Workers pick up queued tasks and execute them independently.
+/// * CellEnrichmentTask - The atomic unit of enrichment
+/// * 
+/// * Each task represents one (rowId, columnId) enrichment operation.
+/// * Workers pick up queued tasks and execute them independently.
 model CellEnrichmentTask {
   id          String         @id @default(uuid())
   tableId     String

@@ -239,18 +239,32 @@ export class RedisCache<T = unknown> {
     async get(key: string): Promise<{ value: T | null; isNegative: boolean; hit: boolean }> {
         const fullKey = this.buildKey(key);
 
+        logger.info('🔍 Cache GET attempt', {
+            inputKey: key,
+            fullKey,
+            keyPrefix: this.config.keyPrefix,
+            version: this.config.version
+        });
+
         try {
             const redis = await getRedisClient();
 
             if (redis && redisAvailable) {
                 this.stats.redisConnected = true;
+                logger.info('📡 Redis connected, fetching key', { fullKey });
+
                 const data = await redis.get(fullKey);
 
                 if (data) {
+                    logger.info('✅ Cache data found in Redis', { fullKey, dataLength: data.length });
                     const entry: CacheEntry<T> = JSON.parse(data);
 
                     // Check version
                     if (entry.version !== this.config.version) {
+                        logger.warn('⚠️ Cache version mismatch', {
+                            entryVersion: entry.version,
+                            configVersion: this.config.version
+                        });
                         await redis.del(fullKey);
                         this.stats.misses++;
                         return { value: null, isNegative: false, hit: false };
@@ -262,10 +276,17 @@ export class RedisCache<T = unknown> {
                     }
 
                     this.stats.hits++;
+                    logger.info('🎯 Cache HIT from Redis', { fullKey });
                     return { value: entry.value, isNegative: false, hit: true };
+                } else {
+                    logger.info('❌ Cache MISS - key not found in Redis', { fullKey });
                 }
             } else {
                 // Use memory fallback
+                logger.warn('⚠️ Redis not available, using memory fallback', {
+                    redisAvailable,
+                    hasClient: !!redis
+                });
                 this.stats.redisConnected = false;
                 const entry = this.memoryFallback.get(fullKey);
 
@@ -282,6 +303,7 @@ export class RedisCache<T = unknown> {
             this.stats.errors++;
             logger.error('Cache get error', {
                 key,
+                fullKey,
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
 

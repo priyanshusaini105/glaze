@@ -1,0 +1,169 @@
+'use client';
+
+import { useEffect, useCallback, useState } from 'react';
+import { useSupabaseRealtime } from '@/providers/supabase-realtime-provider';
+
+export interface TableRow {
+  id: string;
+  tableId: string;
+  data: Record<string, any>;
+  status: string;
+  enrichingColumns: string[];
+  updatedAt: string;
+  [key: string]: any;
+}
+
+export interface UseTableRealtimeOptions {
+  tableId: string;
+  enabled?: boolean;
+  onRowUpdate?: (row: TableRow) => void;
+  onRowInsert?: (row: TableRow) => void;
+  onRowDelete?: (row: { id: string }) => void;
+}
+
+export interface UseTableRealtimeReturn {
+  isConnected: boolean;
+  updatedRows: Map<string, TableRow>;
+  clearUpdates: () => void;
+}
+
+/**
+ * Hook to subscribe to real-time updates for a specific table's rows
+ * Automatically shows loaders and broadcasts data changes across all browser tabs
+ */
+export function useTableRealtime({
+  tableId,
+  enabled = true,
+  onRowUpdate,
+  onRowInsert,
+  onRowDelete,
+}: UseTableRealtimeOptions): UseTableRealtimeReturn {
+  const { isConnected, subscribe, unsubscribe } = useSupabaseRealtime();
+  const [updatedRows, setUpdatedRows] = useState<Map<string, TableRow>>(new Map());
+
+  const handleUpdate = useCallback(
+    (payload: any) => {
+      const row = payload.new as TableRow;
+      console.log('[useTableRealtime] Row UPDATE event received:', { 
+        rowId: row.id, 
+        enrichingColumns: row.enrichingColumns, 
+        dataKeys: Object.keys(row.data || {}),
+        timestamp: new Date().toISOString() 
+      });
+      
+      // Update local state
+      setUpdatedRows((prev) => new Map(prev).set(row.id, row));
+      
+      // Call custom callback
+      if (onRowUpdate) {
+        onRowUpdate(row);
+      }
+    },
+    [onRowUpdate]
+  );
+
+  const handleInsert = useCallback(
+    (payload: any) => {
+      const row = payload.new as TableRow;
+      
+      // Update local state
+      setUpdatedRows((prev) => new Map(prev).set(row.id, row));
+      
+      // Call custom callback
+      if (onRowInsert) {
+        onRowInsert(row);
+      }
+    },
+    [onRowInsert]
+  );
+
+  const handleDelete = useCallback(
+    (payload: any) => {
+      const row = payload.old as { id: string };
+      
+      // Remove from local state
+      setUpdatedRows((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(row.id);
+        return newMap;
+      });
+      
+      // Call custom callback
+      if (onRowDelete) {
+        onRowDelete(row);
+      }
+    },
+    [onRowDelete]
+  );
+
+  useEffect(() => {
+    if (!enabled || !tableId) {
+      console.log('[useTableRealtime] Subscription disabled:', { enabled, tableId });
+      return;
+    }
+
+    const channelName = `table_${tableId}_rows`;
+    console.log('[useTableRealtime] Setting up subscription:', { channelName, tableId });
+
+    // Subscribe to row changes for this specific table
+    subscribe(channelName, {
+      table: 'rows',
+      schema: 'public',
+      filter: `tableId=eq.${tableId}`,
+      onUpdate: handleUpdate,
+      onInsert: handleInsert,
+      onDelete: handleDelete,
+    });
+
+    return () => {
+      console.log('[useTableRealtime] Cleaning up subscription:', channelName);
+      unsubscribe(channelName);
+    };
+  }, [tableId, enabled, subscribe, unsubscribe, handleUpdate, handleInsert, handleDelete]);
+
+  const clearUpdates = useCallback(() => {
+    setUpdatedRows(new Map());
+  }, []);
+
+  return {
+    isConnected,
+    updatedRows,
+    clearUpdates,
+  };
+}
+
+/**
+ * Helper hook to track enrichment status for specific cells
+ */
+export function useCellEnrichmentStatus(
+  tableId: string,
+  rowId: string,
+  columnKey: string
+): {
+  isEnriching: boolean;
+  cellData: any;
+} {
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [cellData, setCellData] = useState<any>(null);
+
+  const { updatedRows } = useTableRealtime({
+    tableId,
+    enabled: true,
+    onRowUpdate: (row) => {
+      if (row.id === rowId) {
+        // Check if this column is being enriched
+        setIsEnriching(row.enrichingColumns.includes(columnKey));
+        
+        // Update cell data if available
+        if (row.data && row.data[columnKey]) {
+          setCellData(row.data[columnKey]);
+        }
+      }
+    },
+  });
+
+  return {
+    isEnriching,
+    cellData,
+  };
+}

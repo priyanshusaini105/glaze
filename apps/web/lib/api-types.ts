@@ -5,6 +5,7 @@
 
 // ============= Tables =============
 export interface Table {
+  columns: any;
   id: string;
   name: string;
   description?: string;
@@ -68,6 +69,7 @@ export interface UpdateColumnRequest {
 
 // ============= Rows =============
 export interface Row {
+  enrichingColumns: any;
   id: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>;

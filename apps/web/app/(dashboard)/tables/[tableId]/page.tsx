@@ -28,6 +28,7 @@ import { Input } from '../../../../components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/ui/popover';
 import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
 import { useRealtimeEnrichment } from '../../../../hooks/use-realtime-enrichment';
+import { useTableRealtime } from '../../../../hooks/use-table-realtime';
 
 
 /* --- Helper Components --- */
@@ -93,7 +94,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const [isDraggingRows, setIsDraggingRows] = useState(false);
   const rowSelectionStartRef = useRef<number | null>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
-  const newColumnInputRef = useRef<HTMLInputElement>(null);
+  const newColumnInputRef = useRef<HTMLTextAreaElement>(null);
+  const newColumnLabelInputRef = useRef<HTMLInputElement>(null);
+  const newColumnLabelRef = useRef<string>('');
+  const newColumnDescriptionRef = useRef<string>('');
+
+  // Update refs when state changes
+  useEffect(() => {
+    newColumnLabelRef.current = newColumnLabel;
+    newColumnDescriptionRef.current = newColumnDescription;
+  }, [newColumnLabel, newColumnDescription]);
 
   // Modal states (currently used for enrichment actions)
   const [showEnrichModal, setShowEnrichModal] = useState(false);
@@ -102,6 +112,32 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   // Enrichment state
   const [isEnriching, setIsEnriching] = useState(false);
   const [enrichingCells, setEnrichingCells] = useState<Set<string>>(new Set()); // Track cells being enriched (format: "rowId:columnKey")
+
+  // Supabase Realtime subscription for cell-level updates
+  const { updatedRows, isConnected: isRealtimeConnected } = useTableRealtime({
+    tableId,
+    enabled: !!tableId,
+    onRowUpdate: (row) => {
+      console.log('[Realtime] Row update received:', { rowId: row.id, enrichingColumns: row.enrichingColumns, data: row.data });
+      // Update local row data with realtime changes - merge all fields
+      setRowData((prev) => {
+        const updated = prev.map((r) => {
+          if (r.id === row.id) {
+            return {
+              ...r,
+              ...row,
+              data: row.data,
+              enrichingColumns: row.enrichingColumns || [],
+              updatedAt: row.updatedAt,
+            };
+          }
+          return r;
+        });
+        console.log('[Realtime] Updated rowData state:', updated.find(r => r.id === row.id));
+        return updated;
+      });
+    },
+  });
 
   // Delete rows state
   const [isDeletingRows, setIsDeletingRows] = useState(false);
@@ -220,7 +256,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       const result = await response.json();
       if (result.success && result.analysis) {
         // Use the AI-suggested label directly
-        setNewColumnLabel(result.analysis.suggestedLabel);
+        const suggestedLabel = result.analysis.suggestedLabel;
+        setNewColumnLabel(suggestedLabel);
+        newColumnLabelRef.current = suggestedLabel; // Update ref immediately
+        // Clear any previous errors when AI suggests a label
+        setColumnError(null);
       }
     } catch (error) {
       console.error('Failed to generate title:', error);
@@ -228,6 +268,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       const words = description.trim().split(' ').slice(0, 3);
       const title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       setNewColumnLabel(title);
+      newColumnLabelRef.current = title; // Update ref immediately
+      // Clear any previous errors when fallback title is set
+      setColumnError(null);
     } finally {
       setIsGeneratingTitle(false);
     }
@@ -265,22 +308,48 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     return candidate;
   }, [columns]);
 
-  const handleCreateColumn = useCallback(async (data: {
+  const handleCreateColumn = useCallback(async (data?: {
     label: string;
     dataType: DataType;
     category?: string;
     description?: string;
   }) => {
+    const columnData = data || {
+      label: newColumnLabel.trim(),
+      dataType: 'text' as DataType,
+      description: newColumnDescription || undefined,
+    };
+
+    console.log('[handleCreateColumn] Column data:', { 
+      label: columnData.label, 
+      hasLabel: !!columnData.label 
+    });
+
+    if (!columnData.label || !columnData.label.trim()) {
+      setColumnError('Please enter a column name.');
+      return;
+    }
+
+    // Check if a column with this label already exists
+    const existingColumn = columns.find(
+      (col) => col.label.toLowerCase() === columnData.label.trim().toLowerCase()
+    );
+    if (existingColumn) {
+      setColumnError(`A column named "${columnData.label.trim()}" already exists.`);
+      return;
+    }
+
     setColumnSaving(true);
+    setColumnError(null);
 
     try {
-      const key = generateColumnKey(data.label);
+      const key = generateColumnKey(columnData.label);
 
       const { data: newColumn, error } = await typedApi.createColumn(tableId, {
         key,
-        label: data.label,
-        dataType: data.dataType,
-        category: data.category,
+        label: columnData.label,
+        dataType: columnData.dataType,
+        category: columnData.category,
       });
 
       if (error || !newColumn) {
@@ -296,37 +365,19 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       );
       
       setShowColumnSidebar(false);
+      setShowColumnPopover(false);
+      setNewColumnLabel('');
+      setNewColumnDescription('');
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unable to add column';
+      setColumnError(errorMessage);
       console.error('Failed to create column:', error);
       throw error; // Re-throw to let sidebar handle the error display
     } finally {
       setColumnSaving(false);
     }
-  }, [generateColumnKey, tableId]);
+  }, [generateColumnKey, tableId, columns, newColumnLabel, newColumnDescription]);
 
-  // Simple wrapper for popover (quick column creation)
-  const handleCreateColumnSimple = useCallback(async () => {
-    if (!newColumnLabel.trim()) {
-      setColumnError('Please enter a column name.');
-      return;
-    }
-    setColumnError(null);
-
-    try {
-      await handleCreateColumn({
-        label: newColumnLabel.trim(),
-        dataType: 'text' as DataType,
-        description: newColumnDescription.trim() || undefined,
-      });
-      
-      // Reset form
-      setNewColumnLabel('');
-      setNewColumnDescription('');
-      setShowColumnPopover(false);
-    } catch (error) {
-      setColumnError(error instanceof Error ? error.message : 'Unable to add column');
-    }
-  }, [newColumnLabel, newColumnDescription, handleCreateColumn]);
 
   const handleDeleteColumn = useCallback(async (columnId: string) => {
     const colToRemove = columns.find((c) => c.id === columnId);
@@ -848,12 +899,27 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
           {/* Right Section - Stats & Actions */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200/50 px-2.5 py-1 rounded-full">
+              <div className={cn(
+                "flex items-center gap-2 px-2.5 py-1 rounded-full",
+                isRealtimeConnected 
+                  ? "bg-green-50 border border-green-200/50" 
+                  : "bg-yellow-50 border border-yellow-200/50"
+              )}>
                 <div className="relative">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                  <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full opacity-75 animate-ping"></div>
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    isRealtimeConnected ? "bg-green-500" : "bg-yellow-500"
+                  )}></div>
+                  {isRealtimeConnected && (
+                    <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full opacity-75 animate-ping"></div>
+                  )}
                 </div>
-                <span className="text-xs font-medium text-green-800">Live</span>
+                <span className={cn(
+                  "text-xs font-medium",
+                  isRealtimeConnected ? "text-green-800" : "text-yellow-800"
+                )}>
+                  {isRealtimeConnected ? 'Live' : 'Offline'}
+                </span>
               </div>
 
               {/* Realtime Enrichment Status Indicator */}
@@ -1065,14 +1131,21 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                           )}
                         </label>
                         <Input
+                          ref={newColumnLabelInputRef}
                           value={newColumnLabel}
-                          onChange={(e) => setNewColumnLabel(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setNewColumnLabel(value);
+                            newColumnLabelRef.current = value; // Update ref immediately
+                            // Clear error when user types
+                            if (columnError) setColumnError(null);
+                          }}
                           placeholder="Auto-generated or type your own"
                           className="bg-white border-slate-200 focus:border-cyan-400 focus:ring-cyan-100"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
-                              handleCreateColumnSimple();
+                              handleCreateColumn();
                             }
                           }}
                         />
@@ -1103,7 +1176,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                       <Button
                         size="sm"
                         className="flex-1 bg-cyan-gradient hover:opacity-90 text-white shadow-md shadow-cyan-500/20"
-                        onClick={handleCreateColumn}
+                        onClick={() => handleCreateColumn()}
                         disabled={columnSaving || !newColumnLabel.trim()}
                       >
                         {columnSaving ? (
@@ -1168,7 +1241,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                       const isEditing = editingCell?.rowIndex === rIndex && editingCell?.colId === col.id;
                       const value = row.data?.[col.key];
                       const cellKey = `${row.id}:${col.key}`;
-                      const isCellEnriching = enrichingCells.has(cellKey);
+                      
+                      // Check if this cell is enriching from Supabase realtime OR local state
+                      const isCellEnriching = (row.enrichingColumns && row.enrichingColumns.includes(col.key)) || enrichingCells.has(cellKey);
 
                       return (
                         <div
@@ -1178,7 +1253,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                             'w-64',
                             cIndex === 0 && 'sticky left-26 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]',
                             cIndex === 0 && (isRowSelected ? 'bg-cyan-50/90' : 'bg-white'),
-                            isCellEnriching && 'bg-amber-50/50',
+                            isCellEnriching && 'bg-purple-50/50',
                           )}
                           style={style}
                           onMouseDown={(e) => {
@@ -1190,8 +1265,11 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                           onDoubleClick={() => setEditingCell({ rowIndex: rIndex, colId: col.id })}
                         >
                           {isCellEnriching && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-amber-50/80 backdrop-blur-sm">
-                              <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-purple-50/80 backdrop-blur-sm z-10">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                                <span className="text-xs text-purple-700 font-medium">Enriching...</span>
+                              </div>
                             </div>
                           )}
                           {isEditing ? (
@@ -1420,7 +1498,13 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
                 </label>
                 <Input
                   value={newColumnLabel}
-                  onChange={(e) => setNewColumnLabel(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setNewColumnLabel(value);
+                    newColumnLabelRef.current = value; // Update ref immediately
+                    // Clear error when user types
+                    if (columnError) setColumnError(null);
+                  }}
                   placeholder="Enter column name or wait for AI suggestion"
                   className="bg-slate-50 border-slate-200 h-11 focus:border-cyan-400 focus:ring-cyan-100"
                   onKeyDown={(e) => {
@@ -1505,6 +1589,7 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
         onSave={handleCreateColumn}
         isSaving={columnSaving}
         tableName={currentTable?.name}
+        existingColumns={columns}
       />
     </>
   );

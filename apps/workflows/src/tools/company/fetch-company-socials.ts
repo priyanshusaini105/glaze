@@ -24,6 +24,12 @@
 
 import { logger } from "@trigger.dev/sdk";
 import * as cheerio from "cheerio";
+import {
+    withCache,
+    CACHE_TTL,
+    buildCompanySocialsCacheKey,
+    normalizeDomainForCache,
+} from "@/cache";
 
 // ============================================================
 // TYPES
@@ -501,13 +507,13 @@ function selectBestLinks(links: ValidatedLink[]): Map<string, ValidatedLink> {
 }
 
 // ============================================================
-// MAIN FUNCTION
+// MAIN FUNCTION (INTERNAL - UNCACHED)
 // ============================================================
 
 /**
- * Extract verified company social links from website
+ * Internal uncached implementation of social links extraction
  */
-export async function fetchCompanySocials(
+async function fetchCompanySocialsInternal(
     websiteUrl: string,
     companyName?: string
 ): Promise<FetchCompanySocialsResult> {
@@ -570,7 +576,7 @@ export async function fetchCompanySocials(
         })),
     });
 
-    // Step 4: Validate ownership
+    // Step Step: Validate ownership
     const validatedLinks = validNormalized.map(link =>
         validateOwnership(link, inferredCompanyName, domain)
     );
@@ -636,6 +642,39 @@ export async function fetchCompanySocials(
         linksFound: allRawLinks.length,
         linksValidated: validatedLinks.filter(l => l.confidence >= 0.6).length,
     };
+}
+
+// ============================================================
+// MAIN FUNCTION (CACHED WRAPPER)
+// ============================================================
+
+/**
+ * Extract verified company social links from website (CACHED)
+ */
+export async function fetchCompanySocials(
+    websiteUrl: string,
+    companyName?: string
+): Promise<FetchCompanySocialsResult> {
+    const normalizedDomain = normalizeDomainForCache(websiteUrl);
+    const cacheKey = buildCompanySocialsCacheKey(normalizedDomain);
+
+    const result = await withCache<FetchCompanySocialsResult>(
+        cacheKey,
+        async () => fetchCompanySocialsInternal(websiteUrl, companyName),
+        {
+            ttl: CACHE_TTL.COMPANY_SOCIALS, // 20 days
+            keyPrefix: 'company',
+            logLabel: 'FetchCompanySocials',
+        }
+    );
+
+    // Handle null result
+    if (!result) {
+        logger.warn("⚠️ FetchCompanySocials: Cache returned null, calling directly");
+        return fetchCompanySocialsInternal(websiteUrl, companyName);
+    }
+
+    return result;
 }
 
 // ============================================================

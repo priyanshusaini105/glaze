@@ -25,6 +25,12 @@
  */
 
 import { logger } from "@trigger.dev/sdk";
+import {
+    withCache,
+    CACHE_TTL,
+    cachedSerperSearch,
+    hashParams,
+} from "@/cache";
 
 /**
  * Confidence scoring thresholds
@@ -156,7 +162,7 @@ function generateSearchQueries(companyName: string): string[] {
 }
 
 /**
- * Step 3: Perform Serper search
+ * Step 3: Perform Serper search (using cached version)
  */
 async function performSerperSearch(query: string): Promise<SerperResponse | null> {
     if (!SERPER_API_KEY) {
@@ -165,27 +171,32 @@ async function performSerperSearch(query: string): Promise<SerperResponse | null
     }
 
     try {
-        const response = await fetch(SERPER_API_URL, {
-            method: "POST",
-            headers: {
-                "X-API-KEY": SERPER_API_KEY,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                q: query,
-                num: 10,
-            }),
+        const result = await cachedSerperSearch(query, async (q) => {
+            const response = await fetch(SERPER_API_URL, {
+                method: "POST",
+                headers: {
+                    "X-API-KEY": SERPER_API_KEY,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    q,
+                    num: 10,
+                }),
+            });
+
+            if (!response.ok) {
+                logger.error("❌ CompanyNameResolver: Serper API error", {
+                    status: response.status,
+                    statusText: response.statusText,
+                });
+                return { organic: [] };
+            }
+
+            const data = await response.json() as SerperResponse;
+            return { organic: data.organic || [] };
         });
 
-        if (!response.ok) {
-            logger.error("❌ CompanyNameResolver: Serper API error", {
-                status: response.status,
-                statusText: response.statusText,
-            });
-            return null;
-        }
-
-        return await response.json() as SerperResponse;
+        return result.organic?.length ? result : null;
     } catch (error) {
         logger.error("❌ CompanyNameResolver: Network error", {
             error: error instanceof Error ? error.message : "Unknown error",
@@ -516,12 +527,9 @@ function extractCanonicalName(candidate: CompanyCandidate, originalName: string)
 }
 
 /**
- * Main resolver function
- * 
- * @param companyName - The company name to resolve (e.g., "Stripe" or "Linear")
- * @returns Company resolution result with confidence score
+ * Internal uncached implementation of company name resolution
  */
-export async function resolveCompanyIdentityFromName(
+async function resolveCompanyIdentityFromNameInternal(
     companyName: string
 ): Promise<CompanyNameResolutionResult> {
     try {
@@ -679,4 +687,33 @@ export async function resolveCompanyIdentityFromName(
             reason: error instanceof Error ? error.message : "Unexpected error",
         };
     }
+}
+
+/**
+ * Resolve company identity from name (CACHED)
+ * 
+ * @param companyName - The company name to resolve (e.g., "Stripe" or "Linear")
+ * @returns Company resolution result with confidence score
+ */
+export async function resolveCompanyIdentityFromName(
+    companyName: string
+): Promise<CompanyNameResolutionResult> {
+    const cacheKey = `company:name_resolution:${hashParams(companyName.toLowerCase().trim())}`;
+
+    const result = await withCache<CompanyNameResolutionResult>(
+        cacheKey,
+        async () => resolveCompanyIdentityFromNameInternal(companyName),
+        {
+            ttl: CACHE_TTL.COMPANY_PROFILE, // 20 days
+            keyPrefix: 'company',
+            logLabel: 'ResolveCompanyIdentityFromName',
+        }
+    );
+
+    if (!result) {
+        logger.warn("⚠️ ResolveCompanyIdentityFromName: Cache returned null");
+        return resolveCompanyIdentityFromNameInternal(companyName);
+    }
+
+    return result;
 }

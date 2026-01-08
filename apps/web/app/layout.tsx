@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { urbaneRounded } from "./fonts/config";
 import { QueryProvider } from "@/providers/query-provider";
+import { SupabaseRealtimeProvider } from "@/providers/supabase-realtime-provider";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -25,8 +26,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${urbaneRounded.variable} ${jetbrainsMono.variable}`}>
         <QueryProvider>
-          {children}
-          <Toaster />
+          <SupabaseRealtimeProvider>
+            {children}
+            <Toaster />
+          </SupabaseRealtimeProvider>
         </QueryProvider>
       </body>
     </html>

@@ -24,6 +24,7 @@ interface ColumnCreationSidebarProps {
   }) => Promise<void>;
   isSaving?: boolean;
   tableName?: string;
+  existingColumns?: Array<{ label: string }>;
 }
 
 const DATA_TYPES: { value: DataType; label: string; icon: string }[] = [
@@ -41,6 +42,7 @@ export function ColumnCreationSidebar({
   onSave,
   isSaving = false,
   tableName,
+  existingColumns = [],
 }: ColumnCreationSidebarProps) {
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
@@ -65,7 +67,11 @@ export function ColumnCreationSidebar({
 
   // AI analysis when label or description changes
   const analyzeColumn = useCallback(async (currentLabel: string, currentDescription: string) => {
-    if (!currentLabel.trim() || currentLabel.trim().length < 2) {
+    // Need either label (2+ chars) or description (5+ chars)
+    const hasLabel = currentLabel.trim().length >= 2;
+    const hasDescription = currentDescription.trim().length >= 5;
+    
+    if (!hasLabel && !hasDescription) {
       setAnalysis(null);
       setShowAISuggestions(false);
       return;
@@ -77,7 +83,7 @@ export function ColumnCreationSidebar({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          label: currentLabel,
+          label: currentLabel || undefined,
           description: currentDescription || undefined,
           context: tableName ? `Table: ${tableName}` : undefined,
         }),
@@ -91,6 +97,11 @@ export function ColumnCreationSidebar({
       if (result.success && result.analysis) {
         setAnalysis(result.analysis);
         setShowAISuggestions(true);
+        
+        // Auto-populate label if it's empty and AI suggested one
+        if (!currentLabel.trim() && result.analysis.suggestedLabel) {
+          setLabel(result.analysis.suggestedLabel);
+        }
       }
     } catch (err) {
       console.error('AI analysis error:', err);
@@ -107,7 +118,8 @@ export function ColumnCreationSidebar({
     }
 
     debounceRef.current = setTimeout(() => {
-      if (label.trim()) {
+      // Trigger analysis if we have either a label or description
+      if (label.trim() || description.trim()) {
         analyzeColumn(label, description);
       }
     }, 800);
@@ -132,6 +144,15 @@ export function ColumnCreationSidebar({
       return;
     }
 
+    // Check if column already exists
+    const columnExists = existingColumns.some(
+      (col) => col.label.toLowerCase() === label.trim().toLowerCase()
+    );
+    if (columnExists) {
+      setError(`A column named "${label.trim()}" already exists.`);
+      return;
+    }
+
     setError(null);
     try {
       await onSave({
@@ -151,7 +172,7 @@ export function ColumnCreationSidebar({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save column');
     }
-  }, [label, dataType, category, description, onSave]);
+  }, [label, dataType, category, description, onSave, existingColumns]);
 
   const handleClose = useCallback(() => {
     setLabel('');
@@ -189,6 +210,29 @@ export function ColumnCreationSidebar({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          {/* Description (AI will generate name) */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+              What should this column do?
+              {isAnalyzing && (
+                <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+              )}
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g., Email address, Phone number, Company website..."
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+              rows={3}
+              disabled={isSaving}
+            />
+            {!label && description && !isAnalyzing && (
+              <p className="mt-1 text-xs text-slate-500">
+                AI will suggest a column name based on your description
+              </p>
+            )}
+          </div>
+
           {/* Column Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -198,25 +242,16 @@ export function ColumnCreationSidebar({
               ref={labelInputRef}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g., Company Name"
+              placeholder={isAnalyzing ? "AI is generating..." : "e.g., Company Name"}
               className="w-full"
-              disabled={isSaving}
+              disabled={isSaving || isAnalyzing}
             />
-          </div>
-
-          {/* Description (optional) */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Description (optional)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this column contains..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              rows={3}
-              disabled={isSaving}
-            />
+            {isAnalyzing && (
+              <p className="mt-1 text-xs text-purple-600 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Generating column name...
+              </p>
+            )}
           </div>
 
           {/* AI Suggestions */}

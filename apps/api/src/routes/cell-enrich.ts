@@ -183,11 +183,28 @@ export const cellEnrichmentRoutes = new Elysia()
           // OPTIMIZATION: Initialize row counters for incremental aggregation
           // Group tasks by row to calculate totalTasks per row
           const rowTaskCounts = new Map<string, number>();
+          const rowEnrichingColumns = new Map<string, Set<string>>();
+          
           for (const cell of cellSelections) {
             rowTaskCounts.set(cell.rowId, (rowTaskCounts.get(cell.rowId) || 0) + 1);
+            
+            // Track which columns are being enriched for each row
+            if (!rowEnrichingColumns.has(cell.rowId)) {
+              rowEnrichingColumns.set(cell.rowId, new Set());
+            }
+            
+            // Get the column key for this column ID
+            const column = await tx.column.findUnique({
+              where: { id: cell.columnId },
+              select: { key: true },
+            });
+            
+            if (column) {
+              rowEnrichingColumns.get(cell.rowId)!.add(column.key);
+            }
           }
 
-          // Update each row with its task count and mark as queued
+          // Update each row with its task count, mark as queued, and set enriching columns
           await Promise.all(
             Array.from(rowTaskCounts.entries()).map(([rowId, taskCount]) =>
               tx.row.update({
@@ -195,8 +212,7 @@ export const cellEnrichmentRoutes = new Elysia()
                 data: {
                   status: "queued",
                   totalTasks: { increment: taskCount },
-                  // Reset other counters if this is a new enrichment
-                  // (or keep incrementing if re-enriching same cells)
+                  enrichingColumns: Array.from(rowEnrichingColumns.get(rowId) || []),
                 },
               })
             )

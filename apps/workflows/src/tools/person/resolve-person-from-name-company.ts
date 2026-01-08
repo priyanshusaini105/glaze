@@ -23,6 +23,11 @@
 import { logger } from "@trigger.dev/sdk";
 import { findLinkedInProfile } from "./find-linkedin-profile";
 import { resolvePersonFromLinkedIn, type PersonProfile } from "./resolve-person-from-linkedin";
+import {
+    withCache,
+    CACHE_TTL,
+    buildLinkedInSearchCacheKey,
+} from "@/cache";
 
 // ============================================================
 // TYPES
@@ -38,17 +43,14 @@ export interface ResolvePersonFromNameCompanyResult extends PersonProfile {
 }
 
 // ============================================================
-// MAIN FUNCTION
+// MAIN FUNCTION (INTERNAL - UNCACHED)
 // ============================================================
 
 /**
- * Resolve person profile from name + company
- * 
- * Two-phase pipeline:
- * 1. Find the best LinkedIn profile (identity anchor)
- * 2. Extract info using snippet-first + fallback logic
+ * Internal uncached implementation of person resolution
+ * Used by the cached wrapper below
  */
-export async function resolvePersonFromNameCompany(
+async function resolvePersonFromNameCompanyInternal(
     name: string,
     company: string
 ): Promise<ResolvePersonFromNameCompanyResult> {
@@ -140,6 +142,44 @@ export async function resolvePersonFromNameCompany(
         resolutionStatus: result.resolutionStatus,
         linkedinAnchored: result.linkedinAnchored,
     });
+
+    return result;
+}
+
+// ============================================================
+// MAIN FUNCTION (CACHED WRAPPER)
+// ============================================================
+
+/**
+ * Resolve person profile from name + company (CACHED)
+ * 
+ * Two-phase pipeline:
+ * 1. Find the best LinkedIn profile (identity anchor)
+ * 2. Extract info using snippet-first + fallback logic
+ * 
+ * This function caches results for 3 days to avoid repeated API calls.
+ */
+export async function resolvePersonFromNameCompany(
+    name: string,
+    company: string
+): Promise<ResolvePersonFromNameCompanyResult> {
+    const cacheKey = buildLinkedInSearchCacheKey(name, company);
+
+    const result = await withCache<ResolvePersonFromNameCompanyResult>(
+        cacheKey,
+        async () => resolvePersonFromNameCompanyInternal(name, company),
+        {
+            ttl: CACHE_TTL.PERSON_PROFILE, // 3 days
+            keyPrefix: 'person',
+            logLabel: 'ResolvePersonFromNameCompany',
+        }
+    );
+
+    // Handle null result (shouldn't happen with our implementation, but be safe)
+    if (!result) {
+        logger.warn("⚠️ ResolvePersonFromNameCompany: Cache returned null, calling directly");
+        return resolvePersonFromNameCompanyInternal(name, company);
+    }
 
     return result;
 }

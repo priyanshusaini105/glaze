@@ -505,6 +505,7 @@ export const enrichCellTask = task({
             failedTasks: true,
             runningTasks: true,
             confidenceSum: true,
+            enrichingColumns: true,
           }
         });
 
@@ -526,6 +527,11 @@ export const enrichCellTask = task({
         const newDoneTasks = currentRow.doneTasks + 1;
         const newRunningTasks = Math.max(0, currentRow.runningTasks - 1); // Ensure non-negative
         const newConfidenceSum = currentRow.confidenceSum + enrichmentResult.confidence;
+
+        // Remove this column from enrichingColumns array for realtime updates
+        const newEnrichingColumns = (currentRow.enrichingColumns || []).filter(
+          (col) => col !== cellTask.column.key
+        );
 
         // Calculate new status using O(1) counter-based logic
         const newStatus = calculateRowStatusFromCounters(
@@ -552,6 +558,7 @@ export const enrichCellTask = task({
               confidenceSum: newConfidenceSum,
               status: newStatus,
               confidence: newConfidence,
+              enrichingColumns: newEnrichingColumns,
             },
           }),
           tx.enrichmentJob.update({
@@ -610,13 +617,16 @@ export const enrichCellTask = task({
 
       // OPTIMIZED FAILURE HANDLING: Use counters instead of refetching all tasks
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Get task info
+        // Get task info with column key
         const task = await tx.cellEnrichmentTask.findUnique({
           where: { id: taskId },
           select: {
             jobId: true,
             rowId: true,
             status: true, // check if it was running
+            column: {
+              select: { key: true },
+            },
           },
         });
 
@@ -636,7 +646,7 @@ export const enrichCellTask = task({
           },
         });
 
-        // Get current row counters
+        // Get current row counters and enriching columns
         const row = await tx.row.findUnique({
           where: { id: task.rowId },
           select: {
@@ -645,6 +655,7 @@ export const enrichCellTask = task({
             failedTasks: true,
             runningTasks: true,
             confidenceSum: true,
+            enrichingColumns: true,
           },
         });
 
@@ -655,6 +666,11 @@ export const enrichCellTask = task({
         // Calculate new counters
         const newFailedTasks = row.failedTasks + 1;
         const newRunningTasks = wasRunning ? row.runningTasks - 1 : row.runningTasks;
+
+        // Remove this column from enrichingColumns (enrichment failed, stop showing loader)
+        const newEnrichingColumns = (row.enrichingColumns || []).filter(
+          (col) => col !== task.column.key
+        );
 
         // Calculate new status with O(1) logic
         const newStatus = calculateRowStatusFromCounters(
@@ -678,6 +694,7 @@ export const enrichCellTask = task({
               runningTasks: newRunningTasks,
               status: newStatus,
               confidence: newConfidence,
+              enrichingColumns: newEnrichingColumns,
             },
           }),
           tx.enrichmentJob.update({

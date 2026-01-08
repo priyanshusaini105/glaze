@@ -14,6 +14,12 @@
 
 import { logger } from "@trigger.dev/sdk";
 import { normalizeDomain, isFreeEmailDomain, getRootDomain } from "../domain-normalizer";
+import {
+    withCache,
+    CACHE_TTL,
+    buildCompanyProfileCacheKey,
+    normalizeDomainForCache,
+} from "@/cache";
 
 /**
  * Result of company resolution
@@ -165,23 +171,9 @@ function generateCompanyNameFromDomain(domain: string): string {
 }
 
 /**
- * Resolve company identity from a domain
- * 
- * @param domain - The domain to resolve (e.g., "example.com" or "https://example.com")
- * @returns Company resolution result with name, canonical domain, website URL, and status
- * 
- * @example
- * ```typescript
- * const result = await resolveCompanyIdentityFromDomain("stripe.com");
- * // {
- * //   companyName: "Stripe",
- * //   canonicalDomain: "stripe.com",
- * //   websiteUrl: "https://stripe.com",
- * //   status: "valid"
- * // }
- * ```
+ * Internal uncached implementation of company resolution from domain
  */
-export async function resolveCompanyIdentityFromDomain(
+async function resolveCompanyIdentityFromDomainInternal(
     domain: string
 ): Promise<CompanyResolutionResult> {
     try {
@@ -276,4 +268,45 @@ export async function resolveCompanyIdentityFromDomain(
             status: "not_found",
         };
     }
+}
+
+/**
+ * Resolve company identity from a domain (CACHED)
+ * 
+ * @param domain - The domain to resolve (e.g., "example.com" or "https://example.com")
+ * @returns Company resolution result with name, canonical domain, website URL, and status
+ * 
+ * @example
+ * ```typescript
+ * const result = await resolveCompanyIdentityFromDomain("stripe.com");
+ * // {
+ * //   companyName: "Stripe",
+ * //   canonicalDomain: "stripe.com",
+ * //   websiteUrl: "https://stripe.com",
+ * //   status: "valid"
+ * // }
+ * ```
+ */
+export async function resolveCompanyIdentityFromDomain(
+    domain: string
+): Promise<CompanyResolutionResult> {
+    const normalizedDomain = normalizeDomainForCache(domain);
+    const cacheKey = buildCompanyProfileCacheKey(normalizedDomain);
+
+    const result = await withCache<CompanyResolutionResult>(
+        cacheKey,
+        async () => resolveCompanyIdentityFromDomainInternal(domain),
+        {
+            ttl: CACHE_TTL.COMPANY_PROFILE, // 20 days
+            keyPrefix: 'company',
+            logLabel: 'ResolveCompanyIdentityFromDomain',
+        }
+    );
+
+    if (!result) {
+        logger.warn("⚠️ ResolveCompanyIdentityFromDomain: Cache returned null");
+        return resolveCompanyIdentityFromDomainInternal(domain);
+    }
+
+    return result;
 }
