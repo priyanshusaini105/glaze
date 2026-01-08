@@ -47,8 +47,9 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith(prefix)
     );
 
-    // Check if this is an auth route (login/signup)
+    // Check if this is an auth route (login/signup) or callback
     const isAuthRoute = pathname === '/login' || pathname === '/signup';
+    const isAuthCallback = pathname.startsWith('/auth/callback');
 
     // Redirect unauthenticated users from protected routes to login
     if (isProtectedRoute && !session) {
@@ -57,8 +58,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(redirectUrl);
     }
 
-    // Redirect authenticated users from auth routes to dashboard
-    if (isAuthRoute && session) {
+    // Redirect authenticated users from auth routes to dashboard (but not from callback)
+    if (isAuthRoute && session && !isAuthCallback) {
         const redirectTo = request.nextUrl.searchParams.get('redirect') || '/tables';
         return NextResponse.redirect(new URL(redirectTo, request.url));
     }

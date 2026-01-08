@@ -148,3 +148,18 @@ enum JobStatus {
   failed
   cancelled
 }
+
+/// Seat - Represents a user seat in the alpha program
+/// Each seat has limited credits for enrichment operations
+/// Max 10 seats for MVP, 25 credits per seat
+model Seat {
+  id               String   @id @default(uuid())
+  userId           String   @unique    // Supabase Auth user ID
+  email            String   @unique
+  credits          Int      @default(25)  // Credits remaining
+  totalCreditsUsed Int      @default(0)   // Track lifetime usage
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("seats")
+}

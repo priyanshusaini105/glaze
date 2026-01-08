@@ -5,11 +5,17 @@
  * Creates CellEnrichmentTask records and triggers Trigger.dev workflows.
  * 
  * This endpoint does NOT perform enrichment - it only queues tasks.
+ * 
+ * MVP Credit System:
+ * - Each cell enrichment costs 1 credit
+ * - Users must have sufficient credits to enrich cells
  */
 
 import { Elysia, t } from "elysia";
 import { prisma } from "../db";
 import { tasks, auth } from "@trigger.dev/sdk";
+import { authMiddleware } from "../middleware/auth";
+import { checkCredits, deductCredits, getSeatByUserId } from "../services/seat-service";
 import type {
   EnrichTableRequest,
   EnrichTableResponse,
@@ -80,6 +86,9 @@ function expandGridToCells(
 }
 
 export const cellEnrichmentRoutes = new Elysia()
+  // Apply auth middleware to all routes
+  .use(authMiddleware)
+
   /**
    * POST /tables/:id/enrich
    * 
@@ -92,6 +101,10 @@ export const cellEnrichmentRoutes = new Elysia()
    * 2. Explicit mode: { cellIds: [{ rowId, columnId }, ...] }
    *    - Enriches specific cells
    * 
+   * MVP Credit System:
+   * - Each cell enrichment costs 1 credit
+   * - Request blocked if insufficient credits
+   * 
    * Response:
    * {
    *   jobId: string,
@@ -103,8 +116,14 @@ export const cellEnrichmentRoutes = new Elysia()
    */
   .post(
     "/tables/:id/enrich",
-    async ({ params: { id: tableId }, body, error, set }) => {
+    async ({ params: { id: tableId }, body, set, userId, isAuthenticated }) => {
       try {
+        // 0. Check authentication and credits (MVP requirement)
+        if (!isAuthenticated || !userId) {
+          set.status = 401;
+          return { error: "Authentication required to enrich cells" };
+        }
+
         // 1. Validate table exists
         const table = await prisma.table.findUnique({
           where: { id: tableId },
@@ -112,7 +131,7 @@ export const cellEnrichmentRoutes = new Elysia()
 
         if (!table) {
           set.status = 404;
-          return error(404, "Table not found");
+          return { error: "Table not found" };
         }
 
         // 2. Parse and validate request
@@ -139,18 +158,39 @@ export const cellEnrichmentRoutes = new Elysia()
           cellSelections = expandGridToCells(request.columnIds, request.rowIds);
         } else {
           set.status = 400;
-          return error(
-            400,
-            "Must provide either (columnIds + rowIds) or cellIds"
-          );
+          return { error: "Must provide either (columnIds + rowIds) or cellIds" };
         }
 
         if (cellSelections.length === 0) {
           set.status = 400;
-          return error(400, "No cells to enrich");
+          return { error: "No cells to enrich" };
         }
 
-        // 3. Create EnrichmentJob and CellEnrichmentTasks in a transaction
+        // 3. Check if user has sufficient credits (1 credit per cell)
+        const creditsRequired = cellSelections.length;
+        const creditCheck = await checkCredits(userId, creditsRequired);
+
+        if (!creditCheck.hasCredits) {
+          set.status = 403;
+          console.log(`[cell-enrich] Insufficient credits for user ${userId}. Required: ${creditsRequired}, Available: ${creditCheck.creditsRemaining}`);
+          return {
+            error: "Insufficient credits",
+            creditsRequired,
+            creditsRemaining: creditCheck.creditsRemaining,
+            message: creditCheck.message,
+          };
+        }
+
+        // 4. Deduct credits before creating tasks
+        const newBalance = await deductCredits(userId, creditsRequired);
+        if (newBalance === null) {
+          set.status = 403;
+          return { error: "Failed to deduct credits. Please try again." };
+        }
+
+        console.log(`[cell-enrich] Deducted ${creditsRequired} credits from user ${userId}. New balance: ${newBalance}`);
+
+        // 5. Create EnrichmentJob and CellEnrichmentTasks in a transaction
         const result = await prisma.$transaction(async (tx) => {
           // Create the job
           const job = await tx.enrichmentJob.create({
@@ -184,21 +224,21 @@ export const cellEnrichmentRoutes = new Elysia()
           // Group tasks by row to calculate totalTasks per row
           const rowTaskCounts = new Map<string, number>();
           const rowEnrichingColumns = new Map<string, Set<string>>();
-          
+
           for (const cell of cellSelections) {
             rowTaskCounts.set(cell.rowId, (rowTaskCounts.get(cell.rowId) || 0) + 1);
-            
+
             // Track which columns are being enriched for each row
             if (!rowEnrichingColumns.has(cell.rowId)) {
               rowEnrichingColumns.set(cell.rowId, new Set());
             }
-            
+
             // Get the column key for this column ID
             const column = await tx.column.findUnique({
               where: { id: cell.columnId },
               select: { key: true },
             });
-            
+
             if (column) {
               rowEnrichingColumns.get(cell.rowId)!.add(column.key);
             }
@@ -281,10 +321,9 @@ export const cellEnrichmentRoutes = new Elysia()
       } catch (err) {
         console.error("[cell-enrich] Error:", err);
         set.status = 500;
-        return error(
-          500,
-          err instanceof Error ? err.message : "Internal server error"
-        );
+        return {
+          error: err instanceof Error ? err.message : "Internal server error"
+        };
       }
     },
     {
@@ -308,7 +347,7 @@ export const cellEnrichmentRoutes = new Elysia()
    * 
    * Get the status of an enrichment job
    */
-  .get("/tables/:id/enrich/jobs/:jobId", async ({ params, error, set }) => {
+  .get("/tables/:id/enrich/jobs/:jobId", async ({ params, set }) => {
     const { id: tableId, jobId } = params;
 
     const job = await prisma.enrichmentJob.findFirst({
@@ -320,7 +359,7 @@ export const cellEnrichmentRoutes = new Elysia()
 
     if (!job) {
       set.status = 404;
-      return error(404, "Job not found");
+      return { error: "Job not found" };
     }
 
     const progress =
@@ -350,7 +389,7 @@ export const cellEnrichmentRoutes = new Elysia()
    */
   .get(
     "/tables/:id/enrich/jobs",
-    async ({ params, query, error, set }) => {
+    async ({ params, query, set }) => {
       const { id: tableId } = params;
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 20;
@@ -363,7 +402,7 @@ export const cellEnrichmentRoutes = new Elysia()
 
       if (!table) {
         set.status = 404;
-        return error(404, "Table not found");
+        return { error: "Table not found" };
       }
 
       const [jobs, total] = await Promise.all([
@@ -416,7 +455,7 @@ export const cellEnrichmentRoutes = new Elysia()
    */
   .get(
     "/tables/:id/enrich/jobs/:jobId/tasks",
-    async ({ params, query, error, set }) => {
+    async ({ params, query, set }) => {
       const { id: tableId, jobId } = params;
       const page = Number(query.page) || 1;
       const limit = Number(query.limit) || 50;
@@ -430,7 +469,7 @@ export const cellEnrichmentRoutes = new Elysia()
 
       if (!job) {
         set.status = 404;
-        return error(404, "Job not found");
+        return { error: "Job not found" };
       }
 
       const whereClause = {

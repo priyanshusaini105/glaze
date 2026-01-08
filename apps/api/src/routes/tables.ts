@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { prisma } from '../db';
 import { parseCSV, generateCSV, inferDataType } from '../utils/csv';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, checkTableOwnership } from '../middleware/auth';
 
 export const tablesRoutes = new Elysia({ prefix: '/tables' })
   // Apply auth middleware to all routes
@@ -54,8 +54,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
 
     if (!table) return error(404, 'Table not found');
 
-    // Check ownership (skip for tables without userId - legacy tables)
-    if (userId && table.userId && table.userId !== userId) {
+    // Check ownership
+    if (!checkTableOwnership(table.userId, userId)) {
       return error(404, 'Table not found');
     }
 
@@ -69,8 +69,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const table = await prisma.table.findUnique({ where: { id } });
       if (!table) return error(404, 'Table not found');
 
-      // Check ownership (skip for tables without userId - legacy tables)
-      if (userId && table.userId && table.userId !== userId) {
+      // Check ownership
+      if (!checkTableOwnership(table.userId, userId)) {
         return error(404, 'Table not found');
       }
 
@@ -95,8 +95,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const table = await prisma.table.findUnique({ where: { id } });
       if (!table) return error(404, 'Table not found');
 
-      // Check ownership (skip for tables without userId - legacy tables)
-      if (userId && table.userId && table.userId !== userId) {
+      // Check ownership
+      if (!checkTableOwnership(table.userId, userId)) {
         return error(404, 'Table not found');
       }
 
@@ -332,7 +332,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   // --- CSV Import/Export ---
 
   // Import CSV to create table with columns and rows
-  .post('/import-csv', async ({ body, error }) => {
+  .post('/import-csv', async ({ body, userId, error }) => {
     try {
       const { name, description, csvContent } = body;
 
@@ -347,7 +347,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const table = await prisma.table.create({
         data: {
           name,
-          description: description || undefined
+          description: description || undefined,
+          userId: userId ?? undefined, // Associate table with user if authenticated
         }
       });
 

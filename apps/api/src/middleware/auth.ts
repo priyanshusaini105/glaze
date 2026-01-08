@@ -10,68 +10,70 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 /**
+ * Verify a Supabase JWT token and return the user ID
+ * Returns null if the token is invalid or missing
+ */
+async function verifyToken(authHeader: string | undefined): Promise<string | null> {
+    if (!supabaseUrl || !supabaseServiceKey) {
+        return null;
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+            },
+        });
+
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+
+        if (error || !user) {
+            console.log('[Auth] Token verification failed:', error?.message);
+            return null;
+        }
+
+        console.log('[Auth] User authenticated:', user.id);
+        return user.id;
+    } catch (err) {
+        console.error('[Auth] Token verification error:', err);
+        return null;
+    }
+}
+
+/**
  * Auth middleware for Elysia
  * Verifies JWT tokens from Supabase and attaches user ID to the request context
+ * 
+ * Note: This middleware does NOT reject unauthenticated requests.
+ * Routes should check userId and return appropriate errors if needed.
  */
 export const authMiddleware = new Elysia({ name: 'auth' })
     .derive({ as: 'scoped' }, async ({ headers }) => {
-        // If Supabase is not configured, allow all requests (development mode)
-        if (!supabaseUrl || !supabaseServiceKey) {
-            return {
-                userId: null as string | null,
-                isAuthenticated: false
-            };
-        }
-
-        const authHeader = headers['authorization'];
-
-        // Check for Authorization header
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return { userId: null as string | null, isAuthenticated: false };
-        }
-
-        const token = authHeader.replace('Bearer ', '');
-
-        try {
-            // Create Supabase client with service role key
-            const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-                auth: {
-                    autoRefreshToken: false,
-                    persistSession: false,
-                },
-            });
-
-            // Verify the JWT token and get user
-            const { data: { user }, error } = await supabase.auth.getUser(token);
-
-            if (error || !user) {
-                console.log('[Auth] Token verification failed:', error?.message);
-                return { userId: null as string | null, isAuthenticated: false };
-            }
-
-            console.log('[Auth] User authenticated:', user.id);
-            return {
-                userId: user.id,
-                isAuthenticated: true
-            };
-        } catch (error) {
-            console.error('[Auth] Middleware error:', error);
-            return { userId: null as string | null, isAuthenticated: false };
-        }
+        const userId = await verifyToken(headers['authorization']);
+        return {
+            userId,
+            isAuthenticated: userId !== null
+        };
     });
 
 /**
- * Guard middleware - requires authentication
- * Use this on routes that require a valid user session
+ * Helper function to check table ownership
+ * Returns true if the user owns the table, or if no ownership is set (legacy tables)
  */
-export const requireAuth = new Elysia({ name: 'requireAuth' })
-    .use(authMiddleware)
-    .derive({ as: 'scoped' }, ({ userId, isAuthenticated, error }) => {
-        if (!isAuthenticated || !userId) {
-            throw error(401, {
-                message: 'Authentication required',
-                error: 'Unauthorized',
-            });
-        }
-        return { userId: userId as string };
-    });
+export function checkTableOwnership(tableUserId: string | null, requestUserId: string | null): boolean {
+    // If no ownership set on table (legacy), allow access
+    if (!tableUserId) return true;
+
+    // If user is not authenticated, deny access to owned tables
+    if (!requestUserId) return false;
+
+    // Check ownership
+    return tableUserId === requestUserId;
+}

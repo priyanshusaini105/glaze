@@ -7,6 +7,7 @@ import { registerLinkedInRoutes } from './routes/linkedin';
 import { registerCellEnrichmentRoutes } from './routes/cell-enrich';
 import { optimizedEnrichmentRoutes } from './routes/enrich-optimized';
 import { columnsAIRoutes } from './routes/columns-ai';
+import { seatsRoutes } from './routes/seats';
 
 export const buildApp = () => {
   const app = new Elysia()
@@ -46,6 +47,8 @@ export const buildApp = () => {
         enrichOptimized: '/v2/tables/:tableId/enrich',
         cellEnrich: '/tables/:tableId/enrich',
         linkedin: '/linkedin',
+        seats: '/me/seat',
+        credits: '/me/credits',
         docs: '/docs'
       }
     }))
@@ -54,7 +57,8 @@ export const buildApp = () => {
     .use(registerLinkedInRoutes)
     .use(registerCellEnrichmentRoutes)
     .use(optimizedEnrichmentRoutes)
-    .use(columnsAIRoutes);
+    .use(columnsAIRoutes)
+    .use(seatsRoutes);
 
   return app;
 };
