@@ -42,8 +42,16 @@ export { estimateCompanySize, estimateCompanySizeProvider, EstimateCompanySizePr
 export type { CompanySizeResult, EmployeeCountRange, HiringStatus } from "./company/estimate-company-size";
 
 // Person Resolution Tools
+export { findLinkedInProfile, findLinkedInProfileProvider, FindLinkedInProfileProvider } from "./person/find-linkedin-profile";
+export type { FindLinkedInProfileResult } from "./person/find-linkedin-profile";
 export { resolvePersonFromLinkedIn, resolvePersonFromLinkedInProvider, ResolvePersonFromLinkedInProvider } from "./person/resolve-person-from-linkedin";
 export type { PersonProfile } from "./person/resolve-person-from-linkedin";
+export { resolvePersonFromNameCompany, resolvePersonFromNameCompanyProvider, ResolvePersonFromNameCompanyProvider } from "./person/resolve-person-from-name-company";
+export type { ResolvePersonFromNameCompanyResult } from "./person/resolve-person-from-name-company";
+export { guessWorkEmail, guessWorkEmailProvider, GuessWorkEmailProvider } from "./person/guess-work-email";
+export type { GuessWorkEmailResult } from "./person/guess-work-email";
+export { fetchPersonPublicProfile, fetchPersonPublicProfileProvider, FetchPersonPublicProfileProvider } from "./person/fetch-person-public-profile";
+export type { FetchPersonPublicProfileResult, SocialLinks } from "./person/fetch-person-public-profile";
 
 // Provenance Tools
 export {

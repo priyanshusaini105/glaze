@@ -15,6 +15,10 @@ import { fetchCompanyProfile } from "../tools/company/fetch-company-profile";
 import { fetchCompanySocials } from "../tools/company/fetch-company-socials";
 import { estimateCompanySize } from "../tools/company/estimate-company-size";
 import { resolvePersonFromLinkedIn } from "../tools/person/resolve-person-from-linkedin";
+import { findLinkedInProfile } from "../tools/person/find-linkedin-profile";
+import { resolvePersonFromNameCompany } from "../tools/person/resolve-person-from-name-company";
+import { guessWorkEmail } from "../tools/person/guess-work-email";
+import { fetchPersonPublicProfile } from "../tools/person/fetch-person-public-profile";
 
 // ============================================================
 // TOOL DEFINITION
@@ -348,6 +352,158 @@ async function executeResolvePersonFromLinkedIn(
     return output;
 }
 
+/**
+ * Execute find_linkedin_profile tool
+ * 
+ * This tool produces: linkedinUrl
+ * Pure identity resolution - finds the LinkedIn profile for name + company
+ */
+async function executeFindLinkedInProfile(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const name = input.name || (existingData.name as string) || (existingData.full_name as string);
+    const company = input.company || (existingData.company as string) || (existingData.company_name as string);
+
+    if (!name || !company) {
+        return {};
+    }
+
+    const result = await findLinkedInProfile(name, company);
+
+    const output: ToolExecutionResult = {};
+
+    if (result.linkedinUrl) {
+        output.linkedinUrl = result.linkedinUrl;
+    }
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._candidatesFound = result.candidatesFound;
+    output._matchReason = result.matchReason;
+
+    return output;
+}
+
+/**
+ * Execute resolve_person_from_name_company tool
+ * 
+ * This tool produces: name, title, company, location, linkedinUrl
+ * Main person resolution pipeline: FindLinkedIn → ResolveFromLinkedIn
+ */
+async function executeResolvePersonFromNameCompany(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const name = input.name || (existingData.name as string) || (existingData.full_name as string);
+    const company = input.company || (existingData.company as string) || (existingData.company_name as string);
+
+    if (!name) {
+        return {};
+    }
+
+    const result = await resolvePersonFromNameCompany(name, company || '');
+
+    const output: ToolExecutionResult = {};
+
+    if (result.name) output.name = result.name;
+    if (result.title) output.title = result.title;
+    if (result.company) output.company = result.company;
+    if (result.location) output.location = result.location;
+    if (result.linkedinUrl) output.linkedinUrl = result.linkedinUrl;
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._source = result.source;
+    output._linkedinAnchored = result.linkedinAnchored;
+    output._resolutionStatus = result.resolutionStatus;
+
+    return output;
+}
+
+/**
+ * Execute guess_work_email tool
+ * 
+ * This tool produces: email
+ * Uses Hunter → Prospeo waterfall strategy
+ */
+async function executeGuessWorkEmail(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const name = input.name || (existingData.name as string) || (existingData.full_name as string);
+    const domain = input.domain || (existingData.domain as string) || (existingData.company_domain as string);
+    const company = input.company || (existingData.company as string);
+
+    if (!name || !domain) {
+        return {};
+    }
+
+    // Use company domain if provided, otherwise use domain
+    const companyDomain = domain;
+
+    const result = await guessWorkEmail(name, companyDomain);
+
+    const output: ToolExecutionResult = {};
+
+    if (result.email) {
+        output.email = result.email;
+    }
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._source = result.source;
+    output._verificationStatus = result.verificationStatus;
+    output._hunterScore = result.hunterScore;
+    output._reason = result.reason;
+
+    return output;
+}
+
+/**
+ * Execute fetch_person_public_profile tool
+ * 
+ * This tool produces: bio, twitter, github, personalWebsite
+ * Decorates an already resolved person with bio and social links
+ */
+async function executeFetchPersonPublicProfile(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const name = input.name || (existingData.name as string) || (existingData.full_name as string);
+    const company = input.company || (existingData.company as string) || (existingData.company_name as string);
+    const linkedinUrl = input.linkedinUrl || (existingData.linkedin as string) || (existingData.linkedin_url as string);
+
+    if (!name || !company) {
+        return {};
+    }
+
+    const result = await fetchPersonPublicProfile(name, company, linkedinUrl);
+
+    const output: ToolExecutionResult = {};
+
+    if (result.bio) {
+        output.bio = result.bio;
+    }
+    if (result.socialLinks.twitter) {
+        output.twitter = result.socialLinks.twitter;
+    }
+    if (result.socialLinks.github) {
+        output.github = result.socialLinks.github;
+    }
+    if (result.socialLinks.personalWebsite) {
+        output.personalWebsite = result.socialLinks.personalWebsite;
+    }
+
+    // Add metadata
+    output._source = result.source;
+    if (result.scrapedUrl) {
+        output._scrapedUrl = result.scrapedUrl;
+    }
+
+    return output;
+}
+
 // ============================================================
 // COMPANY TOOLS
 // ============================================================
@@ -485,18 +641,32 @@ const PERSON_TOOLS: ToolDefinition[] = [
         execute: executeResolvePersonFromLinkedIn,
     },
     {
+        id: "find_linkedin_profile",
+        name: "Find LinkedIn Profile",
+        strategies: ["HYPOTHESIS_AND_SCORE", "SEARCH_AND_VALIDATE"],
+        entityTypes: ["PERSON"],
+        requiredInputs: ["name", "company"],
+        optionalInputs: [],
+        outputs: ["linkedinUrl"],
+        costCents: 1,
+        tier: "cheap",
+        priority: 1,  // Run first - identity anchor
+        canFail: true,
+        execute: executeFindLinkedInProfile,
+    },
+    {
         id: "resolve_person_from_name_company",
         name: "Resolve Person From Name + Company",
         strategies: ["HYPOTHESIS_AND_SCORE", "SEARCH_AND_VALIDATE"],
         entityTypes: ["PERSON"],
-        requiredInputs: ["name", "company"],
-        optionalInputs: ["domain"],
-        outputs: ["linkedinUrl", "title"],
-        costCents: 2,
+        requiredInputs: ["name"],
+        optionalInputs: ["company", "domain"],
+        outputs: ["linkedinUrl", "title", "name", "company", "location"],
+        costCents: 3,
         tier: "cheap",
         priority: 2,
         canFail: true,
-        fallbackTool: "serper_person_search",
+        execute: executeResolvePersonFromNameCompany,
     },
     {
         id: "serper_person_search",
@@ -512,6 +682,34 @@ const PERSON_TOOLS: ToolDefinition[] = [
         canFail: true,
     },
     {
+        id: "guess_work_email",
+        name: "Guess Work Email",
+        strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE"],
+        entityTypes: ["PERSON"],
+        requiredInputs: ["name", "domain"],
+        optionalInputs: ["company"],
+        outputs: ["email"],
+        costCents: 1,
+        tier: "cheap",
+        priority: 3,
+        canFail: true,
+        execute: executeGuessWorkEmail,
+    },
+    {
+        id: "fetch_person_public_profile",
+        name: "Fetch Person Public Profile",
+        strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE"],
+        entityTypes: ["PERSON"],
+        requiredInputs: ["name", "company"],
+        optionalInputs: ["linkedinUrl"],
+        outputs: ["bio", "twitter", "github", "personalWebsite"],
+        costCents: 2,
+        tier: "cheap",
+        priority: 4,
+        canFail: true,
+        execute: executeFetchPersonPublicProfile,
+    },
+    {
         id: "email_pattern_inference",
         name: "Email Pattern Inference",
         strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE"],
@@ -521,7 +719,7 @@ const PERSON_TOOLS: ToolDefinition[] = [
         outputs: ["emailCandidates"],
         costCents: 0,
         tier: "free",
-        priority: 4,
+        priority: 5,
         canFail: true,
     },
     {
