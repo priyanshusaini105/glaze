@@ -47,7 +47,10 @@ async function enrichCellWithProviders(payload: {
 }) {
   const { columnKey, rowId, tableId, existingData } = payload;
   const budgetCents = 100; // Default budget per cell
-  
+
+  console.log("\n=== 🚀 ENRICH CELL START ===");
+  console.log("📋 Payload:", { columnKey, rowId, tableId, existingData });
+
   try {
     // 1. Create normalized input from existing data
     const normalizedInput: NormalizedInput = normalizeExistingDataToInput({
@@ -56,9 +59,19 @@ async function enrichCellWithProviders(payload: {
       existingData,
     });
 
+    console.log("🔍 Normalized input created", normalizedInput)
+
     // 2. Classify the input to determine strategy
+    console.log("\n📊 STEP 1: Classifying input...");
     const classification = classifyInput(normalizedInput);
-    
+    console.log("✅ Classification result:", {
+      entityType: classification.entityType,
+      strategy: classification.strategy,
+      signature: classification.inputSignature,
+      strength: classification.identityStrength,
+      ambiguity: classification.ambiguityRisk,
+    });
+
     logger.info("🎯 Input classified", {
       columnKey,
       entityType: classification.entityType,
@@ -66,16 +79,24 @@ async function enrichCellWithProviders(payload: {
       signature: classification.inputSignature,
     });
 
-    // 3. Generate workflow plan
-    const workflowPlan = generateWorkflow(classification, existingData);
-    
+    // 3. Map the column key to the target field BEFORE generating workflow
+    // This is critical - workflow must know what field we need to produce
+    const targetField = mapColumnKeyToFieldMapping(columnKey);
+    console.log("🔗 Target field mapping:", { columnKey, targetField });
+
+    // 4. Generate workflow plan with target field awareness
+    console.log("\n🎯 STEP 2: Generating workflow...");
+    const workflowPlan = generateWorkflow(classification, existingData, targetField);
+
     if ('error' in workflowPlan) {
+      console.log("❌ Workflow generation failed:", workflowPlan);
       logger.warn("❌ Workflow generation failed", {
         columnKey,
+        targetField,
         error: workflowPlan.error,
         reason: workflowPlan.reason,
       });
-      
+
       return {
         value: null,
         confidence: 0,
@@ -89,9 +110,14 @@ async function enrichCellWithProviders(payload: {
       };
     }
 
-    // 4. Map the column key to the field we're looking for
-    const targetField = mapColumnKeyToFieldMapping(columnKey);
-    
+    console.log("✅ Workflow plan generated:", {
+      steps: workflowPlan.steps.length,
+      maxCostCents: workflowPlan.maxCostCents,
+      expectedConfidence: workflowPlan.expectedConfidence,
+      summary: workflowPlan.summary,
+      stepsDetail: workflowPlan.steps.map(s => ({ stepNumber: s.stepNumber, toolName: s.toolName, expectedOutputs: s.expectedOutputs })),
+    });
+
     logger.info("🔧 Executing workflow", {
       columnKey,
       targetField,
@@ -103,10 +129,16 @@ async function enrichCellWithProviders(payload: {
     let enrichedData = { ...existingData };
     let lastSource = 'none';
     let totalCost = 0;
-    
+
+    console.log("\n⚙️  STEP 3: Executing workflow steps...");
     for (const step of workflowPlan.steps) {
+      console.log(`\n  📏 Step ${step.stepNumber}: ${step.toolName}`);
+      console.log(`     Dependencies: ${step.dependsOn.join(", ") || "none"}`);
+      console.log(`     Expected outputs: ${step.expectedOutputs.join(", ")}`);
+
       // Check budget
       if (totalCost >= budgetCents) {
+        console.log(`  ⚠️  Budget exceeded (${totalCost}/${budgetCents}), stopping`);
         logger.warn("💰 Budget exceeded, stopping execution", {
           columnKey,
           totalCost,
@@ -114,39 +146,55 @@ async function enrichCellWithProviders(payload: {
         });
         break;
       }
-      
+
       // Get the tool
       const toolDef = getToolById(step.toolId);
       if (!toolDef) {
+        console.log(`  ❌ Tool not found: ${step.toolId}`);
         logger.warn(`⚠️ Tool not found: ${step.toolId}`);
         continue;
       }
-      
+
       logger.info(`▶️ Executing step ${step.stepNumber}: ${step.toolName}`, {
         columnKey,
         toolId: step.toolId,
         expectedOutputs: step.expectedOutputs,
       });
-      
+
       try {
-        // TODO: Implement actual tool execution
-        // For now, skip execution as the tool executor is not implemented
-        const toolResult: Record<string, unknown> = {};
-        // const toolResult = await tool.execute(normalizedInput, enrichedData);
-        
+        console.log(`  ▶️  Executing tool: ${step.toolName} (ID: ${step.toolId})`);
+        console.log(`     Cost: ${step.costCents}¢, Can fail: ${step.canFail}`);
+
+        // Execute the tool if it has an execute function
+        let toolResult: Record<string, unknown> = {};
+
+        if (toolDef.execute) {
+          console.log(`     📞 Calling actual tool implementation...`);
+          toolResult = await toolDef.execute(normalizedInput, enrichedData);
+          console.log(`     ✅ Tool returned:`, Object.keys(toolResult));
+        } else {
+          console.log(`     ⚠️  No execute function for tool ${step.toolId}`);
+        }
+
+        console.log(`  ✅ Tool result:`, toolResult);
+
         // Update enriched data with results
         enrichedData = { ...enrichedData, ...toolResult };
         lastSource = step.toolName;
         totalCost += step.costCents;
-        
+
+        console.log(`     Updated data keys:`, Object.keys(enrichedData));
+        console.log(`     Total cost so far: ${totalCost}¢`);
+
         logger.info(`✅ Step ${step.stepNumber} completed`, {
           columnKey,
           toolId: step.toolId,
           outputs: Object.keys(toolResult),
         });
-        
+
         // If we got the target field, we can potentially stop
         if (toolResult[targetField]) {
+          console.log(`  🎯 Target field '${targetField}' found: ${toolResult[targetField]}`);
           logger.info(`🎯 Target field '${targetField}' found`, {
             columnKey,
             value: toolResult[targetField],
@@ -155,29 +203,33 @@ async function enrichCellWithProviders(payload: {
           break;
         }
       } catch (error) {
+        console.log(`  ❌ Step ${step.stepNumber} execution failed: ${error instanceof Error ? error.message : String(error)}`);
         logger.error(`❌ Step ${step.stepNumber} failed`, {
           columnKey,
           toolId: step.toolId,
           error: error instanceof Error ? error.message : String(error),
         });
-        
+
         // If this step cannot fail, try fallback
         if (!step.canFail) {
           if (step.fallbackToolId) {
             const fallbackTool = getToolById(step.fallbackToolId);
             if (fallbackTool) {
               try {
+                console.log(`  🔄 Trying fallback tool: ${fallbackTool.name}`);
                 logger.info(`🔄 Trying fallback tool`, {
                   columnKey,
                   fallbackToolId: step.fallbackToolId,
                 });
-                
+
                 // TODO: Implement fallback tool execution
                 const fallbackResult: Record<string, unknown> = {};
                 // const fallbackResult = await fallbackTool.execute(normalizedInput, enrichedData);
+                console.log(`  ✅ Fallback result:`, fallbackResult);
                 enrichedData = { ...enrichedData, ...fallbackResult };
                 lastSource = fallbackTool.name;
               } catch (fallbackError) {
+                console.log(`  ❌ Fallback also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
                 logger.error(`❌ Fallback also failed`, {
                   columnKey,
                   fallbackToolId: step.fallbackToolId,
@@ -193,7 +245,14 @@ async function enrichCellWithProviders(payload: {
     // 6. Extract the final value for the target field
     const finalValue = enrichedData[targetField];
     const confidence = finalValue ? workflowPlan.expectedConfidence : 0;
-    
+
+    console.log("\n🏁 ENRICHMENT COMPLETE");
+    console.log("   Final data:", enrichedData);
+    console.log("   Target value:", finalValue);
+    console.log("   Confidence:", confidence);
+    console.log("   Source:", lastSource);
+    console.log("   Total cost:", totalCost + "¢");
+
     logger.info("🏁 Enrichment complete", {
       columnKey,
       targetField,
@@ -202,7 +261,7 @@ async function enrichCellWithProviders(payload: {
       source: lastSource,
       totalCost,
     });
-    
+
     return {
       value: finalValue as string | number | boolean | null,
       confidence,
@@ -215,11 +274,13 @@ async function enrichCellWithProviders(payload: {
       },
     };
   } catch (error) {
+    console.log("\n❌ ENRICHMENT FAILED:", error instanceof Error ? error.message : String(error));
+    console.log("   Full error:", error);
     logger.error("❌ Cell enrichment failed", {
       columnKey,
       error: error instanceof Error ? error.message : String(error),
     });
-    
+
     return {
       value: null,
       confidence: 0,
@@ -254,10 +315,6 @@ function recordProviderLatency(provider: string, latencyMs: number) {
     metrics.providerLatencyMs[provider] = [];
   }
   metrics.providerLatencyMs[provider].push(latencyMs);
-}
-
-function recordProviderFailure(provider: string) {
-  metrics.providerFailureCount[provider] = (metrics.providerFailureCount[provider] || 0) + 1;
 }
 
 function recordColumnFailure(columnKey: string) {
@@ -301,6 +358,11 @@ export const enrichCellTask = task({
   run: async (payload: EnrichCellPayload) => {
     const startTime = Date.now();
     const { taskId } = payload;
+
+    console.log("\n\n🎬 ============ CELL ENRICHMENT TASK START =============");
+    console.log("Task ID:", taskId);
+    console.log("Started at:", new Date(startTime).toISOString());
+
     logger.info("🚀 Cell enrichment task started", { taskId, startTime: new Date(startTime).toISOString() });
 
     const prisma = await getPrisma();
@@ -347,6 +409,10 @@ export const enrichCellTask = task({
       });
 
       const dbFetchTime = Date.now() - dbStartTime;
+      console.log("\n📦 DB Transaction 1 complete (load + mark running):", { dbFetchTimeMs: dbFetchTime });
+      console.log("   Cell task:", { taskId, columnKey: cellTask?.column?.key, rowId: cellTask?.rowId });
+      console.log("   Row data before enrichment:", cellTask?.row?.data);
+
       logger.info("⏱️  Transaction 1 completed (load + mark running)", { taskId, dbFetchTimeMs: dbFetchTime });
 
       if (!cellTask) {
@@ -355,6 +421,8 @@ export const enrichCellTask = task({
 
       // ENRICHMENT: Run providers (NO database operations - just API/mock calls)
       const enrichmentStartTime = Date.now();
+      console.log("\n🔬 Starting enrichment providers...");
+
       logger.info("🔍 Starting enrichment providers", {
         taskId,
         columnKey: cellTask.column.key,
@@ -369,6 +437,14 @@ export const enrichCellTask = task({
       });
 
       const enrichmentTime = Date.now() - enrichmentStartTime;
+
+      console.log("\n📊 Enrichment result:", {
+        value: enrichmentResult.value,
+        confidence: enrichmentResult.confidence,
+        source: enrichmentResult.source,
+        cost: enrichmentResult.metadata?.cost,
+        enrichmentTimeMs: enrichmentTime,
+      });
 
       // Record metrics
       recordProviderLatency(enrichmentResult.source, enrichmentTime);
@@ -400,6 +476,8 @@ export const enrichCellTask = task({
 
       // TRANSACTION 2: Update cell task, row data, row counters, job counters, compute status
       const txStartTime = Date.now();
+      console.log("\n💾 DB Transaction 2 start (update + counters)...");
+
       logger.info("💾 Starting transaction 2 (update cell + counters)", { taskId });
 
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -464,7 +542,7 @@ export const enrichCellTask = task({
           tx.row.update({
             where: { id: cellTask.rowId },
             data: {
-              data: updatedData as any,
+              data: updatedData as Prisma.InputJsonValue,
               lastRunAt: new Date(),
               doneTasks: newDoneTasks,
               runningTasks: newRunningTasks,
@@ -482,6 +560,17 @@ export const enrichCellTask = task({
 
       const txTime = Date.now() - txStartTime;
       const totalTime = Date.now() - startTime;
+
+      console.log("✅ DB Transaction 2 complete:", { txTimeMs: txTime });
+      console.log("\n✨ TASK COMPLETE:", {
+        taskId,
+        totalTimeMs: totalTime,
+        breakdown: {
+          tx1LoadAndMarkMs: dbFetchTime,
+          enrichmentMs: enrichmentTime,
+          tx2UpdateCountersMs: txTime
+        }
+      });
 
       logger.info("🏁 Cell enrichment task completed", {
         taskId,
@@ -502,6 +591,9 @@ export const enrichCellTask = task({
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log("\n❌ TASK FAILED:", errorMessage);
+      console.log("   Full error:", error);
+
       logger.error("Cell enrichment failed", {
         taskId,
         error: errorMessage,
@@ -618,6 +710,12 @@ export const processEnrichmentJobTask = task({
   },
   run: async (payload: EnrichmentWorkflowPayload) => {
     const { jobId, tableId, taskIds } = payload;
+
+    console.log("\n\n🎬 ============ ENRICHMENT JOB START =============");
+    console.log("Job ID:", jobId);
+    console.log("Table ID:", tableId);
+    console.log("Tasks to process:", taskIds.length);
+
     logger.info("Starting enrichment job", {
       jobId,
       tableId,
@@ -650,6 +748,8 @@ export const processEnrichmentJobTask = task({
 
       // Use batchTriggerAndWait for efficient parallel execution
       // This is much faster than sequential triggerAndWait calls
+      console.log("\n⚡ Batch triggering", taskIds.length, "tasks in parallel...");
+
       logger.info("Batch triggering all tasks in parallel", {
         taskCount: taskIds.length,
       });
@@ -681,6 +781,13 @@ export const processEnrichmentJobTask = task({
         });
       }
 
+      console.log("\n📈 Job tasks completed:", {
+        successCount,
+        failCount,
+        totalTasks: taskIds.length,
+        successRate: ((successCount / taskIds.length) * 100).toFixed(1) + "%",
+      });
+
       logger.info("Job tasks completed", {
         jobId,
         successCount,
@@ -694,6 +801,8 @@ export const processEnrichmentJobTask = task({
         : failCount > 0
           ? "completed"
           : "completed";
+
+      console.log("\n✨ JOB COMPLETE:", { jobId, finalStatus, successCount, failCount });
 
       await prisma.enrichmentJob.update({
         where: { id: jobId },
@@ -712,6 +821,9 @@ export const processEnrichmentJobTask = task({
         failCount,
       };
     } catch (error) {
+      console.log("\n❌ JOB FAILED:", error instanceof Error ? error.message : String(error));
+      console.log("   Full error:", error);
+
       logger.error("Enrichment job failed", {
         jobId,
         error: error instanceof Error ? error.message : String(error),

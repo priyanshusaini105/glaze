@@ -14,16 +14,17 @@
   "description": "Trigger.dev workflows for data enrichment pipeline",
   "devDependencies": {
     "@trigger.dev/build": "^4.3.1",
-    "@types/pg": "^8.16.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.16.0",
+    "cheerio": "^1.1.2",
     "prisma": "^7.2.0",
-    "vitest": "^4.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.0"
   },
   "name": "workflows",
   "scripts": {
-    "check-types": "tsc --no Emit",
+    "check-types": "tsc --noEmit",
     "deploy": "trigger.dev deploy",
     "dev": "trigger.dev dev --skip-update-check",
     "postinstall": "prisma generate",

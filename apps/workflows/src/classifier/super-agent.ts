@@ -18,6 +18,8 @@ import {
     canRunTool,
     calculateTotalCost,
     getToolById,
+    getToolsForOutput,
+    getToolsForEntityType,
 } from "./tool-registry";
 
 // ============================================================
@@ -92,18 +94,26 @@ export interface WorkflowError {
 /**
  * Generate a workflow plan from classification result.
  *
+ * IMPORTANT: This now implements FIELD CAPABILITY PLANNING.
+ * The workflow is validated to ensure it can produce the targetField.
+ * If the initial workflow cannot produce the target field, additional
+ * tools are appended to satisfy the field requirement.
+ *
  * @param classification - Classification result from input classifier
  * @param existingData - Existing row data (for checking available fields)
+ * @param targetField - The specific field we need to enrich (e.g., "industry")
  * @returns WorkflowPlan if successful, WorkflowError if should fail fast
  */
 export function generateWorkflow(
     classification: ClassificationResult,
-    existingData: Record<string, unknown>
+    existingData: Record<string, unknown>,
+    targetField?: string
 ): WorkflowPlan | WorkflowError {
     logger.info("🎭 SuperAgent: Generating workflow", {
         entityType: classification.entityType,
         strategy: classification.strategy,
         signature: classification.inputSignature,
+        targetField: targetField || "(any)",
     });
 
     // Fail fast cases
@@ -169,6 +179,96 @@ export function generateWorkflow(
         };
     }
 
+    // ============================================================
+    // FIELD CAPABILITY PLANNING (Critical Fix)
+    // ============================================================
+    // Check if the current workflow can produce the target field.
+    // If not, extend the workflow with tools that CAN produce it.
+    if (targetField) {
+        const normalizedTargetField = normalizeFieldName(targetField);
+        const workflowOutputs = new Set<string>();
+
+        // Collect all outputs from current workflow
+        steps.forEach(step => step.expectedOutputs.forEach(o => workflowOutputs.add(o)));
+
+        // Check if workflow can produce target field
+        const canProduceTarget = workflowOutputs.has(normalizedTargetField);
+
+        logger.info("🎯 SuperAgent: Field capability check", {
+            targetField: normalizedTargetField,
+            workflowOutputs: Array.from(workflowOutputs),
+            canProduceTarget,
+        });
+
+        if (!canProduceTarget) {
+            // Find tools that can produce this field
+            const fieldProducers = getToolsForOutput(normalizedTargetField);
+
+            logger.info("🔧 SuperAgent: Field not in workflow, finding producers", {
+                targetField: normalizedTargetField,
+                producerCount: fieldProducers.length,
+                producers: fieldProducers.map(t => t.name),
+            });
+
+            if (fieldProducers.length === 0) {
+                return {
+                    error: `No tools can produce field: ${normalizedTargetField}`,
+                    resultState: "NOT_FOUND",
+                    reason: `No registered tool can produce the field "${targetField}". Check tool registry for available outputs.`,
+                };
+            }
+
+            // Filter to same entity type and runnable with available + workflow outputs
+            const combinedAvailable = [...availableFields, ...Array.from(workflowOutputs)];
+            const compatibleProducers = fieldProducers
+                .filter(t => t.entityTypes.includes(classification.entityType))
+                .filter(t => {
+                    const { canRun } = canRunTool(t, combinedAvailable);
+                    return canRun;
+                })
+                .sort((a, b) => a.priority - b.priority);
+
+            if (compatibleProducers.length === 0) {
+                // Try to find producers that could run if we add intermediate steps
+                const producersNeedingInputs = fieldProducers
+                    .filter(t => t.entityTypes.includes(classification.entityType))
+                    .map(t => {
+                        const { missing } = canRunTool(t, combinedAvailable);
+                        return { tool: t, missing };
+                    })
+                    .filter(({ missing }) => missing.length > 0);
+
+                if (producersNeedingInputs.length > 0) {
+                    const firstProducer = producersNeedingInputs[0]!;
+                    return {
+                        error: `Cannot produce field: ${normalizedTargetField}`,
+                        resultState: "NOT_FOUND",
+                        reason: `Tool "${firstProducer.tool.name}" can produce "${targetField}" but requires: [${firstProducer.missing.join(", ")}]. Configure these fields first.`,
+                    };
+                }
+
+                return {
+                    error: `No compatible tools for field: ${normalizedTargetField}`,
+                    resultState: "NOT_FOUND",
+                    reason: `Tools that produce "${targetField}" are not compatible with entity type ${classification.entityType}`,
+                };
+            }
+
+            // Add the best producer to the workflow
+            const producer = compatibleProducers[0]!;
+            const nextStepNumber = steps.length + 1;
+            const producerStep = createStep(nextStepNumber, producer);
+
+            steps.push(producerStep);
+
+            logger.info("✅ SuperAgent: Extended workflow with field producer", {
+                addedTool: producer.name,
+                targetField: normalizedTargetField,
+                newStepCount: steps.length,
+            });
+        }
+    }
+
     // Calculate costs and confidence
     const maxCostCents = calculateTotalCost(steps.map(s => s.toolId));
     const expectedConfidence = estimateConfidence(classification, steps.length);
@@ -188,6 +288,7 @@ export function generateWorkflow(
         maxCostCents,
         expectedConfidence,
         summary: plan.summary,
+        targetField: targetField || "(any)",
     });
 
     return plan;

@@ -5,12 +5,35 @@
  * Maps tools to strategies, entity types, and required inputs.
  */
 
-import type { ProviderTier } from "../types/enrichment";
+import type { ProviderTier, NormalizedInput } from "../types/enrichment";
 import type { EntityType, EnrichmentStrategy } from "./types";
+
+// Import actual tool implementations
+import { resolveCompanyIdentityFromName } from "../tools/company/resolve-company-identity-from-name";
+import { resolveCompanyIdentityFromDomain } from "../tools/company/resolve-company-identity-from-domain";
+import { fetchCompanyProfile } from "../tools/company/fetch-company-profile";
+import { fetchCompanySocials } from "../tools/company/fetch-company-socials";
+import { estimateCompanySize } from "../tools/company/estimate-company-size";
+import { resolvePersonFromLinkedIn } from "../tools/person/resolve-person-from-linkedin";
 
 // ============================================================
 // TOOL DEFINITION
 // ============================================================
+
+/**
+ * Tool execution result
+ */
+export interface ToolExecutionResult {
+    [key: string]: unknown;
+}
+
+/**
+ * Tool execute function signature
+ */
+export type ToolExecuteFunction = (
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+) => Promise<ToolExecutionResult>;
 
 /**
  * Tool definition in the registry.
@@ -51,6 +74,278 @@ export interface ToolDefinition {
 
     /** Fallback tool ID if this fails */
     fallbackTool?: string;
+
+    /** Execute function - actually runs the tool */
+    execute?: ToolExecuteFunction;
+}
+
+// ============================================================
+// TOOL EXECUTORS
+// ============================================================
+
+/**
+ * Execute resolve_company_from_name tool
+ */
+async function executeResolveCompanyFromName(
+    input: NormalizedInput,
+    _existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const companyName = input.company;
+    if (!companyName) {
+        return {};
+    }
+
+    const result = await resolveCompanyIdentityFromName(companyName);
+
+    if (!result.domain && !result.websiteUrl) {
+        return {};
+    }
+
+    return {
+        company: result.canonicalCompanyName || companyName,
+        domain: result.domain,
+        website: result.websiteUrl,
+    };
+}
+
+/**
+ * Execute resolve_company_from_domain tool
+ */
+async function executeResolveCompanyFromDomain(
+    input: NormalizedInput,
+    _existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    const domain = input.domain;
+    if (!domain || domain === '-') {
+        return {};
+    }
+
+    const result = await resolveCompanyIdentityFromDomain(domain);
+
+    if (result.status !== 'valid') {
+        return {};
+    }
+
+    return {
+        company: result.companyName,
+        domain: result.canonicalDomain,
+        website: result.websiteUrl,
+    };
+}
+
+/**
+ * Execute fetch_company_profile tool
+ * 
+ * This tool produces: industry, description (companySummary), founded, location
+ */
+async function executeFetchCompanyProfile(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    // Get domain from input or existing data
+    const domain = input.domain || (existingData.website as string) || (existingData.domain as string);
+    if (!domain || domain === '-') {
+        return {};
+    }
+
+    // Normalize domain to URL format if needed
+    let websiteUrl = domain;
+    if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+        websiteUrl = `https://${domain}`;
+    }
+
+    const result = await fetchCompanyProfile(websiteUrl);
+
+    // Map the result to standard output fields
+    const output: ToolExecutionResult = {};
+
+    if (result.industry) {
+        output.industry = result.industry;
+    }
+    if (result.description) {
+        output.companySummary = result.description;
+    }
+    if (result.founded) {
+        output.founded = result.founded;
+        output.foundedDate = result.founded;
+    }
+    if (result.location) {
+        output.location = result.location;
+    }
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._tier = result.tier;
+    output._reason = result.reason;
+
+    return output;
+}
+
+/**
+ * Execute fetch_company_socials tool
+ * 
+ * This tool produces: socialLinks, twitter, linkedin, github
+ * It does deterministic extraction from company website - NO GUESSING
+ */
+async function executeFetchCompanySocials(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    // Get domain/website from input or existing data
+    const website = (existingData.website as string) || input.domain;
+    const companyName = input.company || (existingData.company_name as string);
+
+    if (!website || website === '-') {
+        return {};
+    }
+
+    const result = await fetchCompanySocials(website, companyName);
+
+    // Map the result to standard output fields
+    const output: ToolExecutionResult = {};
+    const socialLinks: string[] = [];
+
+    if (result.socials.twitter) {
+        output.twitter = result.socials.twitter.url;
+        socialLinks.push(result.socials.twitter.url);
+    }
+    if (result.socials.linkedin) {
+        output.linkedin = result.socials.linkedin.url;
+        socialLinks.push(result.socials.linkedin.url);
+    }
+    if (result.socials.github) {
+        output.github = result.socials.github.url;
+        socialLinks.push(result.socials.github.url);
+    }
+    if (result.socials.facebook) {
+        output.facebook = result.socials.facebook.url;
+        socialLinks.push(result.socials.facebook.url);
+    }
+    if (result.socials.instagram) {
+        output.instagram = result.socials.instagram.url;
+        socialLinks.push(result.socials.instagram.url);
+    }
+
+    // Combined socialLinks array
+    if (socialLinks.length > 0) {
+        output.socialLinks = socialLinks;
+    }
+
+    // Add metadata
+    output._pagesChecked = result.pagesChecked;
+    output._linksFound = result.linksFound;
+    output._linksValidated = result.linksValidated;
+
+    return output;
+}
+
+/**
+ * Execute estimate_company_size tool
+ * 
+ * This tool produces: companySize, employeeCountRange, hiringStatus
+ * Uses LinkedIn as primary source with Serper for resolution
+ */
+async function executeEstimateCompanySize(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    // Get domain from input or existing data
+    const domain = input.domain || (existingData.website as string) || (existingData.domain as string);
+    const companyName = input.company || (existingData.company_name as string);
+
+    if (!domain || domain === '-') {
+        return {};
+    }
+
+    const result = await estimateCompanySize(domain, companyName);
+
+    // Map the result to standard output fields
+    const output: ToolExecutionResult = {};
+
+    if (result.employeeCountRange !== "unknown") {
+        output.employeeCountRange = result.employeeCountRange;
+        output.companySize = result.employeeCountRange; // Alias
+    }
+    if (result.hiringStatus !== "unknown") {
+        output.hiringStatus = result.hiringStatus;
+    }
+    if (result.linkedinCompanyUrl) {
+        output.linkedinCompanyUrl = result.linkedinCompanyUrl;
+    }
+    if (result.companyName) {
+        output.companyNameFromLinkedIn = result.companyName;
+    }
+    if (result.industry) {
+        output.industryFromLinkedIn = result.industry;
+    }
+    if (result.location) {
+        output.locationFromLinkedIn = result.location;
+    }
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._source = result.source;
+    output._reason = result.reason;
+
+    return output;
+}
+
+// ============================================================
+// PERSON TOOL EXECUTORS
+// ============================================================
+
+/**
+ * Execute resolve_person_from_linkedin tool
+ * 
+ * This tool produces: name, title, company, location, linkedinUrl
+ * Uses snippet-first strategy - never scrapes LinkedIn directly
+ */
+async function executeResolvePersonFromLinkedIn(
+    input: NormalizedInput,
+    existingData: Record<string, unknown>
+): Promise<ToolExecutionResult> {
+    // Get inputs from normalized input or existing data
+    const linkedinUrl = input.linkedinUrl || (existingData.linkedin as string) || (existingData.linkedin_url as string);
+    const name = input.name || (existingData.name as string) || (existingData.full_name as string);
+    const company = input.company || (existingData.company as string) || (existingData.company_name as string);
+
+    // Need at least linkedinUrl OR name to proceed
+    if (!linkedinUrl && !name) {
+        return {};
+    }
+
+    const result = await resolvePersonFromLinkedIn({
+        linkedinUrl,
+        name,
+        company,
+    });
+
+    // Map the result to standard output fields
+    const output: ToolExecutionResult = {};
+
+    if (result.name) {
+        output.name = result.name;
+    }
+    if (result.title) {
+        output.title = result.title;
+    }
+    if (result.company) {
+        output.company = result.company;
+    }
+    if (result.location) {
+        output.location = result.location;
+    }
+    if (result.linkedinUrl) {
+        output.linkedinUrl = result.linkedinUrl;
+    }
+
+    // Add metadata
+    output._confidence = result.confidence;
+    output._source = result.source;
+    output._fieldsFromSnippets = result.fieldsFromSnippets;
+    output._fieldsFromScrape = result.fieldsFromScrape;
+
+    return output;
 }
 
 // ============================================================
@@ -70,6 +365,7 @@ const COMPANY_TOOLS: ToolDefinition[] = [
         tier: "free",
         priority: 1,
         canFail: true,
+        execute: executeResolveCompanyFromDomain,
     },
     {
         id: "resolve_company_from_name",
@@ -84,6 +380,7 @@ const COMPANY_TOOLS: ToolDefinition[] = [
         priority: 2,
         canFail: true,
         fallbackTool: "serper_company_search",
+        execute: executeResolveCompanyFromName,
     },
     {
         id: "fetch_company_profile",
@@ -91,12 +388,27 @@ const COMPANY_TOOLS: ToolDefinition[] = [
         strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE"],
         entityTypes: ["COMPANY"],
         requiredInputs: ["domain"],
-        optionalInputs: [],
-        outputs: ["companySummary", "industry", "companySize"],
-        costCents: 0,
-        tier: "free",
+        optionalInputs: ["website"],
+        outputs: ["companySummary", "industry", "founded", "location"],
+        costCents: 1,
+        tier: "cheap",
         priority: 3,
         canFail: true,
+        execute: executeFetchCompanyProfile,
+    },
+    {
+        id: "fetch_company_socials",
+        name: "Fetch Company Socials",
+        strategies: ["DIRECT_LOOKUP"],
+        entityTypes: ["COMPANY"],
+        requiredInputs: ["domain"],
+        optionalInputs: ["company", "website"],
+        outputs: ["socialLinks", "twitter", "linkedin", "github"],
+        costCents: 0,
+        tier: "free",
+        priority: 4,
+        canFail: true,
+        execute: executeFetchCompanySocials,
     },
     {
         id: "estimate_company_size",
@@ -105,11 +417,12 @@ const COMPANY_TOOLS: ToolDefinition[] = [
         entityTypes: ["COMPANY"],
         requiredInputs: ["domain"],
         optionalInputs: ["company"],
-        outputs: ["companySize"],
-        costCents: 1,
+        outputs: ["companySize", "employeeCountRange", "hiringStatus"],
+        costCents: 2,
         tier: "cheap",
-        priority: 4,
+        priority: 5,
         canFail: true,
+        execute: executeEstimateCompanySize,
     },
     {
         id: "detect_tech_stack",
@@ -160,15 +473,16 @@ const PERSON_TOOLS: ToolDefinition[] = [
     {
         id: "resolve_person_from_linkedin",
         name: "Resolve Person From LinkedIn",
-        strategies: ["DIRECT_LOOKUP"],
+        strategies: ["DIRECT_LOOKUP", "SEARCH_AND_VALIDATE"],
         entityTypes: ["PERSON"],
-        requiredInputs: ["linkedinUrl"],
-        optionalInputs: [],
-        outputs: ["name", "title", "company", "location"],
-        costCents: 3,
-        tier: "premium",
+        requiredInputs: [],  // Can work with just name+company OR linkedinUrl
+        optionalInputs: ["linkedinUrl", "name", "company"],
+        outputs: ["name", "title", "company", "location", "linkedinUrl"],
+        costCents: 2,
+        tier: "cheap",
         priority: 1,
-        canFail: false,
+        canFail: true,
+        execute: executeResolvePersonFromLinkedIn,
     },
     {
         id: "resolve_person_from_name_company",

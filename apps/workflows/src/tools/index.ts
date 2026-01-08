@@ -34,6 +34,16 @@ export { resolveCompanyIdentityFromDomain } from "./company/resolve-company-iden
 export type { CompanyResolutionResult } from "./company/resolve-company-identity-from-domain";
 export { resolveCompanyIdentityFromName } from "./company/resolve-company-identity-from-name";
 export type { CompanyNameResolutionResult } from "./company/resolve-company-identity-from-name";
+export { fetchCompanyProfile, fetchCompanyProfileProvider, FetchCompanyProfileProvider } from "./company/fetch-company-profile";
+export type { CompanyProfile } from "./company/fetch-company-profile";
+export { fetchCompanySocials, fetchCompanySocialsProvider, FetchCompanySocialsProvider } from "./company/fetch-company-socials";
+export type { CompanySocials, SocialLink, FetchCompanySocialsResult } from "./company/fetch-company-socials";
+export { estimateCompanySize, estimateCompanySizeProvider, EstimateCompanySizeProvider } from "./company/estimate-company-size";
+export type { CompanySizeResult, EmployeeCountRange, HiringStatus } from "./company/estimate-company-size";
+
+// Person Resolution Tools
+export { resolvePersonFromLinkedIn, resolvePersonFromLinkedInProvider, ResolvePersonFromLinkedInProvider } from "./person/resolve-person-from-linkedin";
+export type { PersonProfile } from "./person/resolve-person-from-linkedin";
 
 // Provenance Tools
 export {
