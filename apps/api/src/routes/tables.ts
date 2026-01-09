@@ -8,10 +8,14 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   .use(authMiddleware)
 
   // List all tables (filtered by userId if authenticated)
-  .get('/', async ({ userId }) => {
-    // If authenticated, only show user's tables
-    // If not authenticated (development mode), show all tables
-    const where = userId ? { userId } : {};
+  .get('/', async ({ userId, set }) => {
+    // If not authenticated, return empty list (or 401)
+    if (!userId) {
+      set.status = 401;
+      return { error: 'Unauthorized', data: [] };
+    }
+
+    const where = { userId };
 
     return await prisma.table.findMany({
       where,
@@ -229,7 +233,18 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   // --- Rows ---
 
   // List rows (with pagination)
-  .get('/:id/rows', async ({ params: { id }, query }) => {
+  .get('/:id/rows', async ({ params: { id }, query, userId, set }) => {
+    // Check table existence and ownership
+    const table = await prisma.table.findUnique({ where: { id } });
+    if (!table) {
+      set.status = 404;
+      return { error: 'Table not found' };
+    }
+    if (!checkTableOwnership(table.userId, userId)) {
+      set.status = 403;
+      return { error: 'Unauthorized' };
+    }
+
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;

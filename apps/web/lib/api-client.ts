@@ -21,6 +21,7 @@ import type {
   EnrichRequest,
   EnrichResponse,
 } from './api-types';
+import { getAccessToken } from './supabase-auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -37,10 +38,14 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    // Get access token for authenticated requests
+    const accessToken = await getAccessToken();
+
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
         ...options.headers,
       },
     };

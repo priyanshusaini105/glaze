@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import Image from 'next/image';
 import { CreditsDisplay } from '@/components/credits-display';
+import { useAuth } from '@/providers/auth-context';
 
 interface Table {
   id: string;
@@ -29,6 +30,9 @@ interface TableSidebarProps {
 }
 
 export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
+  const { user } = useAuth();
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
+
   return (
     <Sidebar className="border-r border-slate-200 bg-white">
       <SidebarHeader className="p-5">
@@ -88,13 +92,15 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
           <CreditsDisplay variant="expanded" />
         </div>
 
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-slate-900 truncate">Alicia Chen</div>
-            <div className="text-xs text-slate-400">Pro Plan</div>
+        {user && (
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-slate-900 truncate">{displayName}</div>
+              <div className="text-xs text-slate-400">Beta</div>
+            </div>
           </div>
-        </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
