@@ -9,19 +9,19 @@
 Choose based on your role:
 
 ### 👨‍💻 Developers (Individual Contributors)
-1. [QUICK_REFERENCE.md](/QUICK_REFERENCE.md) - 2 min overview
-2. [CONTRIBUTORS.md](/CONTRIBUTORS.md) - Full setup guide (20 min)
+1. [QUICK_REFERENCE.md](/docs/QUICK_REFERENCE.md) - 2 min overview
+2. [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) - Full setup guide (20 min)
 3. [apps/worker/README.md](/apps/worker/README.md) - Technical details (15 min)
 4. Run: `./scripts/dev-all.sh`
 
 ### 👔 Team Leads & Project Managers
-1. [RESTRUCTURE_SUMMARY.md](/RESTRUCTURE_SUMMARY.md) - What changed (10 min)
-2. [ARCHITECTURE.md](/ARCHITECTURE.md) - How it works (15 min)
-3. [RESTRUCTURING_CHECKLIST.md](/RESTRUCTURING_CHECKLIST.md) - Status (5 min)
+1. [RESTRUCTURE_SUMMARY.md](/docs/RESTRUCTURE_SUMMARY.md) - What changed (10 min)
+2. [ARCHITECTURE.md](/docs/ARCHITECTURE.md) - How it works (15 min)
+3. [RESTRUCTURING_CHECKLIST.md](/docs/RESTRUCTURING_CHECKLIST.md) - Status (5 min)
 
 ### 🏗️ Architects & Senior Engineers
-1. [ARCHITECTURE.md](/ARCHITECTURE.md) - Full system design
-2. [CONTRIBUTORS.md](/CONTRIBUTORS.md#architecture-overview) - Architecture section
+1. [ARCHITECTURE.md](/docs/ARCHITECTURE.md) - Full system design
+2. [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md#architecture-overview) - Architecture section
 3. Code walkthrough in new apps/
 
 ---
@@ -29,16 +29,16 @@ Choose based on your role:
 ## 📚 Documentation Map
 
 ### Quick References
-- [QUICK_REFERENCE.md](/QUICK_REFERENCE.md) - Commands, links, quick navigation
+- [QUICK_REFERENCE.md](/docs/QUICK_REFERENCE.md) - Commands, links, quick navigation
 - [README.md](/README.md) - Project overview and features
 
 ### Comprehensive Guides
-- [CONTRIBUTORS.md](/CONTRIBUTORS.md) - Complete development guide
-- [ARCHITECTURE.md](/ARCHITECTURE.md) - Visual architecture and design
+- [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) - Complete development guide
+- [ARCHITECTURE.md](/docs/ARCHITECTURE.md) - Visual architecture and design
 
 ### Implementation Details
-- [RESTRUCTURE_SUMMARY.md](/RESTRUCTURE_SUMMARY.md) - What was changed and why
-- [RESTRUCTURING_CHECKLIST.md](/RESTRUCTURING_CHECKLIST.md) - Completion verification
+- [RESTRUCTURE_SUMMARY.md](/docs/RESTRUCTURE_SUMMARY.md) - What was changed and why
+- [RESTRUCTURING_CHECKLIST.md](/docs/RESTRUCTURING_CHECKLIST.md) - Completion verification
 
 ### Service-Specific Documentation
 - [apps/worker/README.md](/apps/worker/README.md) - Worker process
@@ -124,15 +124,15 @@ Development helpers (all executable)
 ## 🔍 Find What You Need
 
 ### Architecture & Design
-- **System diagram** → [ARCHITECTURE.md#high-level-diagram](/ARCHITECTURE.md#high-level-diagram)
-- **Data flow** → [ARCHITECTURE.md#enrichment-request-flow](/ARCHITECTURE.md#enrichment-request-flow)
-- **Directory tree** → [ARCHITECTURE.md#complete-directory-tree](/ARCHITECTURE.md#complete-directory-tree)
-- **Service communication** → [ARCHITECTURE.md#service-communication](/ARCHITECTURE.md#service-communication)
+- **System diagram** → [ARCHITECTURE.md#high-level-diagram](/docs/ARCHITECTURE.md#high-level-diagram)
+- **Data flow** → [ARCHITECTURE.md#enrichment-request-flow](/docs/ARCHITECTURE.md#enrichment-request-flow)
+- **Directory tree** → [ARCHITECTURE.md#complete-directory-tree](/docs/ARCHITECTURE.md#complete-directory-tree)
+- **Service communication** → [ARCHITECTURE.md#service-communication](/docs/ARCHITECTURE.md#service-communication)
 
 ### Setup & Configuration
-- **Local development** → [CONTRIBUTORS.md#development-setup](/CONTRIBUTORS.md#development-setup)
-- **Environment variables** → [ARCHITECTURE.md#configuration](/ARCHITECTURE.md#configuration)
-- **Database setup** → [CONTRIBUTORS.md#database](/CONTRIBUTORS.md#database)
+- **Local development** → [CONTRIBUTORS.md#development-setup](/docs/CONTRIBUTORS.md#development-setup)
+- **Environment variables** → [ARCHITECTURE.md#configuration](/docs/ARCHITECTURE.md#configuration)
+- **Database setup** → [CONTRIBUTORS.md#database](/docs/CONTRIBUTORS.md#database)
 - **Dependencies** → Each app's `package.json`
 
 ### Code & Implementation
@@ -142,13 +142,13 @@ Development helpers (all executable)
 - **Provider adapters** → [apps/worker/src/providers/](/apps/worker/src/providers/)
 
 ### Development Workflow
-- **Getting started** → [CONTRIBUTORS.md#development-setup](/CONTRIBUTORS.md#development-setup)
-- **Code organization** → [CONTRIBUTORS.md#code-organization](/CONTRIBUTORS.md#code-organization)
-- **Making changes** → [CONTRIBUTORS.md#development-workflow](/CONTRIBUTORS.md#development-workflow)
-- **Testing** → [CONTRIBUTORS.md#testing](/CONTRIBUTORS.md#testing)
+- **Getting started** → [CONTRIBUTORS.md#development-setup](/docs/CONTRIBUTORS.md#development-setup)
+- **Code organization** → [CONTRIBUTORS.md#code-organization](/docs/CONTRIBUTORS.md#code-organization)
+- **Making changes** → [CONTRIBUTORS.md#development-workflow](/docs/CONTRIBUTORS.md#development-workflow)
+- **Testing** → [CONTRIBUTORS.md#testing](/docs/CONTRIBUTORS.md#testing)
 
 ### Troubleshooting
-- **Common issues** → [CONTRIBUTORS.md#troubleshooting](/CONTRIBUTORS.md#troubleshooting)
+- **Common issues** → [CONTRIBUTORS.md#troubleshooting](/docs/CONTRIBUTORS.md#troubleshooting)
 - **Worker problems** → [apps/worker/README.md#troubleshooting](/apps/worker/README.md#troubleshooting)
 - **Workflow issues** → [apps/workflows/README.md#troubleshooting](/apps/workflows/README.md#troubleshooting)
 
@@ -317,9 +317,9 @@ Code Examples:            25+
 
 ## 🎯 Next Steps
 
-1. **Review**: Start with [QUICK_REFERENCE.md](/QUICK_REFERENCE.md)
-2. **Setup**: Follow [CONTRIBUTORS.md](/CONTRIBUTORS.md#development-setup)
-3. **Explore**: Read [ARCHITECTURE.md](/ARCHITECTURE.md)
+1. **Review**: Start with [QUICK_REFERENCE.md](/docs/QUICK_REFERENCE.md)
+2. **Setup**: Follow [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md#development-setup)
+3. **Explore**: Read [ARCHITECTURE.md](/docs/ARCHITECTURE.md)
 4. **Run**: Execute `./scripts/dev-all.sh`
 5. **Integrate**: Copy existing enrichment logic to worker
 6. **Deploy**: Set up Trigger.dev and deploy workflows
@@ -341,4 +341,4 @@ Code Examples:            25+
 
 ---
 
-See [QUICK_REFERENCE.md](/QUICK_REFERENCE.md) for quick links and commands!
+See [QUICK_REFERENCE.md](/docs/QUICK_REFERENCE.md) for quick links and commands!

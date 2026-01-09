@@ -7,12 +7,12 @@
 Choose based on your role:
 
 ### 👨‍💻 Developer Setting Up Locally
-1. Read: [CONTRIBUTORS.md](/CONTRIBUTORS.md) - Full setup guide
+1. Read: [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) - Full setup guide
 2. Run: `./scripts/dev-all.sh` - Start all services
 3. Access: API at http://localhost:3001 with Swagger docs
 
 ### 🏗️ Understanding Architecture  
-1. Read: [ARCHITECTURE.md](/ARCHITECTURE.md) - Visual diagrams
+1. Read: [ARCHITECTURE.md](/docs/ARCHITECTURE.md) - Visual diagrams
 2. Look at: System components and data flow diagrams
 3. Reference: Configuration and deployment sections
 
@@ -88,10 +88,10 @@ pnpm test
 | Document | Purpose | Audience |
 |----------|---------|----------|
 | [README.md](/README.md) | Project overview | Everyone |
-| [CONTRIBUTORS.md](/CONTRIBUTORS.md) | Development setup & workflow | Developers |
-| [ARCHITECTURE.md](/ARCHITECTURE.md) | System design & diagrams | Architects |
-| [RESTRUCTURE_SUMMARY.md](/RESTRUCTURE_SUMMARY.md) | What changed & why | Team leads |
-| [RESTRUCTURING_CHECKLIST.md](/RESTRUCTURING_CHECKLIST.md) | Completion status | Project managers |
+| [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) | Development setup & workflow | Developers |
+| [ARCHITECTURE.md](/docs/ARCHITECTURE.md) | System design & diagrams | Architects |
+| [RESTRUCTURE_SUMMARY.md](/docs/RESTRUCTURE_SUMMARY.md) | What changed & why | Team leads |
+| [RESTRUCTURING_CHECKLIST.md](/docs/RESTRUCTURING_CHECKLIST.md) | Completion status | Project managers |
 | [apps/worker/README.md](/apps/worker/README.md) | Worker details | Backend devs |
 | [apps/workflows/README.md](/apps/workflows/README.md) | Workflows details | Workflow devs |
 | [apps/api/README.md](/apps/api/README.md) | API documentation | API devs |
@@ -176,11 +176,11 @@ LLM_API_KEY=xxx
 
 | Question | Answer |
 |----------|--------|
-| How do I set up? | Read [CONTRIBUTORS.md](/CONTRIBUTORS.md) |
-| How does it work? | Read [ARCHITECTURE.md](/ARCHITECTURE.md) |
+| How do I set up? | Read [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) |
+| How does it work? | Read [ARCHITECTURE.md](/docs/ARCHITECTURE.md) |
 | How do I run it? | Run `./scripts/dev-all.sh` |
-| What changed? | Read [RESTRUCTURE_SUMMARY.md](/RESTRUCTURE_SUMMARY.md) |
-| Where's code X? | Check [ARCHITECTURE.md](/ARCHITECTURE.md#complete-directory-tree) |
+| What changed? | Read [RESTRUCTURE_SUMMARY.md](/docs/RESTRUCTURE_SUMMARY.md) |
+| Where's code X? | Check [ARCHITECTURE.md](/docs/ARCHITECTURE.md#complete-directory-tree) |
 | How to add a provider? | See [apps/worker/README.md](/apps/worker/README.md) |
 | How to add a workflow? | See [apps/workflows/README.md](/apps/workflows/README.md) |
 
@@ -219,4 +219,4 @@ LLM_API_KEY=xxx
 
 ---
 
-**Ready to start? Begin with [CONTRIBUTORS.md](/CONTRIBUTORS.md)!**
+**Ready to start? Begin with [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md)!**

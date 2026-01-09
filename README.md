@@ -131,7 +131,7 @@ cd apps/workflows && npx trigger.dev@latest dev
 
 ## 📚 Documentation
 
-- **[CONTRIBUTORS.md](/CONTRIBUTORS.md)** - Development guide and architecture overview
+- **[CONTRIBUTORS.md](/docs/CONTRIBUTORS.md)** - Development guide and architecture overview
 - **[apps/api/README.md](/apps/api/README.md)** - API server documentation
 - **[apps/worker/README.md](/apps/worker/README.md)** - Worker process documentation
 - **[apps/workflows/README.md](/apps/workflows/README.md)** - Workflow definitions guide
@@ -283,11 +283,11 @@ QUEUE_NAME=enrichment-2 ./scripts/run-worker.sh &
 - Rebuild types: `pnpm check-types`
 - Clear cache: `rm -rf node_modules/.vite`
 
-See [CONTRIBUTORS.md](/CONTRIBUTORS.md#troubleshooting) for more help.
+See [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md#troubleshooting) for more help.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read [CONTRIBUTORS.md](/CONTRIBUTORS.md) for:
+We welcome contributions! Please read [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) for:
 
 - Development setup instructions
 - Code organization guidelines

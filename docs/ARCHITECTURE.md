@@ -467,6 +467,6 @@ Examples:
 ---
 
 **For detailed implementation guides, see:**
-- [CONTRIBUTORS.md](/CONTRIBUTORS.md) - Development setup
+- [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) - Development setup
 - [apps/worker/README.md](/apps/worker/README.md) - Worker details
 - [apps/workflows/README.md](/apps/workflows/README.md) - Workflows details

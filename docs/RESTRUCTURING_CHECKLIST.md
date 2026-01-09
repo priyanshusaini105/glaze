@@ -354,4 +354,4 @@ The codebase is now organized into:
 
 This provides better separation of concerns, improved scalability, and cleaner development experience.
 
-See [CONTRIBUTORS.md](/CONTRIBUTORS.md) to get started with development!
+See [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) to get started with development!

@@ -124,7 +124,7 @@ REDIS_URL=redis://... ./scripts/run-worker.sh
 Created comprehensive guides for contributors and developers.
 
 **New Files**:
-- [CONTRIBUTORS.md](/CONTRIBUTORS.md) - Development guide (4000+ words)
+- [CONTRIBUTORS.md](/docs/CONTRIBUTORS.md) - Development guide (4000+ words)
   - Project structure overview
   - Setup instructions
   - Architecture explanation
