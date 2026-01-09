@@ -418,3 +418,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 <p align="center">
   Built with ❤️ by <a href="https://github.com/priyanshusaini105">@priyanshusaini105</a>
 </p>
+
+<p align="center">
+  <a href="https://github.com/priyanshusaini105/glaze">GitHub</a> &nbsp;|&nbsp;
+  <a href="https://linkedin.com/in/priyanshusaini105">LinkedIn</a> &nbsp;|&nbsp;
+  <a href="https://x.com/priyanshu_515">X</a>
+</p>

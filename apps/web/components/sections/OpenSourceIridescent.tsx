@@ -26,7 +26,7 @@ export function OpenSourceIridescent() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-green-400">→</span>
-                    <span className="text-slate-300">git clone https://github.com/glaze/glaze.git</span>
+                    <span className="text-slate-300">git clone https://github.com/priyanshusaini105/glaze.git</span>
                   </div>
                   <div className="text-slate-500 pl-4">Cloning into &apos;glaze&apos;...</div>
                   <div className="text-slate-500 pl-4">remote: Enumerating objects: 12543, done.</div>
@@ -91,7 +91,7 @@ export function OpenSourceIridescent() {
               </li>
             </ul>
             <div className="flex gap-4">
-              <a href="/coming-soon" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
+              <a href="https://github.com/priyanshusaini105/glaze" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 h-12 px-6 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors">
                 <Github className="w-5 h-5" />
                 Star on GitHub
               </a>

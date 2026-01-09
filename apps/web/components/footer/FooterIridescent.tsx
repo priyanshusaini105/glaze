@@ -59,7 +59,7 @@ export function FooterIridescent() {
           {/* Right: Social */}
           <div className="flex items-center gap-4">
             <a
-              href="https://twitter.com/glaze"
+              href="https://x.com/priyanshu_515"
               target="_blank"
               rel="noopener noreferrer"
               className="w-9 h-9 rounded-lg bg-surface-light border border-border-light flex items-center justify-center text-text-muted hover:text-text-main hover:border-slate-300 transition-all"
@@ -67,13 +67,15 @@ export function FooterIridescent() {
               <Twitter className="w-4 h-4" />
             </a>
             <a
-              href="/coming-soon"
+              href="https://github.com/priyanshusaini105/glaze"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-9 h-9 rounded-lg bg-surface-light border border-border-light flex items-center justify-center text-text-muted hover:text-text-main hover:border-slate-300 transition-all"
             >
               <Github className="w-4 h-4" />
             </a>
             <a
-              href="https://linkedin.com/company/glaze"
+              href="https://linkedin.com/in/priyanshusaini105"
               target="_blank"
               rel="noopener noreferrer"
               className="w-9 h-9 rounded-lg bg-surface-light border border-border-light flex items-center justify-center text-text-muted hover:text-text-main hover:border-slate-300 transition-all"
