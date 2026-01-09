@@ -745,6 +745,26 @@ export const processEnrichmentJobTask = task({
     const prisma = await getPrisma();
 
     try {
+      // CRITICAL: Verify job exists before attempting update
+      // This prevents the "record not found" error if databases are mismatched
+      const jobExists = await prisma.enrichmentJob.findUnique({
+        where: { id: jobId },
+        select: { id: true, status: true },
+      });
+
+      if (!jobExists) {
+        const dbUrl = process.env.DATABASE_URL || 'NOT_SET';
+        const dbHost = dbUrl.match(/@([^:]+)/)?.[1] || 'unknown';
+        
+        throw new Error(
+          `Job ${jobId} not found in database (host: ${dbHost}). ` +
+          `This usually means the API and Trigger.dev are using different databases. ` +
+          `Check DATABASE_URL in Trigger.dev production environment settings.`
+        );
+      }
+
+      console.log(`[DB Check] Job ${jobId} found with status: ${jobExists.status}`);
+
       // Mark job as running
       await prisma.enrichmentJob.update({
         where: { id: jobId },

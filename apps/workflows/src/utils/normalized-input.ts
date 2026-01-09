@@ -63,6 +63,7 @@ export function normalizeExistingDataToInput(
   const company = getFirstStringValue(existingData, [
     "company",
     "company_name",
+    "copmany_name", // Support typo for backwards compatibility
     "Company",
     "Company Name",
   ]);

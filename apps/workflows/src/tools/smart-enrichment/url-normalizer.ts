@@ -6,15 +6,11 @@
  * Rules:
  * - Force https
  * - Remove www.
- * - Remove trailing slash
- * - Remove tracking parameters (utm_*, fbclid, etc.)
+ * - Strip path, query params, and hash (return only origin)
+ * - Add trailing slash for consistency
+ * 
+ * Example: https://redditinc.com/press → https://redditinc.com/
  */
-
-// Query parameters to remove
-const TRACKING_PARAMS = [
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-    'fbclid', 'gclid', 'msclkid', 'ref', 'source', 'mc_eid'
-];
 
 /**
  * Normalize a website URL for storage
@@ -33,26 +29,10 @@ export function normalizeUrl(url: string | null | undefined): string | null {
 
         // Force https and remove www.
         let hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
-        let normalized = `https://${hostname}`;
-
-        // Keep path but remove trailing slash (except for root)
-        if (parsed.pathname && parsed.pathname !== '/') {
-            normalized += parsed.pathname.replace(/\/$/, '');
-        }
-
-        // Remove tracking parameters
-        if (parsed.search) {
-            const params = new URLSearchParams(parsed.search);
-            for (const param of TRACKING_PARAMS) {
-                params.delete(param);
-            }
-            const cleanSearch = params.toString();
-            if (cleanSearch) {
-                normalized += `?${cleanSearch}`;
-            }
-        }
-
-        return normalized;
+        
+        // Return only the origin (protocol + hostname + trailing slash)
+        // This ensures we always return https://domain.com/ instead of full paths
+        return `https://${hostname}/`;
     } catch {
         // Return as-is if parsing fails
         return url;

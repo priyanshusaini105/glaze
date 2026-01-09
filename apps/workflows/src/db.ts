@@ -35,6 +35,15 @@ export async function getPrisma(): Promise<import("@prisma/client").PrismaClient
         }
 
         const connectionString = process.env.DATABASE_URL!;
+        
+        if (!connectionString) {
+            throw new Error('DATABASE_URL environment variable is not set in Trigger.dev production');
+        }
+
+        // Log database connection info (sanitized)
+        const dbHost = connectionString.match(/@([^:]+)/)?.[1] || 'unknown';
+        const dbName = connectionString.match(/\/([^?]+)/)?.[1] || 'unknown';
+        console.log(`[Prisma Init] Connecting to database: ${dbHost}/${dbName}`);
 
         // Optimized pool for serverless/cloud workers
         // Single connection per worker to avoid pool overhead
