@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
 import { CSVImport } from './csv-import';
+import { getAccessToken } from '@/lib/supabase-auth';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -88,9 +89,16 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
         ...exampleRows.map(row => row.map(cell => `"${cell}"`).join(','))
       ].join('\n');
 
+      // Get auth token for the request
+      const token = await getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: formData.name,
           description: formData.description || 'Table created from example data',
@@ -142,9 +150,16 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
       ];
       const csvContent = csvLines.join('\n');
 
+      // Get auth token for the request
+      const token = await getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: formData.name || 'Imported Table',
           description: formData.description || `Imported from CSV with ${data.rows.length} rows`,

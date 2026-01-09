@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { useSupabaseRealtime } from '@/providers/supabase-realtime-provider';
+import { useSupabaseRealtime, SubscriptionStatus } from '@/providers/supabase-realtime-provider';
 
 export interface TableRow {
   id: string;
@@ -23,6 +23,7 @@ export interface UseTableRealtimeOptions {
 
 export interface UseTableRealtimeReturn {
   isConnected: boolean;
+  subscriptionStatus: SubscriptionStatus | undefined;
   updatedRows: Map<string, TableRow>;
   clearUpdates: () => void;
 }
@@ -38,8 +39,12 @@ export function useTableRealtime({
   onRowInsert,
   onRowDelete,
 }: UseTableRealtimeOptions): UseTableRealtimeReturn {
-  const { isConnected, subscribe, unsubscribe } = useSupabaseRealtime();
+  const { isConnected, subscribe, unsubscribe, getChannelStatus } = useSupabaseRealtime();
   const [updatedRows, setUpdatedRows] = useState<Map<string, TableRow>>(new Map());
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | undefined>();
+
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
 
   // Refs for props to avoid stale closures
   const onRowUpdatePropRef = useRef(onRowUpdate);
@@ -53,8 +58,9 @@ export function useTableRealtime({
   }, [onRowUpdate, onRowInsert, onRowDelete]);
 
   // Store callbacks in refs to avoid recreating them on every render
-  // We use refs to keep the latest callbacks without causing re-renders
   const onRowUpdateCallback = useCallback((row: TableRow) => {
+    if (!isMountedRef.current) return;
+
     console.log('[useTableRealtime] Row UPDATE event received:', {
       rowId: row.id,
       enrichingColumns: row.enrichingColumns,
@@ -69,9 +75,16 @@ export function useTableRealtime({
     if (onRowUpdatePropRef.current) {
       onRowUpdatePropRef.current(row);
     }
-  }, []); // Empty deps - callback reference stays stable
+  }, []);
 
   const onRowInsertCallback = useCallback((row: TableRow) => {
+    if (!isMountedRef.current) return;
+
+    console.log('[useTableRealtime] Row INSERT event received:', {
+      rowId: row.id,
+      timestamp: new Date().toISOString()
+    });
+
     // Update local state
     setUpdatedRows((prev) => new Map(prev).set(row.id, row));
 
@@ -79,9 +92,16 @@ export function useTableRealtime({
     if (onRowInsertPropRef.current) {
       onRowInsertPropRef.current(row);
     }
-  }, []); // Empty deps - callback reference stays stable
+  }, []);
 
   const onRowDeleteCallback = useCallback((row: { id: string }) => {
+    if (!isMountedRef.current) return;
+
+    console.log('[useTableRealtime] Row DELETE event received:', {
+      rowId: row.id,
+      timestamp: new Date().toISOString()
+    });
+
     // Remove from local state
     setUpdatedRows((prev) => {
       const newMap = new Map(prev);
@@ -93,9 +113,30 @@ export function useTableRealtime({
     if (onRowDeletePropRef.current) {
       onRowDeletePropRef.current(row);
     }
-  }, []); // Empty deps - callback reference stays stable
+  }, []);
+
+  // Poll for subscription status
+  useEffect(() => {
+    if (!tableId || !enabled) return;
+
+    const channelName = `table_${tableId}_rows`;
+
+    const checkStatus = () => {
+      const status = getChannelStatus(channelName);
+      if (isMountedRef.current) {
+        setSubscriptionStatus(status);
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 1000);
+
+    return () => clearInterval(interval);
+  }, [tableId, enabled, getChannelStatus]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     if (!enabled || !tableId) {
       console.log('[useTableRealtime] Subscription disabled:', { enabled, tableId });
       return;
@@ -115,8 +156,12 @@ export function useTableRealtime({
     });
 
     return () => {
+      isMountedRef.current = false;
       console.log('[useTableRealtime] Cleaning up subscription:', channelName);
-      unsubscribe(channelName);
+      // Use async unsubscribe - fire and forget on cleanup
+      unsubscribe(channelName).catch((err) => {
+        console.warn('[useTableRealtime] Cleanup error:', err);
+      });
     };
   }, [tableId, enabled, subscribe, unsubscribe, onRowUpdateCallback, onRowInsertCallback, onRowDeleteCallback]);
 
@@ -126,6 +171,7 @@ export function useTableRealtime({
 
   return {
     isConnected,
+    subscriptionStatus,
     updatedRows,
     clearUpdates,
   };

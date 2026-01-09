@@ -6,6 +6,7 @@ import { useCreateTable } from '@/hooks/use-query-api';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CSVImport } from '@/components/tables/csv-import';
+import { getAccessToken } from '@/lib/supabase-auth';
 
 export default function NewTablePage() {
   const router = useRouter();
@@ -59,10 +60,17 @@ export default function NewTablePage() {
       ];
       const csvContent = csvLines.join('\n');
 
+      // Get auth token for the request
+      const token = await getAccessToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Call the import API
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           name: formData.name || 'Imported Table',
           description: formData.description || `Imported from CSV with ${data.rows.length} rows`,
