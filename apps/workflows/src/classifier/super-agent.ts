@@ -243,47 +243,109 @@ export function generateWorkflow(
 
             if (compatibleProducers.length === 0) {
                 // Try to find producers that could run if we add intermediate steps
+                // Use recursive dependency resolution to build a chain of tools
                 const producersNeedingInputs = fieldProducers
                     .filter(t => t.entityTypes.includes(classification.entityType))
                     .map(t => {
                         const { missing } = canRunTool(t, combinedAvailable);
                         return { tool: t, missing };
                     })
-                    .filter(({ missing }) => missing.length > 0);
+                    .filter(({ missing }) => missing.length > 0)
+                    .sort((a, b) => a.tool.priority - b.tool.priority);
 
                 if (producersNeedingInputs.length > 0) {
-                    const firstProducer = producersNeedingInputs[0]!;
+                    // Try to resolve dependencies recursively
+                    const { tool: targetTool, missing: missingFields } = producersNeedingInputs[0]!;
+                    
+                    logger.info("🔗 SuperAgent: Attempting dependency resolution", {
+                        targetTool: targetTool.name,
+                        missingFields,
+                        entityType: classification.entityType,
+                    });
+
+                    // Try to find tools that can produce the missing fields
+                    const dependencyChain: ToolDefinition[] = [];
+                    const resolvedFields = new Set(combinedAvailable);
+                    
+                    for (const missingField of missingFields) {
+                        const providers = getToolsForOutput(missingField)
+                            .filter(t => t.entityTypes.includes(classification.entityType))
+                            .filter(t => {
+                                const { canRun } = canRunTool(t, Array.from(resolvedFields));
+                                return canRun;
+                            })
+                            .sort((a, b) => a.priority - b.priority);
+
+                        if (providers.length > 0) {
+                            const provider = providers[0]!;
+                            dependencyChain.push(provider);
+                            // Add this tool's outputs to resolved fields
+                            provider.outputs.forEach(o => resolvedFields.add(o));
+                            
+                            logger.info("✅ SuperAgent: Found dependency provider", {
+                                provider: provider.name,
+                                provides: missingField,
+                            });
+                        } else {
+                            logger.warn("❌ SuperAgent: Cannot resolve dependency", {
+                                field: missingField,
+                            });
+                        }
+                    }
+
+                    // Check if we resolved all dependencies
+                    const stillMissing = missingFields.filter(f => !resolvedFields.has(f));
+                    
+                    if (stillMissing.length === 0) {
+                        // Success! Add dependency chain to workflow
+                        const nextStepNumber = steps.length + 1;
+                        dependencyChain.forEach((tool, idx) => {
+                            steps.push(createStep(nextStepNumber + idx, tool));
+                        });
+                        
+                        // Add the target tool
+                        steps.push(createStep(nextStepNumber + dependencyChain.length, targetTool));
+                        
+                        logger.info("✅ SuperAgent: Dependency chain resolved", {
+                            chainLength: dependencyChain.length + 1,
+                            tools: [...dependencyChain.map(t => t.name), targetTool.name],
+                        });
+                        
+                        // Skip the normal producer addition since we already added the chain
+                    } else {
+                        // Still have unresolved dependencies
+                        return {
+                            error: `Cannot produce field: ${normalizedTargetField}`,
+                            resultState: "NOT_FOUND",
+                            reason: `Tool "${targetTool.name}" can produce "${targetField}" but requires: [${stillMissing.join(", ")}]. No tools available to produce these fields.`,
+                        };
+                    }
+                } else {
                     return {
-                        error: `Cannot produce field: ${normalizedTargetField}`,
+                        error: `No compatible tools for field: ${normalizedTargetField}`,
                         resultState: "NOT_FOUND",
-                        reason: `Tool "${firstProducer.tool.name}" can produce "${targetField}" but requires: [${firstProducer.missing.join(", ")}]. Configure these fields first.`,
+                        reason: `Tools that produce "${targetField}" are not compatible with entity type ${classification.entityType}`,
                     };
                 }
+            } else {
+                // Add the best producer to the workflow (only if we didn't resolve dependencies above)
+                const producer = compatibleProducers[0]!;
+                const nextStepNumber = steps.length + 1;
+                const producerStep = createStep(nextStepNumber, producer);
 
-                return {
-                    error: `No compatible tools for field: ${normalizedTargetField}`,
-                    resultState: "NOT_FOUND",
-                    reason: `Tools that produce "${targetField}" are not compatible with entity type ${classification.entityType}`,
-                };
+                // Generic fallback can produce whatever the caller requested
+                if (producer.id === "generic_web_search") {
+                    producerStep.expectedOutputs = [normalizedTargetField];
+                }
+
+                steps.push(producerStep);
+
+                logger.info("✅ SuperAgent: Extended workflow with field producer", {
+                    addedTool: producer.name,
+                    targetField: normalizedTargetField,
+                    newStepCount: steps.length,
+                });
             }
-
-            // Add the best producer to the workflow
-            const producer = compatibleProducers[0]!;
-            const nextStepNumber = steps.length + 1;
-            const producerStep = createStep(nextStepNumber, producer);
-
-            // Generic fallback can produce whatever the caller requested
-            if (producer.id === "generic_web_search") {
-                producerStep.expectedOutputs = [normalizedTargetField];
-            }
-
-            steps.push(producerStep);
-
-            logger.info("✅ SuperAgent: Extended workflow with field producer", {
-                addedTool: producer.name,
-                targetField: normalizedTargetField,
-                newStepCount: steps.length,
-            });
         }
     }
 

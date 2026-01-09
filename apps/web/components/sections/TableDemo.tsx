@@ -20,7 +20,28 @@ export function TableDemo() {
   const scaleValue = useMotionValue(1);
   const [cursorScope, animateCursor] = useAnimate();
   const [hasTriggeredClick, setHasTriggeredClick] = useState(false);
+  const [responsiveScale, setResponsiveScale] = useState(1);
 
+  // Calculate responsive scale factor based on window width
+  // Base design is for 1440px, scale down for smaller screens
+  useLayoutEffect(() => {
+    const updateScale = () => {
+      const baseWidth = 1440;
+      const minWidth = 1024;
+      const width = window.innerWidth;
+      if (width >= baseWidth) {
+        setResponsiveScale(1);
+      } else if (width <= minWidth) {
+        setResponsiveScale(0.7);
+      } else {
+        // Linear interpolation between minWidth and baseWidth
+        setResponsiveScale(0.7 + (0.3 * (width - minWidth) / (baseWidth - minWidth)));
+      }
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   const STRETCH_MULTIPLIER = 3; // increase to slow animations (more scroll), decrease to speed up
   const STICKY_OFFSET = 192; // tailwind top-48
@@ -174,8 +195,8 @@ export function TableDemo() {
         const motionRect = ref.current.getBoundingClientRect();
         const tableRect = tableRef.current.getBoundingClientRect();
         const tableLeft = tableRect.left - motionRect.left;
-        const startX = motionRect.width + 100;
-        const endX = tableLeft + 968;
+        const startX = motionRect.width + (100 * responsiveScale);
+        const endX = tableLeft + (968 * responsiveScale);
         const startY = 200;
         const endY = 120;
 
@@ -240,7 +261,7 @@ export function TableDemo() {
         const motionRect = ref.current.getBoundingClientRect();
         const tableRect = tableRef.current.getBoundingClientRect();
         const tableLeft = tableRect.left - motionRect.left;
-        const endX = tableLeft + 968;
+        const endX = tableLeft + (968 * responsiveScale);
         setDialogPos({ x: endX, y: 120 });
       }
     });
@@ -289,10 +310,12 @@ export function TableDemo() {
   }, [newColumnCreation]);
 
 
+  // Responsive table translate - scales with screen size
+  const baseTableTranslate = -700 * responsiveScale;
   const tableTranslateX = useTransform(
     scrollProgress,
     [pct(ANIMATION_DURATIONS.TABLE_TRANSLATE.start), pct(ANIMATION_DURATIONS.TABLE_TRANSLATE.end)],
-    [0, -700],
+    [0, baseTableTranslate],
     { clamp: true }
   );
 
@@ -803,10 +826,11 @@ export function TableDemo() {
             position: "absolute",
             left: "100%",
             top: "50%",
-            transform: "translateY(-50%)",
+            transform: `translateY(-50%) scale(${responsiveScale})`,
+            transformOrigin: "left center",
             pointerEvents: "none",
           }}
-          className="w-full"
+          className="w-full hidden lg:block"
         >
           <svg
             width="553"
@@ -814,7 +838,6 @@ export function TableDemo() {
             viewBox="0 0 553 504"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="w-[553px] h-[504px]"
           >
             {/* Animated paths with progressive drawing */}
             <motion.path
