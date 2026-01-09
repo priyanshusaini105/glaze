@@ -476,7 +476,7 @@ async function executeResolvePersonFromNameCompany(
  * Execute guess_work_email tool
  * 
  * This tool produces: email
- * Uses Hunter → Prospeo waterfall strategy
+ * Uses LinkedIn-first Prospeo strategy for highest accuracy
  */
 async function executeGuessWorkEmail(
     input: NormalizedInput,
@@ -484,7 +484,7 @@ async function executeGuessWorkEmail(
 ): Promise<ToolExecutionResult> {
     const name = input.name || (existingData.name as string) || (existingData.full_name as string);
     const domain = input.domain || (existingData.domain as string) || (existingData.company_domain as string);
-    const company = input.company || (existingData.company as string);
+    const linkedinUrl = input.linkedinUrl || (existingData.linkedin as string) || (existingData.linkedin_url as string) || (existingData.linkedinUrl as string);
 
     if (!name || !domain) {
         return {};
@@ -493,7 +493,8 @@ async function executeGuessWorkEmail(
     // Use company domain if provided, otherwise use domain
     const companyDomain = domain;
 
-    const result = await guessWorkEmail(name, companyDomain);
+    // Pass LinkedIn URL for highest accuracy (if available)
+    const result = await guessWorkEmail(name, companyDomain, linkedinUrl);
 
     const output: ToolExecutionResult = {};
 
@@ -501,11 +502,15 @@ async function executeGuessWorkEmail(
         output.email = result.email;
     }
 
+    // Also capture LinkedIn URL if discovered
+    if (result.linkedinUrl && !linkedinUrl) {
+        output.linkedinUrl = result.linkedinUrl;
+    }
+
     // Add metadata
     output._confidence = result.confidence;
     output._source = result.source;
     output._verificationStatus = result.verificationStatus;
-    output._hunterScore = result.hunterScore;
     output._reason = result.reason;
 
     return output;

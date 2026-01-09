@@ -4,10 +4,8 @@
  * Run with: tsx src/tools/person/test-guess-work-email.ts
  * 
  * Required env vars:
- * - HUNTER_API_KEY (optional but recommended)
- * - PROSPEO_API_KEY (optional but recommended)
- * 
- * Note: At least one API key should be set
+ * - PROSPEO_API_KEY (required)
+ * - SERPER_API_KEY (optional, for LinkedIn discovery)
  */
 
 import { guessWorkEmail } from "./guess-work-email";
@@ -17,15 +15,15 @@ async function runTests() {
     console.log("=".repeat(70));
 
     // Check env vars
-    const hasHunter = !!process.env.HUNTER_API_KEY;
     const hasProspeo = !!process.env.PROSPEO_API_KEY;
+    const hasSerper = !!process.env.SERPER_API_KEY;
 
     console.log("\nAPI Keys configured:");
-    console.log(`  Hunter.io: ${hasHunter ? "✅" : "❌"}`);
     console.log(`  Prospeo: ${hasProspeo ? "✅" : "❌"}`);
+    console.log(`  Serper (LinkedIn discovery): ${hasSerper ? "✅" : "⚠️ (optional)"}`);
 
-    if (!hasHunter && !hasProspeo) {
-        console.error("\n❌ No API keys configured. Set HUNTER_API_KEY or PROSPEO_API_KEY");
+    if (!hasProspeo) {
+        console.error("\n❌ PROSPEO_API_KEY not configured. Required for email discovery.");
         return;
     }
 
@@ -50,11 +48,14 @@ async function runTests() {
             console.log(`   Confidence: ${(result.confidence * 100).toFixed(1)}%`);
             console.log(`   Source: ${result.source}`);
             console.log(`   Verification: ${result.verificationStatus}`);
-            if (result.hunterScore !== undefined) {
-                console.log(`   Hunter Score: ${result.hunterScore}`);
+            if (result.linkedinUrl) {
+                console.log(`   LinkedIn: ${result.linkedinUrl}`);
             }
-            if (result.sources && result.sources.length > 0) {
-                console.log(`   Sources: ${result.sources.slice(0, 2).join(", ")}`);
+            if (result.personName) {
+                console.log(`   Person: ${result.personName}`);
+            }
+            if (result.currentCompany) {
+                console.log(`   Company: ${result.currentCompany}`);
             }
             if (result.reason) {
                 console.log(`   Reason: ${result.reason}`);
