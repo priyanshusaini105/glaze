@@ -283,7 +283,7 @@ export function useUpdateRow(
           if (!old) return old;
           return {
             ...old,
-            rows: old.rows.map((row) =>
+            data: old.data.map((row) =>
               row.id === rowId ? { ...row, data: { ...row.data, ...data.data } } : row
             ),
           };
@@ -337,8 +337,8 @@ export function useDeleteRow(
           if (!old) return old;
           return {
             ...old,
-            rows: old.rows.filter((row) => row.id !== rowId),
-            total: old.total - 1,
+            data: old.data.filter((row) => row.id !== rowId),
+            meta: { ...old.meta, total: old.meta.total - 1 },
           };
         }
       );

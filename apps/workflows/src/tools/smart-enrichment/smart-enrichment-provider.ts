@@ -22,7 +22,8 @@ import { makeDecision, type EnrichmentDecision } from "./candidate-scorer";
 import { normalizeUrl } from "./url-normalizer";
 
 // We'll also use Serper for general enrichment (industry, etc.)
-const SERPER_API_KEY = process.env.SERPER_API_KEY;
+import { serperKeyManager } from "../providers/api-key-manager";
+
 const SERPER_API_URL = "https://google.serper.dev/search";
 
 /**
@@ -34,25 +35,29 @@ async function querySerperForInfo(
     organic: Array<{ title: string; snippet: string; link: string }>;
     knowledgeGraph?: { title?: string; type?: string; description?: string; attributes?: Record<string, string> };
 }> {
-    if (!SERPER_API_KEY) {
-        return { organic: [] };
-    }
+    return serperKeyManager.withKey(async (apiKey) => {
+        if (!apiKey) {
+            return { organic: [] };
+        }
 
-    try {
         const response = await fetch(SERPER_API_URL, {
             method: "POST",
             headers: {
-                "X-API-KEY": SERPER_API_KEY,
+                "X-API-KEY": apiKey,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({ q: query, num: 5 }),
         });
 
-        if (!response.ok) return { organic: [] };
+        if (!response.ok) {
+            // Rate limit - throw to trigger key rotation
+            if (response.status === 429 || response.status === 403) {
+                throw new Error(`KEY_EXHAUSTED:${response.status}`);
+            }
+            return { organic: [] };
+        }
         return await response.json();
-    } catch {
-        return { organic: [] };
-    }
+    }) ?? { organic: [] };
 }
 
 /**

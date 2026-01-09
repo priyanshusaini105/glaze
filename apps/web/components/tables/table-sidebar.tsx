@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import Image from 'next/image';
+import { CreditsDisplay } from '@/components/credits-display';
 
 interface Table {
   id: string;
@@ -81,6 +82,11 @@ export function TableSidebar({ tables, currentTableId }: TableSidebarProps) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        {/* Credits Display */}
+        <div className="px-2">
+          <CreditsDisplay variant="expanded" />
+        </div>
 
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />

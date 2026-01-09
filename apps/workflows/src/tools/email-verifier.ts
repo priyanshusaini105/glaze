@@ -13,10 +13,8 @@
 import { logger } from "@trigger.dev/sdk";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../types/enrichment";
 import type { EmailCandidate } from "@repo/types";
+import { hunterKeyManager, zerobounceKeyManager } from "./providers/api-key-manager";
 
-// API keys
-const HUNTER_API_KEY = process.env.HUNTER_API_KEY;
-const ZEROBOUNCE_API_KEY = process.env.ZEROBOUNCE_API_KEY;
 
 /**
  * Email verification result
@@ -80,19 +78,20 @@ interface ZeroBounceResponse {
 }
 
 /**
- * Verify email using Hunter.io
+ * Verify email using Hunter.io (with automatic key rotation)
  */
 async function verifyWithHunter(email: string): Promise<VerificationResult | null> {
-    if (!HUNTER_API_KEY) {
-        return null;
-    }
-
-    try {
+    return hunterKeyManager.withKey(async (apiKey) => {
         const response = await fetch(
-            `https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${HUNTER_API_KEY}`
+            `https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${apiKey}`
         );
 
         if (!response.ok) {
+            // Rate limit - throw to trigger key rotation
+            if (response.status === 429 || response.status === 403) {
+                throw new Error(`KEY_EXHAUSTED:${response.status}`);
+            }
+
             logger.error("❌ HunterVerifier: API error", {
                 status: response.status,
                 email,
@@ -111,29 +110,25 @@ async function verifyWithHunter(email: string): Promise<VerificationResult | nul
             confidence: result.score / 100,
             provider: 'hunter',
         };
-    } catch (error) {
-        logger.error("❌ HunterVerifier: Network error", {
-            error: error instanceof Error ? error.message : "Unknown error",
-            email,
-        });
-        return null;
-    }
+    });
 }
 
+
 /**
- * Verify email using ZeroBounce
+ * Verify email using ZeroBounce (with automatic key rotation)
  */
 async function verifyWithZeroBounce(email: string): Promise<VerificationResult | null> {
-    if (!ZEROBOUNCE_API_KEY) {
-        return null;
-    }
-
-    try {
+    return zerobounceKeyManager.withKey(async (apiKey) => {
         const response = await fetch(
-            `https://api.zerobounce.net/v2/validate?api_key=${ZEROBOUNCE_API_KEY}&email=${encodeURIComponent(email)}`
+            `https://api.zerobounce.net/v2/validate?api_key=${apiKey}&email=${encodeURIComponent(email)}`
         );
 
         if (!response.ok) {
+            // Rate limit - throw to trigger key rotation
+            if (response.status === 429 || response.status === 403) {
+                throw new Error(`KEY_EXHAUSTED:${response.status}`);
+            }
+
             logger.error("❌ ZeroBounceVerifier: API error", {
                 status: response.status,
                 email,
@@ -145,10 +140,10 @@ async function verifyWithZeroBounce(email: string): Promise<VerificationResult |
 
         const isValid = data.status === 'valid';
         const isCatchAll = data.status === 'catch-all';
-        
+
         // Catch-all domains can receive any email, so we treat them as potentially valid
         const deliverable = isValid || isCatchAll;
-        
+
         // Higher confidence for valid, lower for catch-all
         const confidence = isValid ? 0.95 : (isCatchAll ? 0.6 : 0.1);
 
@@ -160,13 +155,7 @@ async function verifyWithZeroBounce(email: string): Promise<VerificationResult |
             confidence,
             provider: 'zerobounce',
         };
-    } catch (error) {
-        logger.error("❌ ZeroBounceVerifier: Network error", {
-            error: error instanceof Error ? error.message : "Unknown error",
-            email,
-        });
-        return null;
-    }
+    });
 }
 
 /**
@@ -261,40 +250,40 @@ export async function verifyEmailCandidates(
     all: EmailCandidate[];
 }> {
     const { maxToVerify = 3, stopOnFirstVerified = true } = options;
-    
+
     const results: EmailCandidate[] = [];
-    
+
     // Sort by confidence (highest first)
     const sorted = [...candidates].sort((a, b) => b.confidence - a.confidence);
-    
+
     for (let i = 0; i < Math.min(sorted.length, maxToVerify); i++) {
         const candidate = sorted[i]!;
         const verification = await verifyEmail(candidate.email);
-        
+
         const updatedCandidate: EmailCandidate = {
             ...candidate,
             verified: verification.verified,
             confidence: verification.confidence,
             sources: [...candidate.sources, verification.provider],
         };
-        
+
         results.push(updatedCandidate);
-        
+
         if (stopOnFirstVerified && verification.verified) {
             break;
         }
     }
-    
+
     // Add unverified candidates to results
     for (const candidate of sorted) {
         if (!results.find(r => r.email === candidate.email)) {
             results.push(candidate);
         }
     }
-    
+
     const verified = results.filter(c => c.verified);
     const best = verified[0] ?? results.sort((a, b) => b.confidence - a.confidence)[0] ?? null;
-    
+
     return { verified, best, all: results };
 }
 

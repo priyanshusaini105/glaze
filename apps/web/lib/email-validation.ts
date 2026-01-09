@@ -168,7 +168,7 @@ const TEMP_EMAIL_DOMAINS = new Set([
  */
 function getEmailDomain(email: string): string {
     const parts = email.toLowerCase().trim().split('@');
-    return parts.length === 2 ? parts[1] : '';
+    return parts.length === 2 ? (parts[1] as string) : '';
 }
 
 /**

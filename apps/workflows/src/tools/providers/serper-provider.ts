@@ -17,9 +17,10 @@ import { BaseProvider } from "../interfaces";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult } from "../../types/enrichment";
 import { createFieldValue, SOURCE_TRUST_WEIGHTS } from "@repo/types";
 import { cachedSerperSearch, CACHE_TTL, buildSerperCacheKey } from "@/cache";
+import { serperKeyManager } from "./api-key-manager";
 
-const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const SERPER_API_URL = "https://google.serper.dev/search";
+
 
 /**
  * Serper search response types
@@ -57,18 +58,14 @@ interface SerperSearchResponse {
 
 /**
  * Raw Serper search (internal, not cached)
+ * Uses ApiKeyManager for automatic key rotation on rate limits
  */
 async function rawSerperSearch(query: string): Promise<SerperSearchResponse | null> {
-    if (!SERPER_API_KEY) {
-        logger.warn("⚠️ SerperProvider: No API key configured");
-        return null;
-    }
-
-    try {
+    return serperKeyManager.withKey(async (apiKey) => {
         const response = await fetch(SERPER_API_URL, {
             method: "POST",
             headers: {
-                "X-API-KEY": SERPER_API_KEY,
+                "X-API-KEY": apiKey,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -78,6 +75,11 @@ async function rawSerperSearch(query: string): Promise<SerperSearchResponse | nu
         });
 
         if (!response.ok) {
+            // Rate limit or quota exceeded - throw to trigger key rotation
+            if (response.status === 429 || response.status === 403) {
+                throw new Error(`KEY_EXHAUSTED:${response.status}:${response.statusText}`);
+            }
+
             logger.error("❌ SerperProvider: API error", {
                 status: response.status,
                 statusText: response.statusText,
@@ -86,13 +88,9 @@ async function rawSerperSearch(query: string): Promise<SerperSearchResponse | nu
         }
 
         return await response.json() as SerperSearchResponse;
-    } catch (error) {
-        logger.error("❌ SerperProvider: Network error", {
-            error: error instanceof Error ? error.message : "Unknown error",
-        });
-        return null;
-    }
+    });
 }
+
 
 /**
  * Perform a cached Serper search (24-hour cache)

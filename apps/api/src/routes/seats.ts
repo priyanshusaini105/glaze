@@ -22,17 +22,17 @@ export const seatsRoutes = new Elysia()
      * GET /me/seat
      * Get the current user's seat information
      */
-    .get('/me/seat', async ({ userId, isAuthenticated, error, set }) => {
+    .get('/me/seat', async ({ userId, isAuthenticated, set }) => {
         if (!isAuthenticated || !userId) {
             set.status = 401;
-            return error(401, 'Authentication required');
+            return { error: 'Authentication required' };
         }
 
         const seat = await getSeatByUserId(userId);
 
         if (!seat) {
             set.status = 404;
-            return error(404, 'No seat found. You may need to complete onboarding.');
+            return { error: 'No seat found. You may need to complete onboarding.' };
         }
 
         return {
@@ -48,17 +48,17 @@ export const seatsRoutes = new Elysia()
      * GET /me/credits
      * Get the current user's credit balance (simplified)
      */
-    .get('/me/credits', async ({ userId, isAuthenticated, error, set }) => {
+    .get('/me/credits', async ({ userId, isAuthenticated, set }) => {
         if (!isAuthenticated || !userId) {
             set.status = 401;
-            return error(401, 'Authentication required');
+            return { error: 'Authentication required' };
         }
 
         const seat = await getSeatByUserId(userId);
 
         if (!seat) {
             set.status = 404;
-            return error(404, 'No seat found');
+            return { error: 'No seat found' };
         }
 
         return {
@@ -72,10 +72,10 @@ export const seatsRoutes = new Elysia()
      * POST /me/seat
      * Create a seat for the current user (called during onboarding)
      */
-    .post('/me/seat', async ({ userId, isAuthenticated, body, error, set }) => {
+    .post('/me/seat', async ({ userId, isAuthenticated, body, set }) => {
         if (!isAuthenticated || !userId) {
             set.status = 401;
-            return error(401, 'Authentication required');
+            return { error: 'Authentication required' };
         }
 
         const { email } = body as { email: string };
@@ -84,7 +84,7 @@ export const seatsRoutes = new Elysia()
         const currentCount = await getSeatCount();
         if (currentCount >= MVP_CONFIG.MAX_SEATS) {
             set.status = 403;
-            return error(403, `Alpha program is full (${MVP_CONFIG.MAX_SEATS} seats). Please join the waitlist.`);
+            return { error: `Alpha program is full (${MVP_CONFIG.MAX_SEATS} seats). Please join the waitlist.` };
         }
 
         // Create the seat
@@ -92,7 +92,7 @@ export const seatsRoutes = new Elysia()
 
         if (!seat) {
             set.status = 409;
-            return error(409, 'Could not create seat. You may already have one.');
+            return { error: 'Could not create seat. You may already have one.' };
         }
 
         set.status = 201;

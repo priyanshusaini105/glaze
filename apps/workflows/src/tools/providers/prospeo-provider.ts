@@ -10,8 +10,8 @@
 import { logger } from "@trigger.dev/sdk";
 import type { EnrichmentFieldKey, NormalizedInput, ProviderResult, ProviderTier } from "../../types/enrichment";
 import { BaseProvider } from "../interfaces";
+import { prospeoKeyManager } from "./api-key-manager";
 
-const PROSPEO_API_KEY = process.env.PROSPEO_API_KEY;
 const PROSPEO_API_URL = "https://api.prospeo.io/email-finder";
 
 interface ProspeoEmailResponse {
@@ -24,24 +24,19 @@ interface ProspeoEmailResponse {
 }
 
 /**
- * Find email using Prospeo API
+ * Find email using Prospeo API (with automatic key rotation)
  */
 async function findEmail(
     firstName: string,
     lastName: string,
     domain: string
 ): Promise<ProspeoEmailResponse | null> {
-    if (!PROSPEO_API_KEY) {
-        logger.warn("Prospeo API key not configured");
-        return null;
-    }
-
-    try {
+    return prospeoKeyManager.withKey(async (apiKey) => {
         const response = await fetch(PROSPEO_API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-KEY": PROSPEO_API_KEY,
+                "X-KEY": apiKey,
             },
             body: JSON.stringify({
                 first_name: firstName,
@@ -51,19 +46,18 @@ async function findEmail(
         });
 
         if (!response.ok) {
+            // Rate limit - throw to trigger key rotation
             if (response.status === 429) {
-                logger.warn("Prospeo rate limited (free tier exhausted?)");
+                throw new Error(`KEY_EXHAUSTED:429:rate_limited`);
             }
             return null;
         }
 
         const data = await response.json();
         return data.response || null;
-    } catch (error) {
-        logger.error("Prospeo API call failed", { error });
-        return null;
-    }
+    });
 }
+
 
 export class ProspeoProvider extends BaseProvider {
     name = "prospeo";
@@ -74,7 +68,7 @@ export class ProspeoProvider extends BaseProvider {
 
     async enrich(input: NormalizedInput, field: EnrichmentFieldKey): Promise<ProviderResult | null> {
         if (field !== "email" && field !== "emailCandidates") return null;
-        
+
         // Need name and domain/company
         if (!input.name || (!input.domain && !input.company)) {
             return null;
@@ -86,7 +80,7 @@ export class ProspeoProvider extends BaseProvider {
 
         const firstName = nameParts[0] ?? "";
         const lastName = nameParts[nameParts.length - 1] ?? "";
-        
+
         // Get domain from company if needed
         const domain = input.domain || `${input.company?.toLowerCase().replace(/\s+/g, "")}.com`;
         if (!domain) return null;

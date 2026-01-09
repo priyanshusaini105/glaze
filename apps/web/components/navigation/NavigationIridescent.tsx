@@ -57,9 +57,12 @@ export function NavigationIridescent() {
             >
               <span className="truncate">GitHub</span>
             </Link>
-            <button className="bg-text-main hover:bg-black text-white text-sm font-bold px-4 py-2 rounded-lg transition-all active:scale-95 shadow-[0px_4px_6px_-1px_#e2e8f0,0px_2px_4px_-2px_#e2e8f0]">
+            <Link
+              href="/login"
+              className="bg-text-main hover:bg-black text-white text-sm font-bold px-4 py-2 rounded-lg transition-all active:scale-95 shadow-[0px_4px_6px_-1px_#e2e8f0,0px_2px_4px_-2px_#e2e8f0]"
+            >
               View Demo
-            </button>
+            </Link>
           </div>
         </div>
       </div>

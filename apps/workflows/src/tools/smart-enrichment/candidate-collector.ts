@@ -8,8 +8,8 @@
  */
 
 import { logger } from "@trigger.dev/sdk";
+import { serperKeyManager } from "../providers/api-key-manager";
 
-const SERPER_API_KEY = process.env.SERPER_API_KEY;
 const SERPER_API_URL = "https://google.serper.dev/search";
 
 export interface SearchCandidate {
@@ -87,25 +87,29 @@ async function performSerperSearch(query: string): Promise<Array<{
     snippet: string;
     position: number;
 }>> {
-    if (!SERPER_API_KEY) {
-        logger.warn("⚠️ CandidateCollector: No SERPER_API_KEY configured");
-        return [];
-    }
+    const result = await serperKeyManager.withKey(async (apiKey) => {
+        if (!apiKey) {
+            return [];
+        }
 
-    try {
         const response = await fetch(SERPER_API_URL, {
             method: "POST",
             headers: {
-                "X-API-KEY": SERPER_API_KEY,
+                "X-API-KEY": apiKey,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
                 q: query,
-                num: 10, // Get more results
+                num: 10,
             }),
         });
 
         if (!response.ok) {
+            // Rate limit - throw to trigger key rotation
+            if (response.status === 429 || response.status === 403) {
+                throw new Error(`KEY_EXHAUSTED:${response.status}`);
+            }
+
             logger.error("CandidateCollector: Serper API error", {
                 status: response.status,
                 statusText: response.statusText,
@@ -115,13 +119,11 @@ async function performSerperSearch(query: string): Promise<Array<{
 
         const data = await response.json() as { organic?: Array<{ title: string; link: string; snippet: string; position: number }> };
         return data.organic || [];
-    } catch (error) {
-        logger.error("CandidateCollector: Network error", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return [];
-    }
+    });
+
+    return result ?? [];
 }
+
 
 /**
  * Build search queries for a company

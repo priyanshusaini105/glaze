@@ -214,7 +214,7 @@ export function ApiIntegrationExample() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">
-              Rows {selectedTableId ? `(${rowsData?.total || 0})` : ''}
+              Rows {selectedTableId ? `(${rowsData?.meta?.total || 0})` : ''}
             </h2>
             {selectedTableId && (
               <button
@@ -284,10 +284,10 @@ export function ApiIntegrationExample() {
           </div>
 
           {/* Pagination */}
-          {rowsData && rowsData.totalPages > 1 && (
+          {rowsData && rowsData.meta.totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">
               <span className="text-sm text-gray-600">
-                Page {rowsData.page} of {rowsData.totalPages}
+                Page {rowsData.meta.page} of {rowsData.meta.totalPages}
               </span>
             </div>
           )}

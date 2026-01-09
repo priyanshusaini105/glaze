@@ -66,7 +66,8 @@ const PENALTIES = {
     WEAK_HOMEPAGE_SIGNALS: 0.10,       // Thin content, placeholder copy
 } as const;
 
-const SERPER_API_KEY = process.env.SERPER_API_KEY;
+import { serperKeyManager } from "../providers/api-key-manager";
+
 const SERPER_API_URL = "https://google.serper.dev/search";
 
 /**
@@ -162,38 +163,46 @@ function generateSearchQueries(companyName: string): string[] {
 }
 
 /**
- * Step 3: Perform Serper search (using cached version)
+ * Step 3: Perform Serper search (using cached version with key rotation)
  */
 async function performSerperSearch(query: string): Promise<SerperResponse | null> {
-    if (!SERPER_API_KEY) {
-        logger.warn("⚠️ CompanyNameResolver: No SERPER_API_KEY configured");
-        return null;
-    }
-
     try {
         const result = await cachedSerperSearch(query, async (q) => {
-            const response = await fetch(SERPER_API_URL, {
-                method: "POST",
-                headers: {
-                    "X-API-KEY": SERPER_API_KEY,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    q,
-                    num: 10,
-                }),
+            const keyResult = await serperKeyManager.withKey(async (apiKey) => {
+                if (!apiKey) {
+                    return { organic: [] as SerperOrganic[] };
+                }
+
+                const response = await fetch(SERPER_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "X-API-KEY": apiKey,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        q,
+                        num: 10,
+                    }),
+                });
+
+                if (!response.ok) {
+                    // Rate limit - throw to trigger key rotation
+                    if (response.status === 429 || response.status === 403) {
+                        throw new Error(`KEY_EXHAUSTED:${response.status}:${response.statusText}`);
+                    }
+
+                    logger.error("❌ CompanyNameResolver: Serper API error", {
+                        status: response.status,
+                        statusText: response.statusText,
+                    });
+                    return { organic: [] as SerperOrganic[] };
+                }
+
+                const data = await response.json() as SerperResponse;
+                return { organic: data.organic || [] };
             });
 
-            if (!response.ok) {
-                logger.error("❌ CompanyNameResolver: Serper API error", {
-                    status: response.status,
-                    statusText: response.statusText,
-                });
-                return { organic: [] };
-            }
-
-            const data = await response.json() as SerperResponse;
-            return { organic: data.organic || [] };
+            return keyResult ?? { organic: [] as SerperOrganic[] };
         });
 
         return result.organic?.length ? result : null;
@@ -204,6 +213,7 @@ async function performSerperSearch(query: string): Promise<SerperResponse | null
         return null;
     }
 }
+
 
 /**
  * Extract domain from URL

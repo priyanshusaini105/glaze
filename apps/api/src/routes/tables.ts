@@ -42,7 +42,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Get table details (with columns)
-  .get('/:id', async ({ params: { id }, userId, error }) => {
+  .get('/:id', async ({ params: { id }, userId, set }) => {
     const table = await prisma.table.findUnique({
       where: { id },
       include: {
@@ -52,26 +52,34 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       }
     });
 
-    if (!table) return error(404, 'Table not found');
+    if (!table) {
+      set.status = 404;
+      return { error: 'Table not found' };
+    }
 
     // Check ownership
     if (!checkTableOwnership(table.userId, userId)) {
-      return error(404, 'Table not found');
+      set.status = 404;
+      return { error: 'Table not found' };
     }
 
     return table;
   })
 
   // Update table metadata
-  .patch('/:id', async ({ params: { id }, body, userId, error }) => {
+  .patch('/:id', async ({ params: { id }, body, userId, set }) => {
     try {
       // Check ownership first
       const table = await prisma.table.findUnique({ where: { id } });
-      if (!table) return error(404, 'Table not found');
+      if (!table) {
+        set.status = 404;
+        return { error: 'Table not found' };
+      }
 
       // Check ownership
       if (!checkTableOwnership(table.userId, userId)) {
-        return error(404, 'Table not found');
+        set.status = 404;
+        return { error: 'Table not found' };
       }
 
       return await prisma.table.update({
@@ -79,7 +87,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
         data: body
       });
     } catch (e) {
-      return error(404, 'Table not found');
+      set.status = 404;
+      return { error: 'Table not found' };
     }
   }, {
     body: t.Object({
@@ -89,15 +98,19 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Delete table
-  .delete('/:id', async ({ params: { id }, userId, error }) => {
+  .delete('/:id', async ({ params: { id }, userId, set }) => {
     try {
       // Check ownership first
       const table = await prisma.table.findUnique({ where: { id } });
-      if (!table) return error(404, 'Table not found');
+      if (!table) {
+        set.status = 404;
+        return { error: 'Table not found' };
+      }
 
       // Check ownership
       if (!checkTableOwnership(table.userId, userId)) {
-        return error(404, 'Table not found');
+        set.status = 404;
+        return { error: 'Table not found' };
       }
 
       await prisma.table.delete({
@@ -105,17 +118,21 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       });
       return { success: true };
     } catch (e) {
-      return error(404, 'Table not found');
+      set.status = 404;
+      return { error: 'Table not found' };
     }
   })
 
   // --- Columns ---
 
   // Add a column or bulk add columns
-  .post('/:id/columns', async ({ params: { id }, body, error }) => {
+  .post('/:id/columns', async ({ params: { id }, body, set }) => {
     // Check if table exists
     const table = await prisma.table.findUnique({ where: { id } });
-    if (!table) return error(404, 'Table not found');
+    if (!table) {
+      set.status = 404;
+      return { error: 'Table not found' };
+    }
 
     // Check if body is array (bulk) or single object
     const isArray = Array.isArray(body);
@@ -148,7 +165,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       }
       return isArray ? createdColumns : createdColumns[0];
     } catch (e) {
-      return error(400, 'Column key already exists or invalid data');
+      set.status = 400;
+      return { error: 'Column key already exists or invalid data' };
     }
   }, {
     body: t.Union([
@@ -175,14 +193,15 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Update column
-  .patch('/:id/columns/:columnId', async ({ params: { id, columnId }, body, error }) => {
+  .patch('/:id/columns/:columnId', async ({ params: { id, columnId }, body, set }) => {
     try {
       return await prisma.column.update({
         where: { id: columnId, tableId: id },
         data: body
       });
     } catch (e) {
-      return error(404, 'Column not found');
+      set.status = 404;
+      return { error: 'Column not found' };
     }
   }, {
     body: t.Object({
@@ -195,21 +214,22 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Delete column
-  .delete('/:id/columns/:columnId', async ({ params: { id, columnId }, error }) => {
+  .delete('/:id/columns/:columnId', async ({ params: { id, columnId }, set }) => {
     try {
       await prisma.column.delete({
         where: { id: columnId, tableId: id }
       });
       return { success: true };
     } catch (e) {
-      return error(404, 'Column not found');
+      set.status = 404;
+      return { error: 'Column not found' };
     }
   })
 
   // --- Rows ---
 
   // List rows (with pagination)
-  .get('/:id/rows', async ({ params: { id }, query, error }) => {
+  .get('/:id/rows', async ({ params: { id }, query }) => {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 50;
     const skip = (page - 1) * limit;
@@ -241,7 +261,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Add row
-  .post('/:id/rows', async ({ params: { id }, body, error }) => {
+  .post('/:id/rows', async ({ params: { id }, body, set }) => {
     const startTime = performance.now();
     console.log('[POST /rows] Starting request for table:', id);
 
@@ -254,7 +274,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
 
       if (!table) {
         console.log('[POST /rows] Table not found:', id);
-        return error(404, 'Table not found');
+        set.status = 404;
+        return { error: 'Table not found' };
       }
 
       // Create row
@@ -283,7 +304,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Update row
-  .patch('/:id/rows/:rowId', async ({ params: { id, rowId }, body, error }) => {
+  .patch('/:id/rows/:rowId', async ({ params: { id, rowId }, body, set }) => {
     try {
       // We can choose to merge or replace. 
       // For simplicity, let's assume the client sends the full object or we merge at top level.
@@ -297,7 +318,10 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       // To do deep merge, we need to fetch first.
 
       const row = await prisma.row.findUnique({ where: { id: rowId, tableId: id } });
-      if (!row) return error(404, 'Row not found');
+      if (!row) {
+        set.status = 404;
+        return { error: 'Row not found' };
+      }
 
       const currentData = row.data as Record<string, any>;
       const newData = { ...currentData, ...body.data };
@@ -309,7 +333,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
         }
       });
     } catch (e) {
-      return error(404, 'Row not found');
+      set.status = 404;
+      return { error: 'Row not found' };
     }
   }, {
     body: t.Object({
@@ -318,21 +343,22 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Delete row
-  .delete('/:id/rows/:rowId', async ({ params: { id, rowId }, error }) => {
+  .delete('/:id/rows/:rowId', async ({ params: { id, rowId }, set }) => {
     try {
       await prisma.row.delete({
         where: { id: rowId, tableId: id }
       });
       return { success: true };
     } catch (e) {
-      return error(404, 'Row not found');
+      set.status = 404;
+      return { error: 'Row not found' };
     }
   })
 
   // --- CSV Import/Export ---
 
   // Import CSV to create table with columns and rows
-  .post('/import-csv', async ({ body, userId, error }) => {
+  .post('/import-csv', async ({ body, userId, set }) => {
     try {
       const { name, description, csvContent } = body;
 
@@ -340,7 +366,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       const { headers, rows } = parseCSV(csvContent);
 
       if (headers.length === 0) {
-        return error(400, 'CSV must have headers');
+        set.status = 400;
+        return { error: 'CSV must have headers' };
       }
 
       // Create table
@@ -408,7 +435,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       return fullTable;
     } catch (e: any) {
       console.error('CSV import error:', e);
-      return error(400, e.message || 'Failed to import CSV');
+      set.status = 400;
+      return { error: e.message || 'Failed to import CSV' };
     }
   }, {
     body: t.Object({
@@ -419,7 +447,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
   })
 
   // Export table to CSV
-  .get('/:id/export-csv', async ({ params: { id }, error }) => {
+  .get('/:id/export-csv', async ({ params: { id }, set }) => {
     try {
       // Get table with columns
       const table = await prisma.table.findUnique({
@@ -432,7 +460,8 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       });
 
       if (!table) {
-        return error(404, 'Table not found');
+        set.status = 404;
+        return { error: 'Table not found' };
       }
 
       // Get all rows
@@ -468,6 +497,7 @@ export const tablesRoutes = new Elysia({ prefix: '/tables' })
       });
     } catch (e) {
       console.error('CSV export error:', e);
-      return error(500, 'Failed to export CSV');
+      set.status = 500;
+      return { error: 'Failed to export CSV' };
     }
   });

@@ -7,7 +7,10 @@ import { useAuth } from '@/providers/auth-context';
 import { getEmailValidationError } from '@/lib/email-validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Mail, Lock, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { SeatCounter } from '@/components/seat-counter';
+import { Loader2, Mail, Lock, Sparkles, AlertCircle, CheckCircle2, Users, Clock } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -19,6 +22,34 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  
+  // Seat availability state
+  const [seatsAvailable, setSeatsAvailable] = useState<boolean | null>(null);
+  const [availableSeats, setAvailableSeats] = useState<number>(0);
+  const [seatCheckLoading, setSeatCheckLoading] = useState(true);
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+
+  // Check seat availability on mount
+  useEffect(() => {
+    async function checkSeats() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/seats/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setSeatsAvailable(data.isAvailable);
+          setAvailableSeats(data.availableSeats);
+        }
+      } catch (err) {
+        console.error('Error checking seat availability:', err);
+        // Assume seats available on error to not block signup
+        setSeatsAvailable(true);
+      } finally {
+        setSeatCheckLoading(false);
+      }
+    }
+    checkSeats();
+  }, []);
 
   // Real-time email validation
   useEffect(() => {
@@ -86,6 +117,99 @@ export default function SignupPage() {
               Back to login
             </Button>
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Waitlist submitted confirmation
+  if (waitlistSubmitted) {
+    return (
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-8 backdrop-blur-sm">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-purple-100 mb-4">
+            <Clock className="w-7 h-7 text-purple-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">You&apos;re on the list!</h1>
+          <p className="text-slate-500 text-sm mb-6">
+            We&apos;ll notify <span className="font-medium text-slate-700">{waitlistEmail}</span> when a seat becomes available.
+          </p>
+          <Link href="/">
+            <Button
+              variant="outline"
+              className="w-full h-11 border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              Back to home
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Show waitlist form when seats are full
+  if (!seatCheckLoading && seatsAvailable === false) {
+    const handleWaitlistSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      // For MVP, just show success - can add API call later
+      setWaitlistSubmitted(true);
+    };
+
+    return (
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-8 backdrop-blur-sm">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-orange-500/25 mb-4">
+            <Users className="w-7 h-7 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Alpha program is full</h1>
+          <p className="text-slate-500 text-sm">All 10 seats have been claimed. Join the waitlist to be notified when a spot opens.</p>
+        </div>
+
+        <form onSubmit={handleWaitlistSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="waitlistEmail" className="block text-sm font-medium text-slate-700">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                id="waitlistEmail"
+                type="email"
+                placeholder="you@company.com"
+                value={waitlistEmail}
+                onChange={(e) => setWaitlistEmail(e.target.value)}
+                className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 transition-colors"
+                required
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium rounded-lg shadow-md shadow-orange-500/20 transition-all"
+          >
+            Join Waitlist
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-slate-500">
+            Already on the list?{' '}
+            <Link href="/login" className="text-purple-600 hover:text-purple-700 font-medium transition-colors">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state while checking seats
+  if (seatCheckLoading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-8 backdrop-blur-sm">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
         </div>
       </div>
     );
