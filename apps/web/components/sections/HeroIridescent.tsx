@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Code2 } from 'lucide-react';
 import { TableDemo } from './TableDemo';
+import { MobileTablePreview } from './MobileTablePreview';
 import { SeatCounter } from '../seat-counter';
 
 export function HeroIridescent() {
@@ -37,7 +38,7 @@ export function HeroIridescent() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-20">
+        <div className="flex flex-col sm:flex-row gap-4 mb-12 md:mb-20">
           <Link href="/signup" className="flex items-center justify-center gap-2 h-12 px-8 rounded-lg bg-text-main text-white font-bold text-base transition-all active:scale-95 shadow-lg shadow-slate-300 hover:shadow-xl hover:bg-black hover:-translate-y-0.5">
             <span>Start Enrichment</span>
             <ArrowRight className="w-5 h-5" />
@@ -48,6 +49,8 @@ export function HeroIridescent() {
           </Link>
         </div>
 
+        {/* Mobile: Static table preview, Desktop: Animated table demo */}
+        <MobileTablePreview />
         <TableDemo />
       </div>
 

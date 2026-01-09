@@ -339,6 +339,7 @@ export function TableDemo() {
    return (
     <div
       ref={containerRef}
+      className="hidden md:block"
       style={{ minHeight: containerHeight ? `${containerHeight}px` : "300vh" }}
     >
       <motion.div
