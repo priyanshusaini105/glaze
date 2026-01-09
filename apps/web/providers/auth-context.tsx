@@ -19,6 +19,7 @@ interface AuthContextType {
   // Credit info (MVP)
   creditInfo: CreditInfo | null;
   creditLoading: boolean;
+  seatError: string | null;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
@@ -33,19 +34,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [creditInfo, setCreditInfo] = useState<CreditInfo | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [seatError, setSeatError] = useState<string | null>(null);
 
   const supabase = createClient();
 
-  // Fetch credit info from the API
-  const fetchCredits = useCallback(async (accessToken: string) => {
+  // Fetch credit info from the API - Auto-creates seat if missing
+  const fetchCredits = useCallback(async (accessToken: string, email?: string) => {
     setCreditLoading(true);
+    setSeatError(null);
+    
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/me/credits`, {
+      
+      // 1. Try to get credits
+      let response = await fetch(`${apiUrl}/me/credits`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
+
+      // 2. If 404 (No seat) and we have email, try to create seat
+      if (response.status === 404 && email) {
+        console.log('[Auth] No seat found, attempting to create one...');
+        
+        const createResponse = await fetch(`${apiUrl}/me/seat`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        if (!createResponse.ok) {
+            const errorData = await createResponse.json();
+            if (createResponse.status === 403) {
+                // Seats full
+                setSeatError(errorData.error || 'Alpha program is full');
+            } else {
+                console.error('[Auth] Failed to create seat:', errorData);
+            }
+            // Cannot proceed to get credits if seat creation failed
+            setCreditInfo(null);
+            return;
+        }
+
+        console.log('[Auth] Seat created successfully');
+        
+        // Retry fetching credits now that seat exists
+        response = await fetch(`${apiUrl}/me/credits`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+            },
+        });
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -55,8 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           maxCredits: data.maxCredits,
         });
       } else {
-        // User might not have a seat yet
-        console.log('[Auth] No credits found, user may need onboarding');
+        // Still failed or other error
+        if (response.status !== 404) {
+             console.log('[Auth] Failed to fetch credits:', response.status);
+        }
         setCreditInfo(null);
       }
     } catch (error) {
@@ -70,9 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Refresh credits - can be called after enrichment
   const refreshCredits = useCallback(async () => {
     if (session?.access_token) {
-      await fetchCredits(session.access_token);
+      await fetchCredits(session.access_token, session.user?.email);
     }
-  }, [session?.access_token, fetchCredits]);
+  }, [session?.access_token, session?.user?.email, fetchCredits]);
 
   useEffect(() => {
     // Get initial session
@@ -84,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Fetch credits if logged in
         if (session?.access_token) {
-          await fetchCredits(session.access_token);
+          await fetchCredits(session.access_token, session.user?.email);
         }
       } catch (error) {
         console.error('Error getting session:', error);
@@ -105,9 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Fetch credits on login, clear on logout
         if (session?.access_token) {
-          await fetchCredits(session.access_token);
+          await fetchCredits(session.access_token, session.user?.email);
         } else {
           setCreditInfo(null);
+          setSeatError(null);
         }
       }
     );
@@ -162,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setCreditInfo(null);
+    setSeatError(null);
   }, [supabase.auth]);
 
   const value: AuthContextType = {
@@ -170,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     creditInfo,
     creditLoading,
+    seatError,
     signIn,
     signUp,
     signOut,
@@ -190,4 +237,3 @@ export function useAuth() {
   }
   return context;
 }
-

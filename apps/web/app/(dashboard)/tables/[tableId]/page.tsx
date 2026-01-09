@@ -18,6 +18,7 @@ import {
   Trash2,
   Loader2,
   Download,
+  CreditCard,
 } from 'lucide-react';
 import { TableSidebar } from '../../../../components/tables/table-sidebar';
 import { ColumnCreationSidebar } from '../../../../components/tables/column-creation-sidebar';
@@ -29,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/
 import { generateCSV, downloadCSV } from '../../../../lib/csv-utils';
 import { useRealtimeEnrichment } from '../../../../hooks/use-realtime-enrichment';
 import { useTableRealtime } from '../../../../hooks/use-table-realtime';
+import { useAuth } from '../../../../providers/auth-context';
 
 
 /* --- Helper Components --- */
@@ -66,12 +68,18 @@ const Badge = ({ children }: { children: string }) => {
 };
 
 export default function GlazeTablePage({ params }: { params: Promise<{ tableId: string }> }) {
+  const { creditInfo } = useAuth();
   const [tableId, setTableId] = useState<string>('');
   const [tables, setTables] = useState<Array<{ id: string; name: string; active: boolean }>>([]);
   const [currentTable, setCurrentTable] = useState<Table | null>(null);
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(true);
   const [rowData, setRowData] = useState<Row[]>([]);
+
+  // Debug: Log creditInfo
+  useEffect(() => {
+    console.log('[TableDetail] creditInfo:', creditInfo);
+  }, [creditInfo]);
 
   // Column management
   const [showColumnPopover, setShowColumnPopover] = useState(false);
@@ -98,6 +106,9 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const newColumnLabelInputRef = useRef<HTMLInputElement>(null);
   const newColumnLabelRef = useRef<string>('');
   const newColumnDescriptionRef = useRef<string>('');
+  
+  // Ref for debouncing row updates (Map of cellKey -> timeout)
+  const updateTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Update refs when state changes
   useEffect(() => {
@@ -118,22 +129,44 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
     tableId,
     enabled: !!tableId,
     onRowUpdate: (row) => {
-      console.log('[Realtime] Row update received:', { rowId: row.id, enrichingColumns: row.enrichingColumns, data: row.data });
+      // console.log('[Realtime] Row update received:', { rowId: row.id, enrichingColumns: row.enrichingColumns, data: row.data });
       // Update local row data with realtime changes - merge all fields
       setRowData((prev) => {
         const updated = prev.map((r) => {
           if (r.id === row.id) {
+            // PRESERVE EDITING STATE:
+            // If the user is currently editing this row, do not overwrite the column being edited.
+            // This prevents the "jumping cursor" or lost characters issue when realtime updates
+            // (which are echoes of our own edits) come back with slight delay.
+            let newData = row.data;
+            if (editingCell) {
+              const editingRow = prev[editingCell.rowIndex];
+              if (editingRow && editingRow.id === r.id) {
+                // We are editing this row. Find which column.
+                const editingCol = columns.find(c => c.id === editingCell.colId);
+                // Also double check we are actually editing a known column
+                if (editingCol && editingCol.key) {
+                  // Keep the local value for the editing column, ignore the incoming value for this specific key
+                  newData = {
+                    ...newData,
+                    [editingCol.key]: r.data[editingCol.key]
+                  };
+                  // console.log('[Realtime] Preserving local edit for', editingCol.key);
+                }
+              }
+            }
+
             return {
               ...r,
               ...row,
-              data: row.data,
+              data: newData,
               enrichingColumns: row.enrichingColumns || [],
               updatedAt: row.updatedAt,
             };
           }
           return r;
         });
-        console.log('[Realtime] Updated rowData state:', updated.find(r => r.id === row.id));
+        // console.log('[Realtime] Updated rowData state:', updated.find(r => r.id === row.id));
         return updated;
       });
     },
@@ -491,6 +524,16 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
   const handleRunEnrichment = useCallback(async () => {
     if (!selectionRange || !tableId) return;
 
+    // Check credits locally first (optimization)
+    const cellCount = (Math.abs(selectionRange.end.r - selectionRange.start.r) + 1) * 
+                      (Math.abs(selectionRange.end.c - selectionRange.start.c) + 1);
+    
+    // We confirm with server, but this gives immediate feedback
+    if (creditInfo && creditInfo.credits < cellCount) {
+       alert(`Insufficient credits. You need ${cellCount} credits but only have ${creditInfo.credits} remaining.`);
+       return;
+    }
+
     setIsEnriching(true);
 
     try {
@@ -613,15 +656,22 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       // Clear selection
       setSelectionRange(null);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Enrichment error:', error);
-      alert('Enrichment failed. Please try again.');
+
+      // Handle credit errors specifically
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Insufficient credits') || errorMessage.includes('credits')) {
+         alert(errorMessage || 'Insufficient credits to perform this action.');
+      } else {
+         alert('Enrichment failed. Please try again.');
+      }
       setEnrichingCells(new Set());
       setIsEnriching(false);
       setActiveRunId(undefined);
       setActiveAccessToken(undefined);
     }
-  }, [selectionRange, rowData, columns, tableId, loadData]);
+  }, [selectionRange, rowData, columns, tableId, loadData, creditInfo]);
 
   // Handle realtime enrichment completion - use ref to prevent callback recreation
   const handleEnrichmentComplete = useCallback(async (success: boolean, output?: any) => {
@@ -706,22 +756,33 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
       )
     );
 
-    // Persist to API
-    try {
-      const rowToUpdate = rowData.find(r => r.id === rowId);
-      if (rowToUpdate) {
+    // Debounce persistence to API
+    const cellKey = `${rowId}:${field}`;
+    
+    // Clear existing timeout for this specific cell
+    if (updateTimeoutsRef.current.has(cellKey)) {
+      clearTimeout(updateTimeoutsRef.current.get(cellKey)!);
+    }
+
+    const timeout = setTimeout(async () => {
+      // Remove from map when executing
+      updateTimeoutsRef.current.delete(cellKey);
+
+      try {
+        // Send only the changed field. Backend handles merge.
         const { error } = await typedApi.updateRow(tableId, rowId, {
-          data: { ...rowToUpdate.data, [field]: newValue }
+          data: { [field]: newValue }
         });
         if (error) {
-          throw new Error('Failed to update row');
+          console.error('Failed to update row:', error);
+          // Could revert here if needed, or show error toast
         }
+      } catch (error) {
+        console.error('Failed to update row:', error);
       }
-    } catch (error) {
-      console.error('Failed to update row:', error);
-      // Revert on error
-      await loadData();
-    }
+    }, 500); // 500ms debounce
+
+    updateTimeoutsRef.current.set(cellKey, timeout);
   };
 
   const handleAddRow = async () => {
@@ -917,6 +978,25 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
           {/* Right Section - Stats & Actions */}
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
+              {/* Credits Display */}
+              <div className="flex items-center gap-2 bg-linear-to-br from-blue-50 to-cyan-50 border border-blue-200/50 px-3 py-1.5 rounded-full">
+                <div className="w-5 h-5 rounded-full bg-linear-to-br from-blue-400 to-cyan-400 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-3 h-3 text-white" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-blue-900">
+                    {creditInfo ? creditInfo.credits.toLocaleString() : '0'}
+                  </span>
+                  <span className="text-xs text-blue-600">/</span>
+                  <span className="text-xs font-medium text-blue-700">
+                    {creditInfo ? creditInfo.maxCredits.toLocaleString() : '5,000'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs text-slate-500">|</span>
+            </div>
+            
             <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
               <div className={cn(
                 "flex items-center gap-2 px-2.5 py-1 rounded-full",

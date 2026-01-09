@@ -57,10 +57,10 @@ export function InteractiveTable({
   initialRows = [
     {
       id: 'row-1',
-      'col-1': 'Priyanshu Saini',
-      'col-2': 'Fullstack developer',
-      'col-3': 'Rutics',
-      'col-4': 'https://rutics.com/',
+      'col-1': 'John Doe',
+      'col-2': 'Software Engineer',
+      'col-3': 'Tech Corp',
+      'col-4': 'https://example.com/',
     },
   ],
   title = 'New table',

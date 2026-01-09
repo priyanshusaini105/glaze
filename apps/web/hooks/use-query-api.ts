@@ -29,6 +29,7 @@ import type {
   PaginatedRowsResponse,
   ICP,
   ResolveICPRequest,
+  SeatStatus,
 } from '@/lib/api-types';
 
 // ============= Tables =============
@@ -379,6 +380,19 @@ export function useResolveIcp(
 ) {
   return useMutation({
     mutationFn: (data: ResolveICPRequest) => apiClient.resolveIcp(data),
+    ...options,
+  });
+}
+
+// ============= Seat Status =============
+
+export function useSeatStatus(
+  options?: Omit<UseQueryOptions<SeatStatus>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['seats', 'status'],
+    queryFn: () => apiClient.getSeatStatus(),
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     ...options,
   });
 }

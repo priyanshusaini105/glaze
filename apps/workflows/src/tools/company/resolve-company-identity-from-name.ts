@@ -170,8 +170,11 @@ async function performSerperSearch(query: string): Promise<SerperResponse | null
         const result = await cachedSerperSearch(query, async (q) => {
             const keyResult = await serperKeyManager.withKey(async (apiKey) => {
                 if (!apiKey) {
+                    logger.error("❌ CompanyNameResolver: SERPER_API_KEY not configured - cannot perform search");
                     return { organic: [] as SerperOrganic[] };
                 }
+                
+                logger.info("🔍 CompanyNameResolver: Performing Serper search", { query: q });
 
                 const response = await fetch(SERPER_API_URL, {
                     method: "POST",
@@ -199,6 +202,10 @@ async function performSerperSearch(query: string): Promise<SerperResponse | null
                 }
 
                 const data = await response.json() as SerperResponse;
+                logger.info("✅ CompanyNameResolver: Serper API returned results", { 
+                    query: q, 
+                    resultCount: data.organic?.length || 0 
+                });
                 return { organic: data.organic || [] };
             });
 

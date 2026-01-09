@@ -20,6 +20,7 @@ import type {
   ResolveICPRequest,
   EnrichRequest,
   EnrichResponse,
+  SeatStatus,
 } from './api-types';
 import { getAccessToken } from './supabase-auth';
 
@@ -285,6 +286,13 @@ class ApiClient {
     meta: { total: number };
   }> {
     return this.request(`/tables/${tableId}/enrich/jobs`);
+  }
+
+  /**
+   * Get seat status (public endpoint)
+   */
+  async getSeatStatus(): Promise<SeatStatus> {
+    return this.request('/seats/status');
   }
 }
 

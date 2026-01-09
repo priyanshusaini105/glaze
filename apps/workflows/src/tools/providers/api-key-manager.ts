@@ -248,6 +248,7 @@ export class ApiKeyManager {
 
         const states = this.getState();
         if (states.length === 0) {
+            logger.error(`❌ ApiKeyManager[${this.providerName}]: No keys configured (env var ${this.providerName.toUpperCase()}_API_KEY is empty or not set)`);
             return null;
         }
 
@@ -255,11 +256,13 @@ export class ApiKeyManager {
         this.currentKeyIndex = this.findActiveKeyIndex(states);
 
         if (this.currentKeyIndex === -1) {
-            logger.error(`❌ ApiKeyManager[${this.providerName}]: All keys exhausted`);
+            logger.error(`❌ ApiKeyManager[${this.providerName}]: All ${this.keys.length} keys exhausted`);
             return null;
         }
 
-        return this.keys[this.currentKeyIndex] || null;
+        const key = this.keys[this.currentKeyIndex];
+        logger.debug(`✅ ApiKeyManager[${this.providerName}]: Using key ${this.currentKeyIndex + 1}/${this.keys.length}`);
+        return key || null;
     }
 
     /**

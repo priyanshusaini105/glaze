@@ -2,20 +2,30 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Loader2, Trash2, Search, MoreVertical, FileSpreadsheet, Database, Webhook, Table as TableIcon, ChevronDown } from 'lucide-react';
-import { useTables, useDeleteTable } from '@/hooks/use-query-api';
+import { Plus, Loader2, Trash2, Search, MoreVertical, FileSpreadsheet, Database, Webhook, Table as TableIcon, ChevronDown, CreditCard, Users } from 'lucide-react';
+import { useTables, useDeleteTable, useSeatStatus } from '@/hooks/use-query-api';
 import { CreateTableModal } from '@/components/tables/create-table-modal';
 import { TableSidebar } from '@/components/tables/table-sidebar';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { useAuth } from '@/providers/auth-context';
 
 export default function TablesPage() {
   const { data: tables, isLoading, error } = useTables();
   const deleteTable = useDeleteTable();
   const { toast } = useToast();
+  const { creditInfo, user } = useAuth();
+  const { data: seatStatus } = useSeatStatus();
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const displayName = user?.user_metadata?.full_name || 
+                     user?.user_metadata?.name || 
+                     user?.email?.split('@')[0] || 
+                     'User';
+  
+  const displayInitial = displayName.charAt(0).toUpperCase();
 
   const handleComingSoon = (name: string) => {
     toast({
@@ -66,13 +76,33 @@ export default function TablesPage() {
       <div className="min-h-screen w-full bg-gray-50/50">
       <div className="w-full py-6 space-y-6">
         {/* Header */}
-        <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <TableIcon className="w-7 h-7" />
-              Tables
-            </h1>
-            <p className="text-gray-600 mt-1">Manage and organize all your data tables</p>
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+                <TableIcon className="w-7 h-7" />
+                Tables
+              </h1>
+              <p className="text-gray-600 mt-1">Manage and organize all your data tables</p>
+            </div>
+            
+            {/* Credits and Seats Info */}
+            <div className="flex flex-wrap gap-3">
+              {/* Credits Display */}
+              {creditInfo && (
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg px-4 py-2.5 border border-blue-100 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center shrink-0">
+                    <CreditCard className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-600 font-medium">Credits</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {creditInfo.credits.toLocaleString()} / {creditInfo.maxCredits.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -206,9 +236,9 @@ export default function TablesPage() {
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
-                          P
+                          {displayInitial}
                         </div>
-                        <span>Priyanshu</span>
+                        <span>{displayName}</span>
                       </div>
                       <span>
                         {table.createdAt && new Date(table.createdAt).toLocaleDateString('en-US', {
@@ -236,9 +266,9 @@ export default function TablesPage() {
                     </div>
                     <div className="col-span-3 flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
-                        P
+                        {displayInitial}
                       </div>
-                      <span className="text-sm text-gray-600">Priyanshu</span>
+                      <span className="text-sm text-gray-600">{displayName}</span>
                     </div>
                     <div className="col-span-3 flex items-center justify-between">
                       <span className="text-sm text-gray-600">

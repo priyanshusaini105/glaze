@@ -5,6 +5,8 @@ import { X, Database, Copy, Sparkles, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCreateTable } from '@/hooks/use-query-api';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
 import { CSVImport } from './csv-import';
 
 interface CreateTableModalProps {
@@ -22,6 +24,7 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
   const router = useRouter();
   const { mutate: createTable, isPending } = useCreateTable();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedOption, setSelectedOption] = useState<CreateOption>(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [csvError, setCSVError] = useState<string | null>(null);
@@ -72,19 +75,53 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
     
     if (!formData.name.trim()) return;
 
-    createTable(
-      {
-        name: formData.name,
-        description: formData.description || undefined,
-      },
-      {
-        onSuccess: (table) => {
-          // TODO: redirect to example selection
-          router.push(`/tables/${table.id}`);
-          onClose();
-        },
+    try {
+      const exampleHeaders = ['Company', 'Website', 'Industry'];
+      const exampleRows = [
+        ['Google LLC', 'google.com', 'Technology/Search'],
+        ['Microsoft Corporation', 'microsoft.com', 'Software/Cloud'],
+        ['Amazon.com Inc', 'amazon.com', 'E-commerce/Cloud']
+      ];
+
+      const csvContent = [
+        exampleHeaders.join(','),
+        ...exampleRows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/tables/import-csv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description || 'Table created from example data',
+          csvContent
+        }),
+      });
+
+      if (response.ok) {
+        const table = await response.json();
+        
+        // Update cache
+        queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
+        queryClient.setQueryData(queryKeys.tables.detail(table.id), table);
+
+        router.push(`/tables/${table.id}`);
+        onClose();
+        toast({
+          title: "Table created",
+          description: "Your table has been created with example data.",
+        });
+      } else {
+        throw new Error('Failed to create table from example');
       }
-    );
+    } catch (error) {
+      console.error('Failed to create table from example:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create table from example data. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCSVImport = async (data: { headers: string[]; rows: Record<string, unknown>[] }) => {
@@ -117,6 +154,11 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
 
       if (response.ok) {
         const table = await response.json();
+        
+        // Update cache
+        queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
+        queryClient.setQueryData(queryKeys.tables.detail(table.id), table);
+
         router.push(`/tables/${table.id}`);
         onClose();
       } else {

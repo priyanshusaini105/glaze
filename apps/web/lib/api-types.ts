@@ -155,6 +155,15 @@ export interface ResolveICPRequest {
   [key: string]: any;
 }
 
+// ============= Seat Status =============
+export interface SeatStatus {
+  totalSeats: number;
+  usedSeats: number;
+  availableSeats: number;
+  isAvailable: boolean;
+  creditsPerSeat: number;
+}
+
 // ============= API Response Types =============
 export interface ApiError {
   message: string;

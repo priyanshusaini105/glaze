@@ -218,13 +218,29 @@ export default function SignupPage() {
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200/60 p-8 backdrop-blur-sm">
       {/* Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-6">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-purple-700 shadow-lg shadow-purple-500/25 mb-4">
           <Sparkles className="w-7 h-7 text-white" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Create your account</h1>
         <p className="text-slate-500 text-sm">Start enriching your data with Glaze</p>
       </div>
+
+      {/* Seat Availability Banner */}
+      {!seatCheckLoading && seatsAvailable && availableSeats > 0 && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-green-900">{availableSeats}</span>
+              <span className="text-sm font-medium text-green-700">seat{availableSeats === 1 ? '' : 's'} available</span>
+            </div>
+            <p className="text-xs text-green-600 mt-0.5">Claim your spot in the alpha program</p>
+          </div>
+        </div>
+      )}
 
       {/* Company Email Notice */}
       <div className="mb-6 p-3 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-sm flex items-start gap-2">
