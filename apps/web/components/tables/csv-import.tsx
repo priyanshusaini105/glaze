@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, X, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { parseCSV, readCSVFile, inferDataType } from '@/lib/csv-utils';
 
 interface CSVImportProps {
   onImport: (data: { headers: string[]; rows: Record<string, unknown>[]; columnTypes: Record<string, string> }) => void;
   onCancel?: () => void;
+  isLoading?: boolean;
 }
 
-export function CSVImport({ onImport, onCancel }: CSVImportProps) {
+export function CSVImport({ onImport, onCancel, isLoading }: CSVImportProps) {
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<{ headers: string[]; rows: Record<string, unknown>[] } | null>(null);
@@ -184,13 +185,16 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
           <div className="flex gap-3">
             <button
               onClick={handleImport}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
+              disabled={isLoading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Import CSV
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isLoading ? 'Importing...' : 'Import CSV'}
             </button>
             <button
               onClick={onCancel || resetFile}
-              className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={isLoading}
+              className="px-6 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>

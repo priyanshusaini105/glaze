@@ -290,7 +290,8 @@ export default function GlazeTablePage({ params }: { params: Promise<{ tableId: 
 
     setIsGeneratingTitle(true);
     try {
-      const response = await fetch('http://localhost:3001/ai/columns/analyze', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/ai/columns/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

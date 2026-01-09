@@ -175,6 +175,7 @@ export default function NewTablePage() {
                     <CSVImport
                       onImport={handleCSVImport}
                       onCancel={() => setShowCSVImport(false)}
+                      isLoading={csvImporting}
                     />
                   )}
                 </div>

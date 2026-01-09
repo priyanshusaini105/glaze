@@ -11,7 +11,22 @@ import { seatsRoutes } from './routes/seats';
 
 export const buildApp = () => {
   const app = new Elysia()
-    .use(cors())
+    .use(cors({
+      origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://glazeops.site',
+        'https://glazeops.site',
+        'www.glazeops.site',
+        'https://www.glazeops.site',
+        process.env.NEXT_PUBLIC_WEB_URL || ''
+      ].filter(Boolean),
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }))
     .use(
       swagger({
         documentation: {
