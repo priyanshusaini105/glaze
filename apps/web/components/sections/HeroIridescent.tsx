@@ -43,7 +43,7 @@ export function HeroIridescent() {
             <span>Start Enrichment</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
-          <Link href="/coming-soon" className="flex items-center justify-center gap-2 h-12 px-8 rounded-lg bg-white border border-border-light text-text-main font-bold text-base hover:bg-surface-light hover:border-slate-300 transition-all active:scale-95 shadow-sm">
+          <Link href="https://github.com/priyanshusaini105/glaze" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-12 px-8 rounded-lg bg-white border border-border-light text-text-main font-bold text-base hover:bg-surface-light hover:border-slate-300 transition-all active:scale-95 shadow-sm">
             <Code2 className="w-5 h-5" />
             <span>Open Source</span>
           </Link>
