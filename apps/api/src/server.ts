@@ -21,6 +21,7 @@ export const buildApp = () => {
         'https://glazeops.site',
         'www.glazeops.site',
         'https://www.glazeops.site',
+        "https://glaze-web.vercel.app/",
         process.env.NEXT_PUBLIC_WEB_URL || ''
       ].filter(Boolean),
       credentials: true,
