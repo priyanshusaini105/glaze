@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="#features">Features</a> •
+  <a href="#demo">Demo</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#tech-stack">Tech Stack</a> •
@@ -46,6 +47,22 @@ Glaze is a **high-performance data enrichment platform** that transforms static 
 - **Streaming results** show progress in real-time
 - **Multi-provider intelligence** automatically sources the best data
 - **AI-powered gap filling** when providers can't find data
+
+---
+
+## 🎬 Demo
+
+<p align="center">
+  <a href="https://youtu.be/aeDqynqaFps?si=5Iimaxums-GnNQP0">
+    <img src="https://img.shields.io/badge/Watch%20Demo-%23FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo on YouTube" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/aeDqynqaFps?si=5Iimaxums-GnNQP0">
+    <img src="https://wsrv.nl/?url=img.youtube.com/vi/aeDqynqaFps/maxresdefault.jpg&w=900&output=jpg" alt="Glaze Demo Video" width="80%" />
+  </a>
+</p>
 
 ---
 
