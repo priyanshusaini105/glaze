@@ -12,6 +12,11 @@ export default function Home() {
   return (
     <main className="min-h-screen relative overflow-visible selection:bg-accent-blue/20 selection:text-accent-blue bg-white text-text-main antialiased">
       <NavigationIridescent />
+      <section className="border-b border-amber-200 bg-amber-50">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-3 text-sm text-amber-800">
+          Server is under maintenance. Login is temporarily disabled.
+        </div>
+      </section>
       <HeroIridescent />
       <WhyItFailsIridescent />
       <AIInsideGridSection />

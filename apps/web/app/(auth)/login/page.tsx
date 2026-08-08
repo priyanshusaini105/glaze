@@ -2,33 +2,18 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Mail, Lock, Sparkles } from 'lucide-react';
+import { Mail, Lock, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      setError(error.message || 'Failed to sign in');
-      setLoading(false);
-    } else {
-      router.push('/tables');
-    }
+    setWarning('Login is temporarily disabled while the server is under maintenance.');
   };
 
   return (
@@ -84,27 +69,24 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          Server is under maintenance. Login is temporarily unavailable.
+        </div>
+
+        {/* Warning Message */}
+        {warning && (
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            {warning}
           </div>
         )}
 
         {/* Submit Button */}
         <Button
           type="submit"
-          disabled={loading}
-          className="w-full h-11 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium rounded-lg shadow-md shadow-purple-500/20 transition-all"
+          aria-disabled="true"
+          className="w-full h-11 bg-slate-400 text-white font-medium rounded-lg shadow-md cursor-not-allowed"
         >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
-            </>
-          ) : (
-            'Sign in'
-          )}
+          Sign in
         </Button>
       </form>
 
