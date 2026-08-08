@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export function NavigationIridescent() {
+  const [loginWarning, setLoginWarning] = React.useState(false);
+
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (href.startsWith('#')) {
       e.preventDefault();
@@ -59,12 +61,18 @@ export function NavigationIridescent() {
             >
               <span className="truncate">GitHub</span>
             </Link>
-            <Link
-              href="/login"
-              className="bg-text-main hover:bg-black text-white text-sm font-bold px-4 py-2 rounded-lg transition-all active:scale-95 shadow-[0px_4px_6px_-1px_#e2e8f0,0px_2px_4px_-2px_#e2e8f0]"
+            <button
+              type="button"
+              onClick={() => setLoginWarning(true)}
+              className="bg-text-main text-white text-sm font-bold px-4 py-2 rounded-lg shadow-[0px_4px_6px_-1px_#e2e8f0,0px_2px_4px_-2px_#e2e8f0] opacity-60 cursor-not-allowed"
             >
               View Demo
-            </Link>
+            </button>
+            {loginWarning && (
+              <span className="hidden sm:block text-xs text-amber-700">
+                Login is disabled during maintenance.
+              </span>
+            )}
           </div>
         </div>
       </div>

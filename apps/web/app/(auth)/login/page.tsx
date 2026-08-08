@@ -2,33 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Mail, Lock, Sparkles } from 'lucide-react';
+import { Mail, Lock, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { signIn } = useAuth();
+  const maintenanceMessage = 'Server is under maintenance. Login is temporarily disabled.';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      setError(error.message || 'Failed to sign in');
-      setLoading(false);
-    } else {
-      router.push('/tables');
-    }
+    setError(maintenanceMessage);
   };
 
   return (
@@ -59,7 +45,6 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 transition-colors"
               required
-              disabled={loading}
             />
           </div>
         </div>
@@ -79,7 +64,6 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 transition-colors"
               required
-              disabled={loading}
             />
           </div>
         </div>
@@ -94,17 +78,10 @@ export default function LoginPage() {
         {/* Submit Button */}
         <Button
           type="submit"
-          disabled={loading}
-          className="w-full h-11 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium rounded-lg shadow-md shadow-purple-500/20 transition-all"
+          onClick={() => setError(maintenanceMessage)}
+          className="w-full h-11 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium rounded-lg shadow-md shadow-purple-500/20 transition-all opacity-60 cursor-not-allowed"
         >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
-            </>
-          ) : (
-            'Sign in'
-          )}
+          Sign in
         </Button>
       </form>
 
