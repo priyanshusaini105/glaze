@@ -44,7 +44,6 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 transition-colors"
               required
-              disabled={loading}
             />
           </div>
         </div>
@@ -64,7 +63,6 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-purple-500/20 transition-colors"
               required
-              disabled={loading}
             />
           </div>
         </div>
